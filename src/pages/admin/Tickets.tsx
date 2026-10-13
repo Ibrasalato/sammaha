@@ -58,7 +58,7 @@ export function AdminTickets() {
                   <td className="max-w-xs"><Link to={`/admin/tickets/${t.id}`} className="line-clamp-1 font-bold hover:text-pine">{t.subject}</Link><span className="text-[13px] text-muted">{t.topic}</span></td>
                   <td className="whitespace-nowrap">{t.name}<div className="num text-[13px] text-muted" dir="ltr">{t.phone}</div></td>
                   <td><TicketStatusPill status={t.status} /></td>
-                  <td>{t.priority === 'urgent' ? <span className="pill bg-bakkar-soft text-bakkar-deep">عاجل</span> : <span className="text-muted">عادي</span>}</td>
+                  <td>{t.priority === 'urgent' ? <span className="pill bg-rose-soft text-rose-deep">عاجل</span> : <span className="text-muted">عادي</span>}</td>
                   <td className="whitespace-nowrap text-[14px] text-muted">{dateTime(t.updatedAt)}</td>
                 </tr>
               ))}

@@ -5,8 +5,8 @@ export const kindLabel = (k: EventKind) => (getLang() === 'ar' ? EVENT_KIND[k].l
 
 export const EVENT_KIND: Record<EventKind, { label: string; en: string; cls: string }> = {
   mazayin: { label: 'مزاين الإبل', en: 'Camel beauty', cls: 'bg-gold-soft text-gold-deep' },
-  race: { label: 'سباقات الهجن', en: 'Camel racing', cls: 'bg-qaadan-soft text-qaadan-deep' },
-  heritage: { label: 'مهرجان تراثي', en: 'Heritage festival', cls: 'bg-bakkar-soft text-bakkar-deep' },
+  race: { label: 'سباقات الهجن', en: 'Camel racing', cls: 'bg-info-soft text-info-deep' },
+  heritage: { label: 'مهرجان تراثي', en: 'Heritage festival', cls: 'bg-rose-soft text-rose-deep' },
   conference: { label: 'مؤتمر', en: 'Conference', cls: 'bg-pine-soft text-pine' },
   world_day: { label: 'يوم عالمي', en: 'World day', cls: 'bg-[#E2F0E8] text-ok' },
 }

@@ -9,7 +9,7 @@ import { api, useApp, useLoad } from '../../lib/store'
 import type { Role, StaffInput, User } from '../../lib/types'
 
 export const ROLE_LABEL: Record<Role, string> = { owner: 'مالك إبل', committee: 'لجنة الاعتماد', admin: 'مدير النظام' }
-const ROLE_TONE: Record<Role, string> = { owner: 'bg-stone-deep text-muted', committee: 'bg-qaadan-soft text-qaadan-deep', admin: 'bg-gold-soft text-gold-deep' }
+const ROLE_TONE: Record<Role, string> = { owner: 'bg-stone-deep text-muted', committee: 'bg-info-soft text-info-deep', admin: 'bg-gold-soft text-gold-deep' }
 
 const ROLE_RIGHTS: [Role, string[]][] = [
   ['admin', ['كل صلاحيات لجنة الاعتماد', 'إضافة الموظفين وتعديل صلاحياتهم', 'إيقاف الحسابات وإعادة تفعيلها']],

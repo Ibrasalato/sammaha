@@ -23,7 +23,7 @@ export const STATUS_LABEL: Record<TicketStatus, [string, string]> = {
 export const statusLabel = (s: TicketStatus) => STATUS_LABEL[s][ar() ? 0 : 1]
 export const STATUS_TONE: Record<TicketStatus, string> = {
   new: 'bg-gold-soft text-gold-deep',
-  in_progress: 'bg-qaadan-soft text-qaadan-deep',
+  in_progress: 'bg-info-soft text-info-deep',
   answered: 'bg-[#E2F0E8] text-ok',
   closed: 'bg-stone-deep text-muted',
 }

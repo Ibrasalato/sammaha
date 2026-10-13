@@ -1,4 +1,5 @@
-export type NameType = 'qaadan' | 'bakkar'
+/** فردي (مفاريد): قعدان وبكار؛ ومنقية */
+export type NameType = 'qaadan' | 'bakkar' | 'manqiya'
 export type Role = 'owner' | 'committee' | 'admin'
 
 export interface User {
@@ -188,8 +189,10 @@ export interface Invoice {
 }
 
 /** One «استثمار الاسم» request as its owner sees it */
+/** One name offered in «استثمار الاسم» (a request holds up to three). */
 export interface InvestmentItem {
   request: LogoRequest
+  candidate: Candidate
   auction?: Auction
   /** 30% of the sale before VAT, once the auction sold to a bidder */
   share?: number

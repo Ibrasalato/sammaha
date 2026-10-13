@@ -2,14 +2,14 @@ import { useEffect } from 'react'
 import { PageSkeleton } from './Skeleton'
 import { tr } from '../lib/i18n'
 import type { ReactNode } from 'react'
-import { TYPE_LABEL, TYPE_CLS } from '../lib/config'
+import { TYPE_CLS, TYPE_GROUPS, TYPE_HINT, TYPE_LABEL } from '../lib/config'
 import { remaining, remainingText } from '../lib/format'
 import { useNow } from '../lib/store'
 import type { AuctionPhase, NameType, RequestStatus } from '../lib/types'
 
 /**
  * Name tile — the one way a camel name is shown across the platform:
- * white name on the type colour (blue qaadan / maroon bakkar / purple investment) over the Sadu weave, as on auction cards.
+ * white name on the type colour (purple qaadan / green bakkar / gold manqiya) over the Sadu weave, as on auction cards.
  */
 export function NameSeal({ name, type, size = 'md', palette = 'standard' }: { name: string; type: NameType; size?: 'sm' | 'md' | 'lg' | 'xl'; palette?: 'standard' | 'brand' }) {
   const dims = {
@@ -53,7 +53,7 @@ export function PhasePill({ phase }: { phase: AuctionPhase }) {
 
 export const REQUEST_STATUS: Record<RequestStatus, [string, string]> = {
   pending_payment: ['بانتظار سداد الضمان', 'bg-gold-soft text-gold-deep'],
-  under_review: ['تحت المراجعة', 'bg-qaadan-soft text-qaadan-deep'],
+  under_review: ['تحت المراجعة', 'bg-info-soft text-info-deep'],
   accepted: ['مقبول', 'bg-ok/10 text-ok'],
   rejected: ['مرفوض', 'bg-bad/10 text-bad'],
   cancelled: ['ملغى', 'bg-stone-deep text-muted'],
@@ -134,6 +134,28 @@ export function Segmented<T extends string>({ value, onChange, options }: { valu
           className={`rounded px-3.5 py-1.5 text-sm font-bold transition-colors ${value === v ? 'bg-pine text-paper' : 'text-muted hover:text-pine'}`}>
           {label}
         </button>
+      ))}
+    </div>
+  )
+}
+
+/** Category picker grouped as فردي (بكار، قعدان) and منقية; used by every request form. */
+export function TypePicker({ value, onChange, compact }: { value: NameType | null; onChange: (t: NameType) => void; compact?: boolean }) {
+  return (
+    <div className="grid gap-4 md:grid-cols-[2fr_1fr]">
+      {TYPE_GROUPS.map((g) => (
+        <fieldset key={g.key}>
+          <legend className="mb-2 text-[14px] font-bold text-muted">{g.label()} <span className="font-normal">· {g.hint()}</span></legend>
+          <div className={`grid gap-3 ${g.types.length > 1 ? 'sm:grid-cols-2' : ''}`}>
+            {g.types.map((t) => (
+              <button key={t} type="button" onClick={() => onChange(t)} aria-pressed={value === t}
+                className={`flex items-center gap-3 rounded-xl border-2 text-start transition-colors ${compact ? 'p-3' : 'p-4'} ${value === t ? TYPE_CLS[t].card : 'border-line bg-paper hover:border-pine'}`}>
+                <NameSeal name={TYPE_LABEL[t]} type={t} size="sm" />
+                <span><span className={`block font-extrabold ${compact ? 'text-lg' : 'text-xl'}`}>{TYPE_LABEL[t]}</span><span className="text-[13px] text-muted">{TYPE_HINT[t]}</span></span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
       ))}
     </div>
   )

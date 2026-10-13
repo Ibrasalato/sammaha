@@ -35,8 +35,8 @@ const TONES = {
   pine: 'bg-pine-soft text-pine',
   gold: 'bg-gold-soft text-gold-deep',
   green: 'bg-[#E2F0E8] text-ok',
-  blue: 'bg-qaadan-soft text-qaadan-deep',
-  red: 'bg-bakkar-soft text-bakkar-deep',
+  blue: 'bg-info-soft text-info-deep',
+  red: 'bg-rose-soft text-rose-deep',
 } as const
 
 export function StatTile({ icon, label, value, hint, tone = 'pine', to, highlight }: {

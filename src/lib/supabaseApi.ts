@@ -137,7 +137,7 @@ export const supabaseApi: SammhaApi = {
   myTickets: () => rpc('my_tickets'),
 
   myRequests: () => rpc('my_requests'),
-  createInvestmentRequest: (type, name) => rpc('create_investment_request', { p_type: type, p_name: name }),
+  createInvestmentRequest: (type, names) => rpc('create_investment_request', { p_type: type, p_names: names }),
   myInvestments: () => rpc('my_investments'),
   createCompoundRequest: (reservedId, fullName) => rpc('create_compound_request', { p_reserved: reservedId, p_name: fullName }),
   createRequest: (type, names) => rpc('create_request', { p_type: type, p_names: names }),

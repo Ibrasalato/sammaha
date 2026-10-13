@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { tr } from '../lib/i18n'
-import { TYPE_LABEL } from '../lib/config'
+import { TYPE_HEX, TYPE_LABEL } from '../lib/config'
 import { phaseOf } from '../lib/demoApi'
 import { cur, date, dateTime, humanLeft, num, remaining, time } from '../lib/format'
 import { useNow } from '../lib/store'
@@ -9,7 +9,6 @@ import { CARD_STYLES, CARD_STYLE_LABEL, setCardStyle, useCardStyle } from '../li
 import type { CardStyle } from '../lib/cardStyle'
 import { getLang } from '../lib/i18n'
 
-const TYPE_DEEP = { qaadan: '#143F63', bakkar: '#742838' } as const
 const pad = (n: number) => String(n).padStart(2, '0')
 
 /** d / h / m / s boxes — the classic auction-house countdown */
@@ -64,7 +63,7 @@ function ModernCard({ a }: { a: Auction }) {
       className="group flex flex-col overflow-hidden rounded-xl border border-line bg-paper shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift">
       {/* Lot visual */}
       <div className={`lot-field lot-${a.type} relative flex h-28 flex-col items-center justify-center text-paper`}>
-        <span className="absolute start-3 top-3 rounded bg-paper/95 px-2 py-0.5 text-[12px] font-extrabold" style={{ color: TYPE_DEEP[a.type] }}>{TYPE_LABEL[a.type]}</span>
+        <span className="absolute start-3 top-3 rounded bg-paper/95 px-2 py-0.5 text-[12px] font-extrabold" style={{ color: TYPE_HEX[a.type].deep }}>{TYPE_LABEL[a.type]}</span>
         <span className="absolute end-3 top-3">
           {phase === 'live' && <span className="flex items-center gap-1.5 rounded bg-ink/35 px-2 py-0.5 text-[12px] font-bold backdrop-blur-sm"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#5BE39B]" />{tr('مباشر', 'Live')}</span>}
           {phase === 'scheduled' && <span className="rounded bg-ink/35 px-2 py-0.5 text-[12px] font-bold backdrop-blur-sm">{tr('قريبًا', 'Soon')}</span>}
@@ -142,16 +141,16 @@ function useLot(a: Auction) {
   }
 }
 
-const TYPE_HEX = { qaadan: { base: '#1E5A8C', deep: '#143F63', soft: '#E7EFF7' }, bakkar: { base: '#A23B4F', deep: '#742838', soft: '#F7E8EB' } } as const
 
 function LiveDot({ light }: { light?: boolean }) {
   return <span className={`h-1.5 w-1.5 animate-pulse rounded-full ${light ? 'bg-[#5BE39B]' : 'bg-ok'}`} />
 }
 
-/** Sammha identity: the logo's colours — qaadan in the logo green, bakkar in the logo gold. */
+/** Sammha identity: logo green and gold with the category colours — qaadan purple, bakkar green, manqiya gold. */
 const BRAND = {
-  qaadan: { head: '#1D5C2F', glow: 'rgba(226,194,126,.22)', rule: 'from-[#AE832C] via-[#E2C27E] to-[#AE832C]', price: '#1D5C2F', ink: '#123D20', soft: '#EAF2EC', btn: '#1D5C2F', btnHover: 'group-hover:bg-[#164A25]', btnRing: 'ring-[#E2C27E]/60', status: '#F1DDA8' },
-  bakkar: { head: '#9C7425', glow: 'rgba(255,255,255,.20)', rule: 'from-[#1D5C2F] via-[#3E8550] to-[#1D5C2F]', price: '#8C6A22', ink: '#5C4413', soft: '#F6EEDB', btn: '#8C6A22', btnHover: 'group-hover:bg-[#765817]', btnRing: 'ring-[#1D5C2F]/40', status: '#FFF3D6' },
+  qaadan: { head: '#5A3F7A', glow: 'rgba(226,194,126,.22)', rule: 'from-[#AE832C] via-[#E2C27E] to-[#AE832C]', price: '#5A3F7A', ink: '#3B2752', soft: '#F1ECF7', btn: '#5A3F7A', btnHover: 'group-hover:bg-[#4A3366]', btnRing: 'ring-[#E2C27E]/60', status: '#F1DDA8' },
+  bakkar: { head: '#1D5C2F', glow: 'rgba(226,194,126,.22)', rule: 'from-[#AE832C] via-[#E2C27E] to-[#AE832C]', price: '#1D5C2F', ink: '#123D20', soft: '#EAF2EC', btn: '#1D5C2F', btnHover: 'group-hover:bg-[#164A25]', btnRing: 'ring-[#E2C27E]/60', status: '#F1DDA8' },
+  manqiya: { head: '#9C7425', glow: 'rgba(255,255,255,.20)', rule: 'from-[#1D5C2F] via-[#3E8550] to-[#1D5C2F]', price: '#8C6A22', ink: '#5C4413', soft: '#F6EEDB', btn: '#8C6A22', btnHover: 'group-hover:bg-[#765817]', btnRing: 'ring-[#1D5C2F]/40', status: '#FFF3D6' },
 } as const
 
 function BrandCard({ a }: { a: Auction }) {

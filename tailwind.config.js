@@ -11,9 +11,14 @@ export default {
         line: '#DFE3E8',
         muted: '#5B6675',
         gold: { DEFAULT: '#AE832C', soft: '#F3EBDA', deep: '#80601E', light: '#D9BD82' },
-        qaadan: { DEFAULT: '#1E5A8C', soft: '#E3EDF6', deep: '#143F63' },
-        bakkar: { DEFAULT: '#A23B4F', soft: '#F6E4E7', deep: '#742838' },
-        invest: { DEFAULT: '#6B4C8F', soft: '#F1ECF7', deep: '#4A2F6B' }, // «استثمار الاسم» service accent
+        // name categories: قعدان بنفسجي، بكار أخضر، منقية ذهبي
+        qaadan: { DEFAULT: '#6B4C8F', soft: '#F1ECF7', deep: '#4A2F6B' },
+        bakkar: { DEFAULT: '#1F6B3A', soft: '#E6F2EA', deep: '#134626' },
+        manqiya: { DEFAULT: '#A57A26', soft: '#F6EEDB', deep: '#6E5216' },
+        // general accents (not categories)
+        info: { DEFAULT: '#1E5A8C', soft: '#E3EDF6', deep: '#143F63' },
+        rose: { DEFAULT: '#A23B4F', soft: '#F6E4E7', deep: '#742838' },
+        invest: { DEFAULT: '#1E5A8C', soft: '#E3EDF6', deep: '#143F63' }, // «استثمار الاسم» service accent
         ok: '#0E7C6B',
         warn: '#946410',
         bad: '#B0362B',

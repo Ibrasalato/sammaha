@@ -7,7 +7,7 @@ import { Avatar } from '../components/Avatar'
 import { HeroSlides } from '../components/HeroSlides'
 import { CalendarRow, useCalendar } from './Events'
 import { Countdown, Loading, NameSeal, Segmented } from '../components/ui'
-import { RULES, TYPE_LABEL, typeOptions, TYPE_CLS } from '../lib/config'
+import { NAME_TYPES, RULES, TYPE_GROUPS, TYPE_LABEL, typeOptions, TYPE_CLS } from '../lib/config'
 import { num, sar } from '../lib/format'
 import { getLang, tr } from '../lib/i18n'
 import { api, useApp, useLoad } from '../lib/store'
@@ -64,7 +64,7 @@ export default function Home() {
                   <div><dt className="text-[12.5px] font-medium text-muted">{tr('المزايدات', 'Bids')}</dt><dd className="num text-2xl font-extrabold">{num(spot.bidCount)}</dd></div>
                   <div><dt className="text-[12.5px] font-medium text-muted">{tr('يُغلق بعد', 'Closes in')}</dt><dd><Countdown to={spot.endsAt} className="text-lg font-extrabold" /></dd></div>
                 </dl>
-                <span className={`${cardStyle === 'brand' && spot.type === 'bakkar' ? 'btn bg-[#1D5C2F] text-paper ring-1 ring-inset ring-[#E2C27E]/60 group-hover:bg-[#164A25]' : 'btn-gold'} mt-6 w-full`}>{tr(`زايد على «${spot.name}»`, `Bid on “${spot.name}”`)}</span>
+                <span className={`${spot.type === 'bakkar' ? 'btn bg-[#1D5C2F] text-paper ring-1 ring-inset ring-[#E2C27E]/60 hover:bg-[#164A25]' : spot.type === 'qaadan' ? 'btn bg-[#5A3F7A] text-paper ring-1 ring-inset ring-[#E2C27E]/60 hover:bg-[#4A3366]' : 'btn-gold'} mt-6 w-full`}>{tr(`زايد على «${spot.name}»`, `Bid on “${spot.name}”`)}</span>
               </Link>
             ) : (
               <div className="rounded-xl border border-paper/15 p-8 text-center text-paper/70">{tr('لا يوجد مزاد جارٍ الآن', 'No live auction right now')}</div>
@@ -93,8 +93,7 @@ export default function Home() {
           <div>
             <h2 className="sec-title">{tr('المزادات الجارية', 'Live auctions')}</h2>
             <p className="mt-2 flex flex-wrap items-center gap-4 ps-4 text-[14px] text-muted">
-              <span className="inline-flex items-center gap-2"><span className={`h-3 w-3 rounded-sm ${cardStyle === 'brand' ? 'bg-[#1D5C2F]' : 'bg-qaadan'}`} />{TYPE_LABEL.qaadan}</span>
-              <span className="inline-flex items-center gap-2"><span className={`h-3 w-3 rounded-sm ${cardStyle === 'brand' ? 'bg-[#9C7425]' : 'bg-bakkar'}`} />{TYPE_LABEL.bakkar}</span>
+              {NAME_TYPES.map((t) => <span key={t} className="inline-flex items-center gap-2"><span className={`h-3 w-3 rounded-sm ${TYPE_CLS[t].dot}`} />{TYPE_LABEL[t]}</span>)}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -144,7 +143,7 @@ export default function Home() {
           <div className="p-6 sm:p-8">
             <span className="pill bg-gold text-pine">{tr('خدمة جديدة', 'New service')}</span>
             <h2 className="mt-3 text-[26px] text-paper sm:text-[30px]">{tr('استثمار الاسم', 'Name investment')}</h2>
-            <p className="mt-2 max-w-xl leading-8 text-paper/75">{tr(`اقترح اسمًا جديدًا مبتكرًا. إن اعتمدته اللجنة يُطرح في مزاد عام ولك ${Math.round(RULES.investOwnerShare * 100)}% من قيمة بيعه.`, `Propose a new, original name. If the committee approves it, it goes to a public auction and you get ${Math.round(RULES.investOwnerShare * 100)}% of the sale.`)}</p>
+            <p className="mt-2 max-w-xl leading-8 text-paper/75">{tr(`اقترح حتى ${RULES.investMaxNames} أسماء جديدة مبتكرة. ما تعتمده اللجنة يُطرح في مزاد عام ولك ${Math.round(RULES.investOwnerShare * 100)}% من قيمة بيعه.`, `Propose up to ${RULES.investMaxNames} new, original names. Approved names go to a public auction and you get ${Math.round(RULES.investOwnerShare * 100)}% of the sale.`)}</p>
             <span className="mt-4 inline-flex items-center gap-2 font-bold text-gold-light group-hover:underline">{tr('اعرف أكثر وقدّم اسمك', 'Learn more and submit')} <span aria-hidden>←</span></span>
           </div>
           <div className="hidden items-center gap-3 border-s border-paper/10 bg-paper/5 px-8 sm:flex">
@@ -214,8 +213,7 @@ function NameChecker({ ctaTo }: { ctaTo: string }) {
             placeholder={tr('اكتب الاسم للتحقق من توفّره', 'Type a name (in Arabic) to check availability')} value={name} maxLength={30} onChange={(e) => { setName(e.target.value); setRes(null) }} />
           <div className="flex gap-2">
             <select aria-label={tr('النوع', 'Type')} className="rounded-md border border-line bg-stone px-3 text-[15px] font-bold text-pine" value={t} onChange={(e) => { setT(e.target.value as NameType); setRes(null) }}>
-              <option value="qaadan">{TYPE_LABEL.qaadan}</option>
-              <option value="bakkar">{TYPE_LABEL.bakkar}</option>
+              {TYPE_GROUPS.map((g) => <optgroup key={g.key} label={g.label()}>{g.types.map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}</optgroup>)}
             </select>
             <button className="btn-gold flex-1 px-6 sm:flex-none" disabled={busy || !name.trim()}>{tr('تحقق', 'Check')}</button>
           </div>

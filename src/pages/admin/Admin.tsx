@@ -187,7 +187,7 @@ export function AdminReview() {
       {r.kind === 'investment' && (
         <div className="mb-4 mt-3 flex items-start gap-3 rounded-xl border border-invest/30 bg-invest-soft p-4 text-[15px]">
           <Icon name="coins" className="mt-0.5 h-5 w-5 shrink-0 text-invest-deep" />
-          <span>طلب <b>استثمار الاسم</b>: اسم واحد جديد يُدرس وفق المعايير المعتمدة. رسوم الدراسة {sar(r.depositAmount)} <b>غير مستردة</b>. عند القبول يُطرح في <b>مزاد عام</b> ويُوزَّع العائد {100 - Math.round(RULES.investOwnerShare * 100)}% للمنظمة و{Math.round(RULES.investOwnerShare * 100)}% لصاحب الاسم، وعند عدم القبول يُبلَّغ برسالة نصية.</span>
+          <span>طلب <b>استثمار الاسم</b>: حتى {RULES.investMaxNames} أسماء جديدة، يُدرس كل اسم وفق المعايير المعتمدة. رسوم الدراسة {sar(r.depositAmount)} <b>غير مستردة</b>. عند القبول يُطرح في <b>مزاد عام</b> ويُوزَّع العائد {100 - Math.round(RULES.investOwnerShare * 100)}% للمنظمة و{Math.round(RULES.investOwnerShare * 100)}% لصاحب الاسم، وعند عدم القبول يُبلَّغ برسالة نصية.</span>
         </div>
       )}
       <PageHead title={r.kind === 'compound' ? `مراجعة اسم مركب ${r.number}` : r.kind === 'investment' ? `دراسة استثمار الاسم ${r.number}` : `مراجعة الطلب ${r.number}`} sub={<span className="flex flex-wrap items-center gap-2"><TypeBadge type={r.type} /><RequestStatusPill status={r.status} /><span>{r.ownerName}، قُدّم {dateTime(r.submittedAt)}</span></span>} />

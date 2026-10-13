@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PayModal } from '../../components/PayModal'
 import { TableTools, useTableFilter } from '../../components/TableTools'
-import { Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, RequestStatusPill, TypeBadge } from '../../components/ui'
-import { RULES, TYPE_HINT, TYPE_LABEL, typeOptions, TYPE_CLS, NAME_TYPES } from '../../lib/config'
+import { Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, RequestStatusPill, TypeBadge, TypePicker } from '../../components/ui'
+import { RULES, typeOptions, TYPE_CLS } from '../../lib/config'
 import { dateTime, sar } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
 import type { Candidate, LogoRequest, NameCheck, NameType } from '../../lib/types'
@@ -212,15 +212,7 @@ export function NewRequest() {
       <PageHead title="طلب شعار جديد" sub="اختر نوع الشعار ثم اكتب ثلاثة أسماء مقترحة." />
       <section className="panel p-5">
         <h2 className="text-lg">نوع الشعار</h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {NAME_TYPES.map((t) => (
-            <button key={t} type="button" onClick={() => setType(t)} aria-pressed={type === t}
-              className={`flex items-center gap-4 rounded-xl border-2 p-4 text-start transition-colors ${type === t ? TYPE_CLS[t].card : 'border-line bg-paper hover:border-pine'}`}>
-              <NameSeal name={TYPE_LABEL[t]} type={t} size="sm" />
-              <span><span className="block font-extrabold text-xl">{TYPE_LABEL[t]}</span><span className="text-sm text-muted">{TYPE_HINT[t]}</span></span>
-            </button>
-          ))}
-        </div>
+        <div className="mt-3"><TypePicker value={type} onChange={setType} /></div>
       </section>
 
       <section className={`panel mt-4 p-5 ${type ? '' : 'pointer-events-none opacity-50'}`} aria-disabled={!type}>

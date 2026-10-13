@@ -32,11 +32,13 @@ export default function About() {
       <section className="border-y border-line bg-paper">
         <div className="wrap grid gap-10 py-14 lg:grid-cols-2">
           <div>
-            <h2 className="sec-title">{tr('أنواع الأسماء', 'Name types')}</h2>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl border-2 border-qaadan bg-qaadan-soft p-5"><h3 className="text-xl text-qaadan-deep">{tr('قعدان', 'Qaadan')}</h3><p className="mt-1 text-[15px] text-ink/80">{tr('أسماء الذكور من الإبل، وتظهر في المنصة باللون الأزرق.', 'Names for male camels, shown in blue.')}</p></div>
-              <div className="rounded-xl border-2 border-bakkar bg-bakkar-soft p-5"><h3 className="text-xl text-bakkar-deep">{tr('بكار', 'Bakkar')}</h3><p className="mt-1 text-[15px] text-ink/80">{tr('أسماء الإناث من الإبل، وتظهر في المنصة باللون العنابي.', 'Names for female camels, shown in maroon.')}</p></div>
+            <h2 className="sec-title">{tr('فئات الشعارات', 'Name categories')}</h2>
+            <h3 className="mt-6 text-[17px] text-muted">{tr('فردي (مفاريد)', 'Single (mafareed)')}</h3>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border-2 border-bakkar bg-bakkar-soft p-5"><h3 className="text-xl text-bakkar-deep">{tr('بكار', 'Bakkar')}</h3><p className="mt-1 text-[15px] text-ink/80">{tr('أسماء الإناث من الإبل، وتظهر في المنصة باللون الأخضر.', 'Names for female camels, shown in green.')}</p></div>
+              <div className="rounded-xl border-2 border-qaadan bg-qaadan-soft p-5"><h3 className="text-xl text-qaadan-deep">{tr('قعدان', 'Qaadan')}</h3><p className="mt-1 text-[15px] text-ink/80">{tr('أسماء الذكور من الإبل، وتظهر في المنصة باللون البنفسجي.', 'Names for male camels, shown in purple.')}</p></div>
             </div>
+            <div className="mt-4 rounded-xl border-2 border-manqiya bg-manqiya-soft p-5"><h3 className="text-xl text-manqiya-deep">{tr('منقية', 'Manqiya')}</h3><p className="mt-1 text-[15px] text-ink/80">{tr('اسم لمجموعة من الإبل (المنقية)، ويظهر في المنصة باللون الذهبي.', 'A name for a herd of camels, shown in gold.')}</p></div>
           </div>
           <div>
             <h2 className="sec-title">{tr('ضوابط ربط الأسماء', 'Name-linking rules')}</h2>

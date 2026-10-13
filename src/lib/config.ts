@@ -16,10 +16,12 @@ export const RULES = {
   /** VAT rate; prices are VAT inclusive */
   vatRate: 0.15,
   timeZone: 'Asia/Riyadh',
-  /** «استثمار الاسم»: non-refundable study fee per name (SAR) */
+  /** «استثمار الاسم»: non-refundable study fee per request (SAR) */
   investFee: 100,
   /** «استثمار الاسم»: the name owner's share of the auction proceeds (the organization keeps the rest) */
   investOwnerShare: 0.3,
+  /** «استثمار الاسم»: names allowed in one request */
+  investMaxNames: 3,
 }
 
 export const SELLER = {
@@ -37,12 +39,21 @@ const ar = () => getLang() === 'ar'
 export const TYPE_LABEL: Record<NameType, string> = {
   get qaadan() { return ar() ? 'قعدان' : 'Qaadan' },
   get bakkar() { return ar() ? 'بكار' : 'Bakkar' },
+  get manqiya() { return ar() ? 'منقية' : 'Manqiya' },
 }
 
 export const TYPE_HINT: Record<NameType, string> = {
-  get qaadan() { return ar() ? 'أسماء الذكور من الإبل' : 'Names for male camels' },
-  get bakkar() { return ar() ? 'أسماء الإناث من الإبل' : 'Names for female camels' },
+  get qaadan() { return ar() ? 'فردي: أسماء الذكور من الإبل' : 'Single: names for male camels' },
+  get bakkar() { return ar() ? 'فردي: أسماء الإناث من الإبل' : 'Single: names for female camels' },
+  get manqiya() { return ar() ? 'اسم لمجموعة إبل (منقية)' : 'A name for a herd (manqiya)' },
 }
+
+/** The two families of names: فردي (مفاريد) = qaadan + bakkar, and منقية. */
+export const TYPE_GROUPS: { key: 'fardi' | 'manqiya'; types: NameType[]; label: () => string; hint: () => string }[] = [
+  { key: 'fardi', types: ['bakkar', 'qaadan'], label: () => (ar() ? 'فردي (مفاريد)' : 'Single (mafareed)'), hint: () => (ar() ? 'اسم لناقة أو جمل بعينه' : 'A name for one camel') },
+  { key: 'manqiya', types: ['manqiya'], label: () => (ar() ? 'منقية' : 'Manqiya'), hint: () => (ar() ? 'اسم لمجموعة إبل' : 'A name for a herd') },
+]
+export const typeGroupOf = (t: NameType) => TYPE_GROUPS.find((g) => g.types.includes(t))!
 
 /** The platform owner's super admin account: cannot be demoted or suspended. */
 export const SUPER_ADMIN_EMAIL = 'ibrasalato@gmail.com'
@@ -53,11 +64,18 @@ export const STAFF_LOGIN_PATH = '/ico-staff'
 export const OTP = { fixedCode: '4321', length: 4, ttlMinutes: 5, maxAttempts: 5 }
 
 /** Every name category, in display order */
-export const NAME_TYPES: NameType[] = ['qaadan', 'bakkar']
-/** Tailwind classes per category (standard designs: blue, maroon) */
+export const NAME_TYPES: NameType[] = ['qaadan', 'bakkar', 'manqiya']
+/** Tailwind classes per category: قعدان بنفسجي، بكار أخضر، منقية ذهبي */
 export const TYPE_CLS: Record<NameType, { pill: string; dot: string; card: string; text: string }> = {
   qaadan: { pill: 'bg-qaadan-soft text-qaadan-deep', dot: 'bg-qaadan', card: 'border-qaadan bg-qaadan-soft', text: 'text-qaadan-deep' },
   bakkar: { pill: 'bg-bakkar-soft text-bakkar-deep', dot: 'bg-bakkar', card: 'border-bakkar bg-bakkar-soft', text: 'text-bakkar-deep' },
+  manqiya: { pill: 'bg-manqiya-soft text-manqiya-deep', dot: 'bg-manqiya', card: 'border-manqiya bg-manqiya-soft', text: 'text-manqiya-deep' },
+}
+/** Hex values of the category colours, for inline styles (cards, seals, certificates) */
+export const TYPE_HEX: Record<NameType, { base: string; deep: string; soft: string }> = {
+  qaadan: { base: '#6B4C8F', deep: '#4A2F6B', soft: '#F1ECF7' },
+  bakkar: { base: '#1F6B3A', deep: '#134626', soft: '#E6F2EA' },
+  manqiya: { base: '#A57A26', deep: '#6E5216', soft: '#F6EEDB' },
 }
 /** [value, label] options for filters; `all` = the value used for "everything" */
 export const typeOptions = <A extends string>(all: A, allLabel: string): [A | NameType, string][] => [[all, allLabel], ...NAME_TYPES.map((t) => [t, TYPE_LABEL[t]] as [NameType, string])]

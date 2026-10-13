@@ -57,7 +57,7 @@ export interface SammhaApi {
   /** compound name for a name the owner holds; goes to the committee, registered directly on approval (no auction) */
   createCompoundRequest(reservedId: string, fullName: string): Promise<LogoRequest>
   /** «استثمار الاسم»: one new name; pay the study fee with payDeposit */
-  createInvestmentRequest(type: NameType, name: string): Promise<LogoRequest>
+  createInvestmentRequest(type: NameType, names: string[]): Promise<LogoRequest>
   myInvestments(): Promise<InvestmentItem[]>
   payDeposit(requestId: string, method: PayMethod): Promise<LogoRequest>
   /** returns the amount refunded to the wallet (0 if the guarantee was not paid yet) */

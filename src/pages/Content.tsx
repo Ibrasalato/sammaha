@@ -30,28 +30,28 @@ const UPDATED = () => tr('آخر تحديث: أكتوبر 2026', 'Last updated: 
 
 const FAQ: [string, ReactNode][] = [
   ['ما منصة سمّها؟', 'منصة تابعة للمنظمة الدولية للإبل لتنظيم أسماء الشعارات الخاصة بمنقيات وفرديات الإبل، وطرحها في مزاد علني، وتسجيلها باسم أصحابها.'],
-  ['ما الفرق بين القعدان والبكار؟', 'القعدان أسماء الذكور من الإبل، والبكار أسماء الإناث. لكل نوع لون مميز في المنصة: الأزرق للقعدان والعنابي للبكار.'],
+  ['ما فئات الشعارات؟', 'فئتان: «فردي» (مفاريد) لاسم ناقة أو جمل بعينه، ويشمل البكار (أسماء الإناث) والقعدان (أسماء الذكور)؛ و«منقية» لاسم مجموعة من الإبل. لكل نوع لون في المنصة: القعدان بنفسجي، والبكار أخضر، والمنقية ذهبي.'],
   ['كيف أطلب اسمًا لإبلي؟', `أنشئ حسابًا، ثم من لوحة التحكم اختر «طلب شعار جديد»، وحدّد النوع واكتب ${RULES.namesPerRequest} أسماء مقترحة، ثم سدّد ضمان المزاد.`],
   ['لماذا رُفض الاسم الذي كتبته فورًا؟', 'لأنه مطابق تمامًا لاسم مسجل أو لاسم في طلب أو مزاد قائم. غيّر الاسم أو جرّب صيغة مختلفة. الأسماء الشبيهة تُقبل مبدئيًا وتراجعها لجنة الاعتماد.'],
   ['كم ضمان المزاد ومتى يعود؟', `ضمان المزاد ${RULES.depositAmount} ريال لكل طلب. يعود إلى محفظتك إذا رُفض الطلب أو أُلغي، أو إذا رست كل أسماء الطلب على مزايدين آخرين. وإذا رسا عليك اسم من طلبك يُخصم الضمان من فاتورته.`],
   ['كيف تعمل المزايدة؟', `يبدأ كل اسم بسعر افتتاحي ${RULES.openingPrice} ريال، وأقل زيادة ${RULES.minIncrement} ريال. المزايدة في آخر ${RULES.extendMinutes} دقيقة تمدّد المزاد ${RULES.extendMinutes} دقيقة حتى لا يُحسم بمزايدة خاطفة.`],
   ['ماذا يحدث إن لم يزايد أحد على الاسم؟', 'يرسو الاسم على مقدم الطلب بمبلغ الضمان نفسه، ويُسجّل باسمه.'],
   ['متى أستلم الفاتورة والشهادة؟', 'تصدر الفاتورة الإلكترونية فور ترسية المزاد، وتجدها في «الفواتير». وبعد السداد تجد شهادة تسجيل الاسم في «أسمائي»، وعليها رمز QR يتحقق منه أي شخص.'],
-  ['ما خدمة «استثمار الاسم»؟', <>تقترح اسمًا جديدًا مبتكرًا (اسمًا واحدًا في كل طلب) برسوم دراسة {RULES.investFee} ريال غير مستردة. إن اعتمدته اللجنة يُطرح في مزاد عام، ولك {Math.round(RULES.investOwnerShare * 100)}% من قيمة بيعه قبل الضريبة، وإن لم يزايد أحد يؤول إليك. <Link to="/invest" className="font-bold text-gold-deep underline">التفاصيل</Link></>],
+  ['ما خدمة «استثمار الاسم»؟', <>تقترح حتى {RULES.investMaxNames} أسماء جديدة مبتكرة في الطلب برسوم دراسة {RULES.investFee} ريال غير مستردة. ما تعتمده اللجنة يُطرح في مزاد عام، ولك {Math.round(RULES.investOwnerShare * 100)}% من قيمة بيعه قبل الضريبة، وإن لم يزايد أحد يؤول إليك. <Link to="/invest" className="font-bold text-gold-deep underline">التفاصيل</Link></>],
   ['هل يمكنني بيع الاسم أو نقله؟', 'بعد ربط الاسم بشريحة إلكترونية لا يحق بيعه أو استخدامه على فردي أو فردية أخرى، ويجب أن يرتبط اسم المتن باسم المشارك نفسه.'],
   ['كيف أتواصل مع المنصة؟', <>عبر صفحة <Link to="/contact" className="font-bold text-gold-deep underline">تواصل معنا</Link>، أو البريد {SELLER.email}، أو واتساب {SELLER.whatsapp.replace(/^966/, '0')}.</>],
 ]
 
 const FAQ_EN: [string, string][] = [
   ['What is Sammha?', 'A platform of the International Camel Organization that organises camel names and brand marks, auctions them publicly and registers them to their owners.'],
-  ['What is the difference between Qaadan and Bakkar?', 'Qaadan are names for male camels and Bakkar for female camels. Qaadan appear in blue and Bakkar in maroon.'],
+  ['What are the name categories?', 'Two families: “Single” (mafareed) for one camel, covering Bakkar (female names) and Qaadan (male names); and “Manqiya” for a herd. Qaadan appear in purple, Bakkar in green and Manqiya in gold.'],
   ['How do I request a name?', `Create an account, choose “New request” in your dashboard, pick the type, enter ${RULES.namesPerRequest} proposed names and pay the auction guarantee.`],
   ['Why was my name rejected immediately?', 'It is identical to a registered name or to a name in an active request or auction. Similar names are accepted for review by the committee.'],
   ['How much is the guarantee and when is it refunded?', `SAR ${RULES.depositAmount} per request. It returns to your wallet if the request is declined or cancelled, or if all its names are won by others. If you win a name from your own request it is deducted from that invoice.`],
   ['How does bidding work?', `Each name opens at SAR ${RULES.openingPrice} with a minimum raise of SAR ${RULES.minIncrement}. A bid in the last ${RULES.extendMinutes} minutes extends the auction by ${RULES.extendMinutes} minutes.`],
   ['What if nobody bids?', 'The name goes to the applicant for the guarantee amount.'],
   ['When do I get the invoice and certificate?', 'The e-invoice is issued as soon as the auction is awarded. After payment, the registration certificate with a verifiable QR code is in “My names”.'],
-  ['What is «Name investment»?', `Propose a new, original name (one per request) for a non-refundable SAR ${RULES.investFee} study fee. If the committee approves it, it goes to a public auction and you get ${Math.round(RULES.investOwnerShare * 100)}% of the sale before VAT; if nobody bids, the name is yours.`],
+  ['What is «Name investment»?', `Propose up to ${RULES.investMaxNames} new, original names per request for a non-refundable SAR ${RULES.investFee} study fee. Approved names go to a public auction and you get ${Math.round(RULES.investOwnerShare * 100)}% of the sale before VAT; if nobody bids, the name is yours.`],
   ['Can I sell or transfer a name?', 'Once linked to a microchip, a name may not be sold or used on another camel, and must be linked to the participant’s own name.'],
   ['How do I contact you?', `Through the contact page, by email at ${SELLER.email}, or WhatsApp ${SELLER.whatsapp.replace(/^966/, '0')}.`],
 ]

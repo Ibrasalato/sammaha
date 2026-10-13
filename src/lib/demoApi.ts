@@ -6,7 +6,7 @@
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'
 import type { AuctionView } from './types'
-import { OTP, RULES, SUPER_ADMIN_EMAIL } from './config'
+import { NAME_TYPES, OTP, RULES, SUPER_ADMIN_EMAIL } from './config'
 import { maskEmail, maskPhone, otpDigits } from './otp'
 import { namesCount } from './format'
 import { SEED_EVENTS } from './events'
@@ -41,7 +41,7 @@ interface DB {
 
 const KEY = 'sammha-demo-db'
 const SESSION = 'sammha-demo-session'
-const VERSION = 8
+const VERSION = 9
 
 const now = () => Date.now()
 const iso = (t: number) => new Date(t).toISOString()
@@ -187,6 +187,7 @@ function seed(): DB {
   db.txs.push({ id: uid(db, 't'), userId: 'u-b2', amount: 2000, kind: 'topup', note: 'شحن المحفظة', createdAt: iso(t - 40 * D) })
   seedTickets(db, t)
   seedInvestment(db, t)
+  seedManqiya(db, t)
   // compute similar hits for pending requests
   for (const r of db.requests) for (const c of r.candidates) if (!c.similar.length) c.similar = similarFor(db, c.normalized, r.id)
   return db
@@ -273,6 +274,42 @@ function consumeOtp(id: string, code: string, purpose: Challenge['purpose']): Ch
   return c
 }
 
+/** Sample «منقية» (herd) names: a few registered, one request in auction, one waiting for the committee. */
+function seedManqiya(db: DB, t: number) {
+  for (const [name, ownerId, price, daysAgo] of [['الوسمية', 'u-b1', 6400, 230], ['الحراير', 'u-b2', 3800, 170], ['الشرهات', 'u-owner', 2100, 95]] as [string, string, number, number][]) {
+    const owner = db.users.find((u) => u.id === ownerId)!
+    db.reserved.push({ id: uid(db, 'r'), name, normalized: normalizeName(name), type: 'manqiya', ownerId, ownerName: owner.fullName, price, acquiredAt: iso(t - daysAgo * D), source: 'legacy' })
+  }
+  const mk = (id: string, userId: string, names: string[], status: LogoRequest['status'], daysAgo: number): LogoRequest => {
+    const u = db.users.find((x) => x.id === userId)!
+    const r: LogoRequest = {
+      id, number: `SM-${1000 + db.requests.length + 1}`, userId, ownerName: u.fullName, type: 'manqiya',
+      candidates: names.map((n, i) => ({ id: `c-${id}-${i}`, name: n, normalized: normalizeName(n), status: status === 'accepted' ? 'accepted' : 'pending', similar: [] })),
+      status, depositAmount: RULES.depositAmount, depositPaid: true, depositState: 'held', createdAt: iso(t - daysAgo * D), submittedAt: iso(t - daysAgo * D + 600_000),
+      reviewedAt: status === 'accepted' ? iso(t - (daysAgo - 1) * D) : undefined, reviewerName: status === 'accepted' ? 'لجنة الاعتماد' : undefined,
+    }
+    db.requests.push(r)
+    db.txs.push({ id: uid(db, 't'), userId, amount: -RULES.depositAmount, kind: 'deposit', note: `ضمان مزاد الطلب ${r.number}`, createdAt: r.submittedAt! })
+    return r
+  }
+  const auction = (r: LogoRequest, i: number, start: number, end: number, bids: [string, number][]) => {
+    const c = r.candidates[i]
+    const a: Auction = { id: `a-${c.id}`, requestId: r.id, candidateId: c.id, name: c.name, type: r.type, requesterId: r.userId, openingPrice: RULES.openingPrice,
+      minIncrement: RULES.minIncrement, startsAt: iso(t + start), endsAt: iso(t + end), currentPrice: RULES.openingPrice, bidCount: 0, settled: false }
+    bids.forEach(([uidB, amount], k) => {
+      const u = db.users.find((x) => x.id === uidB)!
+      db.bids.push({ id: `b-${c.id}${k}`, auctionId: a.id, userId: uidB, bidderLabel: maskName(u.fullName), amount, createdAt: iso(t + start + (k + 1) * H) })
+      Object.assign(a, { currentPrice: amount, bidCount: k + 1, leaderId: uidB, leaderLabel: maskName(u.fullName) })
+    })
+    db.auctions.push(a); c.auctionId = a.id
+  }
+  const r = mk('qm1', 'u-b3', ['الصفوة', 'الأصايل', 'العليا'], 'accepted', 7)
+  auction(r, 0, -2 * D, D + 6 * H, [['u-b1', 250], ['u-owner', 480], ['u-b2', 900]])
+  auction(r, 1, -D, 2 * D + 3 * H, [['u-b2', 120]])
+  auction(r, 2, D + 2 * H, 4 * D, [])
+  mk('qm2', 'u-b1', ['ضي القمرا', 'الهوامل', 'المزايين'], 'under_review', 0.5)
+}
+
 // ───────────────────────── persistence ─────────────────────────
 function load(): DB {
   try {
@@ -296,6 +333,11 @@ function load(): DB {
         db.auctions = db.auctions.filter((a) => !oldAuctions.has(a.id))
         db.invoices = db.invoices.filter((i) => !gone(i))
         if (!db.requests.some((r) => r.kind === 'investment')) seedInvestment(db, now())
+        db.v = 8
+      }
+      if (db.v === 8) {
+        // «منقية» joins قعدان and بكار
+        if (!db.requests.some((r) => r.type === 'manqiya')) seedManqiya(db, now())
         db.v = VERSION; save(db); return db
       }
     }
@@ -378,7 +420,7 @@ function cancellable(db: DB, r: LogoRequest, t = now()) {
 /** A single name can be withdrawn while it is pending or accepted and its auction (if any) has not started. */
 function withdrawable(db: DB, r: LogoRequest, c: LogoRequest['candidates'][number], t = now()) {
   if (!['pending_payment', 'under_review', 'accepted'].includes(r.status)) return false
-  if (r.kind === 'compound' || r.kind === 'investment') return false // a single name: cancel the request instead
+  if (r.kind === 'compound') return false // a single name: cancel the request instead
   if (c.status !== 'pending' && c.status !== 'accepted') return false
   const a = c.auctionId ? db.auctions.find((x) => x.id === c.auctionId) : undefined
   return !a || (t < Date.parse(a.startsAt) && a.bidCount === 0)
@@ -883,15 +925,21 @@ export const demoApi: SammhaApi = {
     return withCancel(db, r)
   }),
 
-  createInvestmentRequest: (type, name) => tx((db) => {
+  createInvestmentRequest: (type, names) => tx((db) => {
     const u = me(db)
-    if (type !== 'qaadan' && type !== 'bakkar') throw new ApiError('اختر النوع')
-    const check = checkNamesIn(db, [name])[0]
-    if (check.verdict === 'invalid') throw new ApiError(check.message || 'الاسم غير صالح')
-    if (check.verdict === 'exact') throw new ApiError(`«${check.name.trim()}» مسجل أو مطلوب مسبقًا، اختر اسمًا جديدًا غير مكرر`)
+    if (!NAME_TYPES.includes(type)) throw new ApiError('اختر النوع')
+    const list = names.map((n) => n.trim()).filter(Boolean)
+    if (!list.length) throw new ApiError('اكتب اسمًا واحدًا على الأقل')
+    if (list.length > RULES.investMaxNames) throw new ApiError(`الحد الأقصى ${RULES.investMaxNames} أسماء في الطلب`)
+    const checks = checkNamesIn(db, list)
+    for (const check of checks) {
+      if (check.verdict === 'invalid') throw new ApiError(check.message || 'الاسم غير صالح')
+      if (check.verdict === 'duplicate') throw new ApiError(`«${check.name.trim()}» مكرر في الطلب`)
+      if (check.verdict === 'exact') throw new ApiError(`«${check.name.trim()}» مسجل أو مطلوب مسبقًا، اختر اسمًا جديدًا غير مكرر`)
+    }
     const r: LogoRequest = {
       id: uid(db, 'q'), number: `SM-${1000 + db.requests.length + 1}`, userId: u.id, ownerName: u.fullName, type, kind: 'investment',
-      candidates: [{ id: uid(db, 'c'), name: check.name.trim(), normalized: check.normalized, status: 'pending', similar: check.hits }],
+      candidates: checks.map((check) => ({ id: uid(db, 'c'), name: check.name.trim(), normalized: check.normalized, status: 'pending' as const, similar: check.hits })),
       status: 'pending_payment', depositAmount: RULES.investFee, depositPaid: false, depositState: 'none', createdAt: iso(now()),
     }
     db.requests.push(r)
@@ -902,10 +950,13 @@ export const demoApi: SammhaApi = {
     const u = me(db)
     return db.requests.filter((r) => r.userId === u.id && r.kind === 'investment')
       .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-      .map((r) => {
-        const auction = db.auctions.find((a) => a.id === r.candidates[0]?.auctionId)
-        const inv = auction ? db.invoices.find((i) => i.auctionId === auction.id) : undefined
-        return { request: withCancel(db, r), auction, share: inv?.ownerShare, sharePaid: inv?.ownerSharePaid, keptByOwner: !!auction?.settled && auction.winnerId === r.userId }
+      .flatMap((r) => {
+        const request = withCancel(db, r)
+        return request.candidates.map((candidate) => {
+          const auction = db.auctions.find((a) => a.id === candidate.auctionId)
+          const inv = auction ? db.invoices.find((i) => i.auctionId === auction.id) : undefined
+          return { request, candidate, auction, share: inv?.ownerShare, sharePaid: inv?.ownerSharePaid, keptByOwner: !!auction?.settled && auction.winnerId === r.userId }
+        })
       })
   }),
 
@@ -1121,8 +1172,11 @@ export const demoApi: SammhaApi = {
     Object.assign(r, { status: anyAccepted ? 'accepted' : 'rejected', reviewedAt: iso(now()), reviewerName: u.fullName, reviewNote: note })
     const acc = r.candidates.filter((c) => c.status === 'accepted').map((c) => c.name)
     if (r.kind === 'investment') {
-      notify(db, r.userId, 'reviewed', anyAccepted ? `قُبل اسمك «${acc[0]}» في «استثمار الاسم»` : `لم يُقبل الاسم المقدّم في «استثمار الاسم»`,
-        anyAccepted ? 'سيُطرح في مزاد عام قريبًا، ولك 30% من قيمة بيعه.' : `${r.candidates[0].rejectReason || 'وفق معايير اللجنة'}. رسوم الدراسة غير مستردة.`, `/dashboard/invest`)
+      const rej = r.candidates.filter((c) => c.status === 'rejected')
+      if (anyAccepted) notify(db, r.userId, 'reviewed', `قُبل ${acc.length > 1 ? 'اسماك' : 'اسمك'} «${acc.join('»، «')}» في «استثمار الاسم»`,
+        `سيُطرح في مزاد عام قريبًا، ولك ${Math.round(RULES.investOwnerShare * 100)}% من قيمة بيعه.${rej.length ? ` ولم يُقبل: ${rej.map((c) => c.name).join('، ')}.` : ''}`, '/dashboard/invest')
+      // the rejection notice also goes out by SMS through the notification webhook
+      else notify(db, r.userId, 'reviewed', 'لم تُقبل الأسماء المقدّمة في «استثمار الاسم»', `${rej[0]?.rejectReason || 'وفق معايير اللجنة'}. رسوم الدراسة غير مستردة.`, '/dashboard/invest')
       return r
     }
     if (r.kind === 'compound') {
