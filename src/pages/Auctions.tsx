@@ -1,7 +1,7 @@
 import { TYPE_LABEL } from '../lib/config'
 import { tr } from '../lib/i18n'
 import { useState } from 'react'
-import { AuctionCard } from '../components/AuctionCard'
+import { AuctionGrid, CardStylePicker } from '../components/AuctionCard'
 import { Empty, Loading, PageHead, Segmented } from '../components/ui'
 import { api, useLoad } from '../lib/store'
 import type { AuctionPhase, NameType } from '../lib/types'
@@ -20,8 +20,9 @@ export default function Auctions() {
         <Segmented value={type} onChange={setType} options={[['all', tr('الكل', 'All')], ['qaadan', TYPE_LABEL.qaadan], ['bakkar', TYPE_LABEL.bakkar]]} />
         <input className="field max-w-xs" placeholder={tr('ابحث باسم', 'Search a name')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={tr('ابحث باسم', 'Search a name')} />
       </div>
+      <CardStylePicker className="mb-5 border-y border-line py-3" />
       {loading && !data ? <Loading /> : data?.length ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{data.map((a) => <AuctionCard key={a.id} a={a} />)}</div>
+        <AuctionGrid list={data} />
       ) : <Empty title={tr('لا توجد مزادات بهذه التصفية', 'No auctions match this filter')} />}
     </div>
   )

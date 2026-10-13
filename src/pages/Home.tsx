@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { AuctionCard } from '../components/AuctionCard'
+import { AuctionGrid, CardStylePicker } from '../components/AuctionCard'
 import { Avatar } from '../components/Avatar'
 import { HeroSlides } from '../components/HeroSlides'
 import { CalendarRow, useCalendar } from './Events'
@@ -101,7 +101,10 @@ export default function Home() {
           </div>
         </div>
         {live.loading && !live.data ? <Loading /> : list.length ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{list.map((a) => <AuctionCard key={a.id} a={a} />)}</div>
+          <>
+            <CardStylePicker className="mb-4" />
+            <AuctionGrid list={list} />
+          </>
         ) : (
           <p className="panel px-5 py-10 text-center text-muted">{tr('لا توجد مزادات جارية الآن', 'No live auctions right now')}{type !== 'all' ? ` (${TYPE_LABEL[type]})` : ''}.</p>
         )}
@@ -137,7 +140,7 @@ export default function Home() {
       {!!upcoming.data?.length && (
         <section className="wrap pt-16">
           <h2 className="sec-title">{tr('مزادات قادمة', 'Upcoming auctions')}</h2>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{upcoming.data.slice(0, 3).map((a) => <AuctionCard key={a.id} a={a} />)}</div>
+          <AuctionGrid list={upcoming.data.slice(0, 3)} className="mt-8" />
         </section>
       )}
 

@@ -52,9 +52,11 @@ export function humanLeft(ms: number) {
   const r = remaining(ms)
   const ar = getLang() === 'ar'
   if (r.done) return ar ? 'الآن' : 'now'
-  if (!ar) return r.d ? `${r.d} day${r.d > 1 ? 's' : ''}${r.h ? ` ${r.h} hr${r.h > 1 ? 's' : ''}` : ''}` : `${r.h} hr${r.h !== 1 ? 's' : ''} ${r.m} min`
+  if (!ar) return r.d ? `${r.d} day${r.d > 1 ? 's' : ''}${r.h ? ` ${r.h} hr${r.h > 1 ? 's' : ''}` : ''}` : r.h ? `${r.h} hr${r.h !== 1 ? 's' : ''} ${r.m} min` : `${r.m} min`
   const days = r.d === 1 ? 'يوم' : r.d === 2 ? 'يومان' : r.d <= 10 ? `${r.d} أيام` : `${r.d} يومًا`
   const hours = r.h === 1 ? 'ساعة' : r.h === 2 ? 'ساعتان' : r.h <= 10 ? `${r.h} ساعات` : `${r.h} ساعة`
   if (r.d) return r.h ? `${days} و ${hours}` : days
-  return `${hours} و ${r.m} دقيقة`
+  const mins = r.m === 1 ? 'دقيقة' : r.m === 2 ? 'دقيقتان' : r.m >= 3 && r.m <= 10 ? `${r.m} دقائق` : `${r.m} دقيقة`
+  if (!r.h) return r.m ? mins : 'أقل من دقيقة'
+  return r.m ? `${hours} و ${mins}` : hours
 }
