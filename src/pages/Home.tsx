@@ -7,7 +7,7 @@ import { Avatar } from '../components/Avatar'
 import { HeroSlides } from '../components/HeroSlides'
 import { CalendarRow, useCalendar } from './Events'
 import { Countdown, Loading, NameSeal, Segmented } from '../components/ui'
-import { RULES, TYPE_LABEL } from '../lib/config'
+import { RULES, TYPE_LABEL, typeOptions, TYPE_CLS } from '../lib/config'
 import { num, sar } from '../lib/format'
 import { getLang, tr } from '../lib/i18n'
 import { api, useApp, useLoad } from '../lib/store'
@@ -95,10 +95,11 @@ export default function Home() {
             <p className="mt-2 flex flex-wrap items-center gap-4 ps-4 text-[14px] text-muted">
               <span className="inline-flex items-center gap-2"><span className={`h-3 w-3 rounded-sm ${cardStyle === 'brand' ? 'bg-[#1D5C2F]' : 'bg-qaadan'}`} />{TYPE_LABEL.qaadan}</span>
               <span className="inline-flex items-center gap-2"><span className={`h-3 w-3 rounded-sm ${cardStyle === 'brand' ? 'bg-[#9C7425]' : 'bg-bakkar'}`} />{TYPE_LABEL.bakkar}</span>
+              <span className="inline-flex items-center gap-2"><span className={`h-3 w-3 rounded-sm ${cardStyle === 'brand' ? 'bg-[#8B5A9F]' : 'bg-istithmar'}`} />{TYPE_LABEL.istithmar}</span>
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Segmented value={type} onChange={setType} options={[['all', tr('الكل', 'All')], ['qaadan', TYPE_LABEL.qaadan], ['bakkar', TYPE_LABEL.bakkar]]} />
+            <Segmented value={type} onChange={setType} options={typeOptions('all', tr('الكل', 'All'))} />
             <Link to="/auctions" className="btn-ghost btn-sm hidden sm:inline-flex">{tr('كل المزادات', 'All auctions')}</Link>
           </div>
         </div>
@@ -199,6 +200,7 @@ function NameChecker({ ctaTo }: { ctaTo: string }) {
             <select aria-label={tr('النوع', 'Type')} className="rounded-md border border-line bg-stone px-3 text-[15px] font-bold text-pine" value={t} onChange={(e) => { setT(e.target.value as NameType); setRes(null) }}>
               <option value="qaadan">{TYPE_LABEL.qaadan}</option>
               <option value="bakkar">{TYPE_LABEL.bakkar}</option>
+              <option value="istithmar">{TYPE_LABEL.istithmar}</option>
             </select>
             <button className="btn-gold flex-1 px-6 sm:flex-none" disabled={busy || !name.trim()}>{tr('تحقق', 'Check')}</button>
           </div>
@@ -254,7 +256,7 @@ function Leaderboard({ title, rows }: { title: string; rows: Row[] }) {
               {r.avatar && <Avatar name={r.main} src={r.avatar.src} size={46} ring={i === 0} />}
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2 text-[16px] font-bold">
-                  {r.type && <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${r.type === 'qaadan' ? 'bg-qaadan' : 'bg-bakkar'}`} />}
+                  {r.type && <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${TYPE_CLS[r.type].dot}`} />}
                   <span className="truncate">{r.main}</span>
                 </span>
                 {r.sub && <span className="mt-0.5 flex items-center gap-1.5 truncate text-[13.5px] text-muted"><Avatar name={r.sub} src={r.subAvatar} size={20} />{r.sub}</span>}

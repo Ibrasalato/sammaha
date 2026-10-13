@@ -36,7 +36,7 @@ interface DB {
 
 const KEY = 'sammha-demo-db'
 const SESSION = 'sammha-demo-session'
-const VERSION = 6
+const VERSION = 7
 
 const now = () => Date.now()
 const iso = (t: number) => new Date(t).toISOString()
@@ -181,6 +181,7 @@ function seed(): DB {
 
   db.txs.push({ id: uid(db, 't'), userId: 'u-b2', amount: 2000, kind: 'topup', note: 'شحن المحفظة', createdAt: iso(t - 40 * D) })
   seedTickets(db, t)
+  seedInvestment(db, t)
   // compute similar hits for pending requests
   for (const r of db.requests) for (const c of r.candidates) if (!c.similar.length) c.similar = similarFor(db, c.normalized, r.id)
   return db
@@ -201,6 +202,34 @@ function superAdmin(t: number): DemoUser {
   return { id: 'u-super', fullName: 'إبراهيم صلاح', phone: '0500000010', email: SUPER_ADMIN_EMAIL, role: 'admin', password: '', createdAt: iso(t - 120 * D) }
 }
 const isSuper = (u: Pick<User, 'email'>) => u.email.toLowerCase() === SUPER_ADMIN_EMAIL
+
+/** Sample names in the investment category, so it appears in the registry and auctions. */
+function seedInvestment(db: DB, t: number) {
+  const owners = ['u-b1', 'u-b2', 'u-b3']
+  ;[['ثروة', 3200], ['الكنز', 5400], ['الرصيد', 1800]].forEach(([name, price], i) => {
+    const u = db.users.find((x) => x.id === owners[i])!
+    db.reserved.push({ id: `rv-inv${i}`, name: name as string, normalized: normalizeName(name as string), type: 'istithmar', ownerId: u.id, ownerName: u.fullName, price: price as number, acquiredAt: iso(t - (20 + i * 7) * D), source: 'auction' })
+  })
+  const r: LogoRequest = {
+    id: 'q-inv1', number: `SM-${1000 + db.requests.length + 1}`, userId: 'u-b2', ownerName: db.users.find((x) => x.id === 'u-b2')!.fullName, type: 'istithmar',
+    candidates: ['المكسب', 'الذخر', 'الوفرة'].map((n, i) => ({ id: `c-inv${i}`, name: n, normalized: normalizeName(n), status: 'accepted' as const, similar: [] })),
+    status: 'accepted', depositAmount: RULES.depositAmount, depositPaid: true, depositState: 'held', createdAt: iso(t - 4 * D), submittedAt: iso(t - 4 * D), reviewedAt: iso(t - 3 * D), reviewerName: 'لجنة الاعتماد',
+  }
+  db.requests.push(r)
+  const mk = (c: LogoRequest['candidates'][number], start: number, end: number, bids: [string, number][]) => {
+    const a: Auction = { id: `a-${c.id}`, requestId: r.id, candidateId: c.id, name: c.name, type: 'istithmar', requesterId: r.userId, openingPrice: RULES.openingPrice, minIncrement: RULES.minIncrement,
+      startsAt: iso(t + start), endsAt: iso(t + end), currentPrice: RULES.openingPrice, bidCount: 0, settled: false }
+    bids.forEach(([uidB, amount], k) => {
+      const u = db.users.find((x) => x.id === uidB)!
+      db.bids.push({ id: `b-${c.id}${k}`, auctionId: a.id, userId: uidB, bidderLabel: maskName(u.fullName), amount, createdAt: iso(t + start + (k + 1) * H) })
+      Object.assign(a, { currentPrice: amount, bidCount: k + 1, leaderId: uidB, leaderLabel: maskName(u.fullName) })
+    })
+    db.auctions.push(a); c.auctionId = a.id
+  }
+  mk(r.candidates[0], -1 * D, 2 * D, [['u-b1', 150], ['u-b3', 320], ['u-b1', 600]])
+  mk(r.candidates[1], -12 * H, 30 * H, [['u-owner', 90]])
+  mk(r.candidates[2], 2 * D, 5 * D, [])
+}
 
 function seedTickets(db: DB, t: number) {
   const mk = (n: number, ago: number, x: Omit<Ticket, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'messages'>, replies: [Ticket['messages'][number]['by'], string, string, boolean?][] = []) => {
@@ -247,6 +276,10 @@ function load(): DB {
       if (db.v === 4) { db.tickets = []; seedTickets(db, now()); db.v = 5 }
       if (db.v === 5) {
         if (!db.users.some(isSuper)) db.users.push(superAdmin(now()))
+        db.v = 6
+      }
+      if (db.v === 6) {
+        if (!db.reserved.some((r) => r.type === 'istithmar')) seedInvestment(db, now())
         db.v = VERSION; save(db); return db
       }
     }

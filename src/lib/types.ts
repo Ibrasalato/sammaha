@@ -1,4 +1,4 @@
-export type NameType = 'qaadan' | 'bakkar'
+export type NameType = 'qaadan' | 'bakkar' | 'istithmar'
 export type Role = 'owner' | 'committee' | 'admin'
 
 export interface User {

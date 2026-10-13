@@ -1,3 +1,4 @@
+import { typeOptions } from '../lib/config'
 import { tr } from '../lib/i18n'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -18,7 +19,7 @@ export default function ReservedNames() {
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <input className="field max-w-sm" placeholder={tr('ابحث باسم أو مالك', 'Search a name or owner')} value={q} aria-label={tr('ابحث باسم أو مالك', 'Search a name or owner')}
           onChange={(e) => { setQ(e.target.value); setSp(e.target.value ? { q: e.target.value } : {}, { replace: true }) }} />
-        <Segmented value={type} onChange={setType} options={[['all', tr('الكل', 'All')], ['qaadan', tr('قعدان', 'Qaadan')], ['bakkar', tr('بكار', 'Bakkar')]]} />
+        <Segmented value={type} onChange={setType} options={typeOptions('all', tr('الكل', 'All'))} />
         {data && <span className="text-sm text-muted">{data.length} {tr('اسم', 'names')}</span>}
       </div>
       {loading && !data ? <Loading /> : data?.length ? (

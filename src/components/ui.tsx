@@ -1,14 +1,14 @@
 import { useEffect } from 'react'
 import { tr } from '../lib/i18n'
 import type { ReactNode } from 'react'
-import { TYPE_LABEL } from '../lib/config'
+import { TYPE_LABEL, TYPE_CLS } from '../lib/config'
 import { remaining, remainingText } from '../lib/format'
 import { useNow } from '../lib/store'
 import type { AuctionPhase, NameType, RequestStatus } from '../lib/types'
 
 /**
  * Name tile — the one way a camel name is shown across the platform:
- * white name on the type colour (blue qaadan / maroon bakkar) over the Sadu weave, as on auction cards.
+ * white name on the type colour (blue qaadan / maroon bakkar / purple investment) over the Sadu weave, as on auction cards.
  */
 export function NameSeal({ name, type, size = 'md' }: { name: string; type: NameType; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
   const dims = {
@@ -28,8 +28,8 @@ export function NameSeal({ name, type, size = 'md' }: { name: string; type: Name
 
 export function TypeBadge({ type }: { type: NameType }) {
   return (
-    <span className={`pill ${type === 'qaadan' ? 'bg-qaadan-soft text-qaadan-deep' : 'bg-bakkar-soft text-bakkar-deep'}`}>
-      <span className={`h-2 w-2 rounded-full ${type === 'qaadan' ? 'bg-qaadan' : 'bg-bakkar'}`} />
+    <span className={`pill ${TYPE_CLS[type].pill}`}>
+      <span className={`h-2 w-2 rounded-full ${TYPE_CLS[type].dot}`} />
       {TYPE_LABEL[type]}
     </span>
   )

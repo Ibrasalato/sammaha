@@ -1,3 +1,4 @@
+import { typeOptions } from '../../lib/config'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Avatar, resizeToSquare } from '../../components/Avatar'
@@ -196,7 +197,7 @@ export function MyInvoices() {
     fields: (i) => [i.number, i.name, i.total, date(i.issuedAt)],
     filters: [
       { key: 'status', label: 'الحالة', options: [['', 'الكل'], ['unpaid', 'غير مدفوعة'], ['paid', 'مدفوعة']], test: (i, v) => i.status === v },
-      { key: 'type', label: 'النوع', options: [['', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']], test: (i, v) => i.type === v },
+      { key: 'type', label: 'النوع', options: typeOptions('', 'الكل'), test: (i, v) => i.type === v },
     ],
   })
   return (
@@ -262,7 +263,7 @@ export function MyBids() {
     filters: [
       { key: 'phase', label: 'الحالة', options: [['', 'الكل'], ['live', 'جارٍ الآن'], ['scheduled', 'قادم'], ['ended', 'منتهٍ']], test: (b, v) => phaseOf(b.auction) === v },
       { key: 'result', label: 'النتيجة', options: [['', 'الكل'], ['leading', 'متصدر'], ['outbid', 'تم تجاوزك'], ['won', 'فزت بالمزاد'], ['lost', 'لم يرسُ عليك']], test: (b, v) => result(b) === v },
-      { key: 'type', label: 'النوع', options: [['', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']], test: (b, v) => b.auction.type === v },
+      { key: 'type', label: 'النوع', options: typeOptions('', 'الكل'), test: (b, v) => b.auction.type === v },
     ],
   })
   return (

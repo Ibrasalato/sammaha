@@ -1,4 +1,4 @@
-import { TYPE_LABEL } from '../lib/config'
+import { typeOptions } from '../lib/config'
 import { tr } from '../lib/i18n'
 import { useState } from 'react'
 import { AuctionGrid, CardStylePicker } from '../components/AuctionCard'
@@ -17,7 +17,7 @@ export default function Auctions() {
       <PageHead title={tr('المزادات', 'Auctions')} sub={tr('السعر الافتتاحي لكل اسم 50 ريال. يرسو الاسم على أعلى مزايد عند انتهاء الوقت.', 'Every name opens at SAR 50 and is awarded to the highest bidder when time runs out.')} />
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <Segmented value={phase} onChange={setPhase} options={[['live', tr('جارية', 'Live')], ['scheduled', tr('قادمة', 'Upcoming')], ['ended', tr('منتهية', 'Ended')], ['all', tr('الكل', 'All')]]} />
-        <Segmented value={type} onChange={setType} options={[['all', tr('الكل', 'All')], ['qaadan', TYPE_LABEL.qaadan], ['bakkar', TYPE_LABEL.bakkar]]} />
+        <Segmented value={type} onChange={setType} options={typeOptions('all', tr('الكل', 'All'))} />
         <input className="field max-w-xs" placeholder={tr('ابحث باسم', 'Search a name')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={tr('ابحث باسم', 'Search a name')} />
       </div>
       <CardStylePicker className="mb-5 border-y border-line py-3" />

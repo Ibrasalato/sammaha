@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Loading, Segmented } from '../components/ui'
-import { TYPE_LABEL } from '../lib/config'
+import { TYPE_LABEL, TYPE_CLS } from '../lib/config'
 import { phaseOf } from '../lib/demoApi'
 import { EVENT_KIND, daysUntil, eventStatus, kindLabel } from '../lib/events'
 import { locale, tr } from '../lib/i18n'
@@ -54,7 +54,7 @@ export function CalendarRow({ item }: { item: CalItem }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="pill bg-gold-soft text-gold-deep">{tr('مزاد سمّها', 'Sammha auction')}</span>
-            <span className={`pill ${a.type === 'qaadan' ? 'bg-qaadan-soft text-qaadan-deep' : 'bg-bakkar-soft text-bakkar-deep'}`}>{TYPE_LABEL[a.type]}</span>
+            <span className={`pill ${TYPE_CLS[a.type].pill}`}>{TYPE_LABEL[a.type]}</span>
           </div>
           <h3 className="mt-1.5 text-[18px]">{tr(`مزاد اسم «${a.name}»`, `Auction for “${a.name}”`)}</h3>
           <p className="text-[14px] text-muted">{tr('يبدأ', 'Starts')} {new Date(a.startsAt).toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Riyadh' })} {tr(`بتوقيت الرياض، السعر الافتتاحي ${a.openingPrice} ريال`, `Riyadh time, opening price SAR ${a.openingPrice}`)}</p>

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PayModal } from '../../components/PayModal'
 import { TableTools, useTableFilter } from '../../components/TableTools'
 import { Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, RequestStatusPill, TypeBadge } from '../../components/ui'
-import { RULES, TYPE_HINT, TYPE_LABEL } from '../../lib/config'
+import { RULES, TYPE_HINT, TYPE_LABEL, typeOptions, TYPE_CLS, NAME_TYPES } from '../../lib/config'
 import { dateTime, sar } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
 import type { Candidate, LogoRequest, NameCheck, NameType } from '../../lib/types'
@@ -19,7 +19,7 @@ function CandidateChip({ c, type }: { c: Candidate; type: NameType }) {
   const tone = c.status === 'accepted' ? 'text-ok' : c.status === 'rejected' ? 'text-bad line-through' : c.status === 'withdrawn' ? 'text-muted line-through' : 'text-ink'
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1 font-extrabold ${tone}`}>
-      <span className={`h-2 w-2 rounded-full ${type === 'qaadan' ? 'bg-qaadan' : 'bg-bakkar'}`} />{c.name}
+      <span className={`h-2 w-2 rounded-full ${TYPE_CLS[type].dot}`} />{c.name}
     </span>
   )
 }
@@ -116,7 +116,7 @@ export function MyRequests() {
     fields: (r) => [r.number, ...r.candidates.map((c) => c.name)],
     filters: [
       { key: 'status', label: 'الحالة', options: [['', 'الكل'], ['pending_payment', 'بانتظار السداد'], ['under_review', 'تحت المراجعة'], ['accepted', 'مقبول'], ['rejected', 'مرفوض'], ['cancelled', 'ملغى']], test: (r, v) => r.status === v },
-      { key: 'type', label: 'النوع', options: [['', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']], test: (r, v) => r.type === v },
+      { key: 'type', label: 'النوع', options: typeOptions('', 'الكل'), test: (r, v) => r.type === v },
       { key: 'kind', label: 'الطلب', options: [['', 'الكل'], ['standard', 'طلب شعار'], ['compound', 'اسم مركب']], test: (r, v) => (r.kind ?? 'standard') === v },
     ],
   })
@@ -209,9 +209,9 @@ export function NewRequest() {
       <section className="panel p-5">
         <h2 className="text-lg">نوع الشعار</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {(['qaadan', 'bakkar'] as NameType[]).map((t) => (
+          {NAME_TYPES.map((t) => (
             <button key={t} type="button" onClick={() => setType(t)} aria-pressed={type === t}
-              className={`flex items-center gap-4 rounded-xl border-2 p-4 text-start transition-colors ${type === t ? (t === 'qaadan' ? 'border-qaadan bg-qaadan-soft' : 'border-bakkar bg-bakkar-soft') : 'border-line bg-paper hover:border-pine'}`}>
+              className={`flex items-center gap-4 rounded-xl border-2 p-4 text-start transition-colors ${type === t ? TYPE_CLS[t].card : 'border-line bg-paper hover:border-pine'}`}>
               <NameSeal name={TYPE_LABEL[t]} type={t} size="sm" />
               <span><span className="block font-extrabold text-xl">{TYPE_LABEL[t]}</span><span className="text-sm text-muted">{TYPE_HINT[t]}</span></span>
             </button>

@@ -33,9 +33,10 @@ export default function About() {
         <div className="wrap grid gap-10 py-14 lg:grid-cols-2">
           <div>
             <h2 className="sec-title">{tr('أنواع الأسماء', 'Name types')}</h2>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="mt-6 grid gap-4 sm:grid-cols-3">
               <div className="rounded-xl border-2 border-qaadan bg-qaadan-soft p-5"><h3 className="text-xl text-qaadan-deep">{tr('قعدان', 'Qaadan')}</h3><p className="mt-1 text-[15px] text-ink/80">{tr('أسماء الذكور من الإبل، وتظهر في المنصة باللون الأزرق.', 'Names for male camels, shown in blue.')}</p></div>
               <div className="rounded-xl border-2 border-bakkar bg-bakkar-soft p-5"><h3 className="text-xl text-bakkar-deep">{tr('بكار', 'Bakkar')}</h3><p className="mt-1 text-[15px] text-ink/80">{tr('أسماء الإناث من الإبل، وتظهر في المنصة باللون العنابي.', 'Names for female camels, shown in maroon.')}</p></div>
+              <div className="rounded-xl border-2 border-istithmar bg-istithmar-soft p-5"><h3 className="text-xl text-istithmar-deep">{tr('استثمار', 'Investment')}</h3><p className="mt-1 text-[15px] text-ink/80">{tr('أسماء مخصصة للاستثمار، وتظهر في المنصة باللون البنفسجي.', 'Names held as an investment, shown in purple.')}</p></div>
             </div>
           </div>
           <div>

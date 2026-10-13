@@ -4,7 +4,7 @@ import { Icon, SectionCard, StatTile } from '../../components/dash'
 import { NoResults, TableTools, useTableFilter } from '../../components/TableTools'
 import { InvoiceDoc } from '../../components/InvoiceDoc'
 import { Countdown, Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, PhasePill, RequestStatusPill, Segmented, TypeBadge } from '../../components/ui'
-import { RULES, TYPE_LABEL } from '../../lib/config'
+import { RULES, TYPE_LABEL, typeOptions } from '../../lib/config'
 import { phaseOf } from '../../lib/demoApi'
 import { date, dateTime, fromLocalInput, namesCount, num, sar, toLocalInput } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
@@ -113,7 +113,7 @@ export function AdminRequests() {
       <PageHead title="طلبات الشعارات" />
       <div className="mb-4 flex flex-wrap gap-3">
         <Segmented value={status} onChange={setStatus} options={[['under_review', 'تحت المراجعة'], ['accepted', 'مقبولة'], ['rejected', 'مرفوضة'], ['cancelled', 'ملغاة'], ['all', 'الكل']]} />
-        <Segmented value={type} onChange={setType} options={[['all', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']]} />
+        <Segmented value={type} onChange={setType} options={typeOptions('all', 'الكل')} />
       </div>
       <TableTools t={tf} placeholder="بحث برقم الطلب أو المالك أو الاسم" />
       {loading && !data ? <Loading /> : list.length ? (
@@ -288,7 +288,7 @@ export function AdminSchedule() {
 
   const tf = useTableFilter(data, {
     fields: (c) => [c.name, c.request.number, c.request.ownerName],
-    filters: [{ key: 'type', label: 'النوع', options: [['', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']], test: (x, v) => x.request.type === v }],
+    filters: [{ key: 'type', label: 'النوع', options: typeOptions('', 'الكل'), test: (x, v) => x.request.type === v }],
   })
   const toggle = (id: string) => { const s = new Set(sel); if (s.has(id)) s.delete(id); else s.add(id); setSel(s) }
   const dur = (days: number) => setEnds(toLocalInput(Date.parse(fromLocalInput(starts)) + days * 86400_000))
@@ -356,7 +356,7 @@ export function AdminAuctions() {
       <PageHead title="متابعة المزادات" />
       <div className="mb-4 flex flex-wrap gap-3">
         <Segmented value={phase} onChange={setPhase} options={[['live', 'جارية'], ['scheduled', 'قادمة'], ['ended', 'منتهية'], ['all', 'الكل']]} />
-        <Segmented value={type} onChange={setType} options={[['all', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']]} />
+        <Segmented value={type} onChange={setType} options={typeOptions('all', 'الكل')} />
       </div>
       <TableTools t={tf} placeholder="بحث باسم الشعار أو الفائز" />
       {loading && !data ? <Loading /> : data?.length ? (
@@ -394,7 +394,7 @@ export function AdminInvoices() {
     fields: (i) => [i.number, i.buyerName, i.buyerPhone, i.name, i.total],
     filters: [
       { key: 'status', label: 'الحالة', options: [['', 'الكل'], ['unpaid', 'غير مدفوعة'], ['paid', 'مدفوعة']], test: (i, v) => i.status === v },
-      { key: 'type', label: 'النوع', options: [['', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']], test: (x, v) => x.type === v },
+      { key: 'type', label: 'النوع', options: typeOptions('', 'الكل'), test: (x, v) => x.type === v },
     ],
   })
   const due = tf.list.filter((i) => i.status === 'unpaid').reduce((s, i) => s + i.amountDue, 0)

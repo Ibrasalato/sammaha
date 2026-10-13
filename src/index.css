@@ -90,6 +90,7 @@
 }
 .lot-qaadan { background-color: #1E5A8C; }
 .lot-bakkar { background-color: #A23B4F; }
+.lot-istithmar { background-color: #5E3D8F; }
 
 /* hero slideshow: slow zoom on the active photo */
 .slide { transform: scale(1.02); }

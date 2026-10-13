@@ -33,11 +33,13 @@ const ar = () => getLang() === 'ar'
 export const TYPE_LABEL: Record<NameType, string> = {
   get qaadan() { return ar() ? 'قعدان' : 'Qaadan' },
   get bakkar() { return ar() ? 'بكار' : 'Bakkar' },
+  get istithmar() { return ar() ? 'استثمار' : 'Investment' },
 }
 
 export const TYPE_HINT: Record<NameType, string> = {
   get qaadan() { return ar() ? 'أسماء الذكور من الإبل' : 'Names for male camels' },
   get bakkar() { return ar() ? 'أسماء الإناث من الإبل' : 'Names for female camels' },
+  get istithmar() { return ar() ? 'أسماء مخصصة للاستثمار' : 'Names held as an investment' },
 }
 
 /** The platform owner's super admin account: cannot be demoted or suspended. */
@@ -47,5 +49,16 @@ export const STAFF_LOGIN_PATH = '/ico-staff'
 
 /** One-time code: fixed until an SMS provider is connected (then it's random and sent by SMS). */
 export const OTP = { fixedCode: '4321', length: 4, ttlMinutes: 5, maxAttempts: 5 }
+
+/** Every name category, in display order */
+export const NAME_TYPES: NameType[] = ['qaadan', 'bakkar', 'istithmar']
+/** Tailwind classes per category (standard designs: blue, maroon, purple) */
+export const TYPE_CLS: Record<NameType, { pill: string; dot: string; card: string; text: string }> = {
+  qaadan: { pill: 'bg-qaadan-soft text-qaadan-deep', dot: 'bg-qaadan', card: 'border-qaadan bg-qaadan-soft', text: 'text-qaadan-deep' },
+  bakkar: { pill: 'bg-bakkar-soft text-bakkar-deep', dot: 'bg-bakkar', card: 'border-bakkar bg-bakkar-soft', text: 'text-bakkar-deep' },
+  istithmar: { pill: 'bg-istithmar-soft text-istithmar-deep', dot: 'bg-istithmar', card: 'border-istithmar bg-istithmar-soft', text: 'text-istithmar-deep' },
+}
+/** [value, label] options for filters; `all` = the value used for "everything" */
+export const typeOptions = <A extends string>(all: A, allLabel: string): [A | NameType, string][] => [[all, allLabel], ...NAME_TYPES.map((t) => [t, TYPE_LABEL[t]] as [NameType, string])]
 
 export const IS_DEMO = !import.meta.env.VITE_SUPABASE_URL
