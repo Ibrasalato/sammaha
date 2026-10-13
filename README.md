@@ -31,6 +31,8 @@
 ### إلغاء الطلب من المالك
 - يلغي المالك طلبه من «طلبات الشعارات» قبل المراجعة، أو بعد قبوله ما دام لم يبدأ أي مزاد لأسمائه، ويُعاد الضمان إلى محفظته فورًا مع إشعار.
 - تُحذف المزادات المجدولة التي لم تبدأ، وتعود الأسماء متاحة لغيره. بعد بدء أي مزاد لا يمكن الإلغاء.
+- يسحب المالك أي اسم بمفرده («سحب هذا الاسم») ما دام مزاده لم يبدأ؛ يستمر الطلب بالأسماء الباقية والضمان لها، وسحب آخر اسم يلغي الطلب ويعيد الضمان.
+- **البحث والتصفية** في كل جداول النظام: بحث يتجاهل الهمزات والتاء المربوطة والتشكيل، وفلاتر حسب الحالة والنوع وغيرها، مع عدد النتائج وزر «مسح التصفية».
 
 ### قواعد الضمان عند الترسية (افتراضات قابلة للتعديل)
 - إن رسا على مقدم الطلب أي اسم من طلبه، يُخصم الضمان من فاتورة أول اسم.
@@ -53,7 +55,7 @@ npm run dev
 ## الإنتاج (Supabase)
 
 1. أنشئ مشروع Supabase وفعّل الإضافات `pg_cron` و `pg_net`.
-2. نفّذ ملفات `supabase/migrations/` بالترتيب: `0001_schema.sql` ثم `0002_logic.sql` ثم `0003_events_notifications.sql` ثم `0004_owner_photos.sql` ثم `0005_tickets.sql` ثم `0006_staff_roles.sql` ثم `0007_owner_cancel.sql`.
+2. نفّذ ملفات `supabase/migrations/` بالترتيب: `0001_schema.sql` ثم `0002_logic.sql` ثم `0003_events_notifications.sql` ثم `0004_owner_photos.sql` ثم `0005_tickets.sql` ثم `0006_staff_roles.sql` ثم `0007_owner_cancel.sql` ثم `0008_withdraw_names.sql`.
 3. انسخ `.env.example` إلى `.env` وضع `VITE_SUPABASE_URL` و `VITE_SUPABASE_ANON_KEY`.
 4. أنشئ حساب مدير النظام من Supabase (Authentication ← Add user) بالبريد `ibrasalato@gmail.com`؛ يصبح `admin` تلقائيًا. وانشر الدالة `admin-create-staff` ليضيف منها حسابات الموظفين من داخل المنصة.
 5. الدفع بالبطاقة: انشر الدالتين `create-payment` و `moyasar-webhook` وضع `MOYASAR_SECRET_KEY` و `MOYASAR_WEBHOOK_SECRET`.

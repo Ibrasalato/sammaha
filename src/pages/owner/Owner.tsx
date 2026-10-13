@@ -3,8 +3,9 @@ import { Link, useParams } from 'react-router-dom'
 import { Avatar, resizeToSquare } from '../../components/Avatar'
 import { CertificateDoc } from '../../components/CertificateDoc'
 import { InvoiceDoc } from '../../components/InvoiceDoc'
+import { NoResults, TableTools, useTableFilter } from '../../components/TableTools'
 import { PayModal } from '../../components/PayModal'
-import { Alert, Icon, SectionCard, StatTile, StepDots } from '../../components/dash'
+import { Alert, Icon, SectionCard, StatTile, StepDots, WinAlert } from '../../components/dash'
 import { Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, PhasePill, RequestStatusPill, TypeBadge } from '../../components/ui'
 import { phaseOf } from '../../lib/demoApi'
 import { date, dateTime, humanLeft, num, sar } from '../../lib/format'
@@ -52,9 +53,9 @@ export function DashHome() {
       {todo > 0 && (
         <div className="space-y-2">
           {unpaid.map((i) => (
-            <Alert key={i.id} icon="receipt" to={`/dashboard/invoices/${i.id}`} aside={<span className="num font-extrabold text-ink">{sar(i.amountDue)}</span>}>
-              رسا عليك اسم «{i.name}». سدّد الفاتورة {i.number} لإصدار شهادة التسجيل.
-            </Alert>
+            <WinAlert key={i.id} name={i.name} to={`/dashboard/invoices/${i.id}`}
+              note={<>سدّد الفاتورة <span className="num" dir="ltr">{i.number}</span> لإصدار شهادة التسجيل باسمك.</>}
+              aside={<span className="btn-gold btn-sm hidden sm:inline-flex">سداد <span className="num">{sar(i.amountDue)}</span></span>} />
           ))}
           {liveBids.filter((b) => b.auction.leaderId !== b.userId).map((b) => (
             <Alert key={b.id} icon="gavel" tone="red" to={`/auctions/${b.auctionId}`} aside={<span className="num font-extrabold text-ink">{sar(b.auction.currentPrice)}</span>}>
@@ -87,7 +88,7 @@ export function DashHome() {
                         <div className="flex items-center gap-2"><span className="num font-bold">{r.number}</span><TypeBadge type={r.type} /></div>
                         <div className="mt-1 flex flex-wrap gap-1.5">
                           {r.candidates.map((c) => (
-                            <span key={c.id} className={`rounded px-2 py-0.5 text-[13px] font-bold ${c.status === 'accepted' ? 'bg-[#E2F0E8] text-ok' : c.status === 'rejected' ? 'bg-bad/10 text-bad line-through' : 'bg-stone-deep text-ink'}`}>{c.name}</span>
+                            <span key={c.id} className={`rounded px-2 py-0.5 text-[13px] font-bold ${c.status === 'accepted' ? 'bg-[#E2F0E8] text-ok' : c.status === 'rejected' ? 'bg-bad/10 text-bad line-through' : c.status === 'withdrawn' ? 'bg-stone-deep text-muted line-through' : 'bg-stone-deep text-ink'}`}>{c.name}</span>
                           ))}
                         </div>
                       </div>
@@ -139,6 +140,13 @@ export function WalletPage() {
   const { data, loading, reload } = useLoad(() => api.myWallet(), [])
   const [open, setOpen] = useState(false)
   const [amount, setAmount] = useState('100')
+  const tf = useTableFilter(data?.txs, {
+    fields: (t) => [TX_LABEL[t.kind], t.note, t.amount, date(t.createdAt)],
+    filters: [
+      { key: 'kind', label: 'العملية', options: [['', 'الكل'], ...Object.entries(TX_LABEL)], test: (t, v) => t.kind === v },
+      { key: 'dir', label: 'الاتجاه', options: [['', 'الكل'], ['in', 'إيداع'], ['out', 'خصم']], test: (t, v) => (v === 'in' ? t.amount > 0 : t.amount < 0) },
+    ],
+  })
   return (
     <>
       <PageHead title="المحفظة" sub="يُعاد إليها ضمان الطلبات المرفوضة أو الملغاة، ويمكنك الدفع منها." action={<button className="btn-gold" onClick={() => setOpen(true)}>شحن المحفظة</button>} />
@@ -147,11 +155,14 @@ export function WalletPage() {
         <p className="num font-extrabold text-4xl font-semibold">{data ? sar(data.balance) : '…'}</p>
       </div>
       {loading && !data ? <Loading /> : data?.txs.length ? (
+        <>
+        <TableTools t={tf} placeholder="بحث في البيان أو المبلغ" />
         <div className="panel overflow-x-auto">
           <table className="tbl">
             <thead><tr><th>العملية</th><th>البيان</th><th>التاريخ</th><th className="text-end">المبلغ</th></tr></thead>
             <tbody>
-              {data.txs.map((t) => (
+              {!tf.list.length && <NoResults cols={4} onReset={tf.reset} />}
+              {tf.list.map((t) => (
                 <tr key={t.id}>
                   <td className="font-semibold">{TX_LABEL[t.kind]}</td>
                   <td className="text-muted">{t.note}</td>
@@ -162,6 +173,7 @@ export function WalletPage() {
             </tbody>
           </table>
         </div>
+        </>
       ) : <Empty title="لا توجد عمليات بعد" />}
       <Modal open={open} onClose={() => setOpen(false)} title="شحن المحفظة">
         <label className="label" htmlFor="amt">المبلغ بالريال</label>
@@ -177,15 +189,25 @@ export function WalletPage() {
 
 export function MyInvoices() {
   const { data, loading } = useLoad(() => api.myInvoices(), [])
+  const tf = useTableFilter(data, {
+    fields: (i) => [i.number, i.name, i.total, date(i.issuedAt)],
+    filters: [
+      { key: 'status', label: 'الحالة', options: [['', 'الكل'], ['unpaid', 'غير مدفوعة'], ['paid', 'مدفوعة']], test: (i, v) => i.status === v },
+      { key: 'type', label: 'النوع', options: [['', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']], test: (i, v) => i.type === v },
+    ],
+  })
   return (
     <>
       <PageHead title="الفواتير" sub="فاتورة إلكترونية لكل اسم يرسو عليك." />
       {loading && !data ? <Loading /> : data?.length ? (
+        <>
+        <TableTools t={tf} placeholder="بحث برقم الفاتورة أو الاسم" />
         <div className="panel overflow-x-auto">
           <table className="tbl">
             <thead><tr><th>رقم الفاتورة</th><th>الاسم</th><th>التاريخ</th><th>الإجمالي</th><th>المستحق</th><th>الحالة</th></tr></thead>
             <tbody>
-              {data.map((i) => (
+              {!tf.list.length && <NoResults cols={6} onReset={tf.reset} />}
+              {tf.list.map((i) => (
                 <tr key={i.id}>
                   <td><Link to={`/dashboard/invoices/${i.id}`} className="num font-semibold underline-offset-4 hover:underline">{i.number}</Link></td>
                   <td className="font-extrabold">{i.name}</td>
@@ -198,6 +220,7 @@ export function MyInvoices() {
             </tbody>
           </table>
         </div>
+        </>
       ) : <Empty title="لا توجد فواتير بعد" />}
     </>
   )
@@ -227,15 +250,30 @@ export function InvoicePage() {
 
 export function MyBids() {
   const { data, loading } = useLoad(() => api.myBids(), [], 15000)
+  const result = (b: NonNullable<typeof data>[number]) => {
+    if (phaseOf(b.auction) === 'ended') return b.auction.winnerId === b.userId ? 'won' : 'lost'
+    return b.auction.leaderId === b.userId ? 'leading' : 'outbid'
+  }
+  const tf = useTableFilter(data, {
+    fields: (b) => [b.auction.name, b.amount, b.auction.currentPrice],
+    filters: [
+      { key: 'phase', label: 'الحالة', options: [['', 'الكل'], ['live', 'جارٍ الآن'], ['scheduled', 'قادم'], ['ended', 'منتهٍ']], test: (b, v) => phaseOf(b.auction) === v },
+      { key: 'result', label: 'النتيجة', options: [['', 'الكل'], ['leading', 'متصدر'], ['outbid', 'تم تجاوزك'], ['won', 'فزت بالمزاد'], ['lost', 'لم يرسُ عليك']], test: (b, v) => result(b) === v },
+      { key: 'type', label: 'النوع', options: [['', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']], test: (b, v) => b.auction.type === v },
+    ],
+  })
   return (
     <>
       <PageHead title="مزايداتي" />
       {loading && !data ? <Loading /> : data?.length ? (
+        <>
+        <TableTools t={tf} placeholder="بحث باسم الشعار أو المبلغ" />
         <div className="panel overflow-x-auto">
           <table className="tbl">
             <thead><tr><th>الاسم</th><th>الحالة</th><th>مزايدتي</th><th>السعر الحالي</th><th>النتيجة</th></tr></thead>
             <tbody>
-              {data.map((b) => {
+              {!tf.list.length && <NoResults cols={5} onReset={tf.reset} />}
+              {tf.list.map((b) => {
                 const phase = phaseOf(b.auction)
                 const leading = b.auction.leaderId === b.userId
                 return (
@@ -245,7 +283,7 @@ export function MyBids() {
                     <td className="num">{sar(b.amount)}</td>
                     <td className="num font-semibold">{sar(b.auction.finalPrice ?? b.auction.currentPrice)}</td>
                     <td className={`font-semibold ${phase === 'ended' ? (b.auction.winnerId === b.userId ? 'text-ok' : 'text-muted') : leading ? 'text-ok' : 'text-bad'}`}>
-                      {phase === 'ended' ? (b.auction.winnerId === b.userId ? 'رسا عليك' : 'لم يرسُ عليك') : leading ? 'متصدر' : 'تم تجاوزك'}
+                      {phase === 'ended' ? (b.auction.winnerId === b.userId ? <span className="inline-flex items-center gap-1.5 rounded-full bg-gold-soft px-2.5 py-0.5 text-gold-deep"><Icon name="trophy" className="h-4 w-4" />مبارك، فزت بالمزاد</span> : 'لم يرسُ عليك') : leading ? 'متصدر' : 'تم تجاوزك'}
                     </td>
                   </tr>
                 )
@@ -253,6 +291,7 @@ export function MyBids() {
             </tbody>
           </table>
         </div>
+        </>
       ) : <Empty title="لم تزايد على أي اسم بعد"><Link to="/auctions" className="btn-ghost btn-sm">تصفّح المزادات</Link></Empty>}
     </>
   )

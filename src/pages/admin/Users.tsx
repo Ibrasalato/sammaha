@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Icon, StatTile } from '../../components/dash'
 import { Empty, ErrorBox, Loading, Modal, PageHead, Segmented } from '../../components/ui'
+import { TableTools, useTableFilter } from '../../components/TableTools'
 import { STAFF_LOGIN_PATH, SUPER_ADMIN_EMAIL } from '../../lib/config'
 import { date, num } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
@@ -75,19 +76,22 @@ export function AdminUsers() {
   const { user: me, toast } = useApp()
   const { data, loading, setData } = useLoad(() => api.listUsers(), [])
   const [tab, setTab] = useState<'staff' | 'owners'>('staff')
-  const [q, setQ] = useState('')
   const [adding, setAdding] = useState(false)
   const [created, setCreated] = useState<{ u: User; password: string } | null>(null)
   const [busyId, setBusyId] = useState('')
   const canManage = me?.role === 'admin'
   const all = data ?? []
   const staff = all.filter((u) => u.role !== 'owner')
-  const list = useMemo(() => {
-    const s = q.trim()
-    return (tab === 'staff' ? staff : all.filter((u) => u.role === 'owner'))
-      .filter((u) => !s || [u.fullName, u.phone, u.email].some((x) => x.includes(s)))
-      .sort((a, b) => Number(isSuper(b)) - Number(isSuper(a)))
-  }, [all, staff, tab, q])
+  const rows = useMemo(() => (tab === 'staff' ? all.filter((u) => u.role !== 'owner') : all.filter((u) => u.role === 'owner'))
+    .sort((a, b) => Number(isSuper(b)) - Number(isSuper(a))), [all, tab])
+  const tf = useTableFilter(rows, {
+    fields: (u) => [u.fullName, u.phone, u.email],
+    filters: [
+      ...(tab === 'staff' ? [{ key: 'role', label: 'الصلاحية', options: [['', 'الكل'], ['admin', 'مدير النظام'], ['committee', 'لجنة الاعتماد']] as [string, string][], test: (u: User, v: string) => u.role === v }] : []),
+      { key: 'active', label: 'الحالة', options: [['', 'الكل'], ['yes', 'نشط'], ['no', 'موقوف']], test: (u, v) => (u.active !== false) === (v === 'yes') },
+    ],
+  })
+  const list = tf.list
 
   async function change(u: User, p: Promise<User>, msg: string) {
     setBusyId(u.id)
@@ -117,9 +121,9 @@ export function AdminUsers() {
       )}
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Segmented value={tab} onChange={setTab} options={[['staff', `الموظفون (${num(staff.length)})`], ['owners', 'ملاك الإبل']]} />
-        <input className="field w-full py-2 sm:w-72" placeholder="بحث بالاسم أو الجوال أو البريد" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Segmented value={tab} onChange={(v) => { setTab(v); tf.reset() }} options={[['staff', `الموظفون (${num(staff.length)})`], ['owners', 'ملاك الإبل']]} />
       </div>
+      <TableTools t={tf} placeholder="بحث بالاسم أو الجوال أو البريد" />
 
       {loading && !data ? <Loading /> : list.length ? (
         <div className="panel overflow-x-auto">
@@ -160,7 +164,7 @@ export function AdminUsers() {
             </tbody>
           </table>
         </div>
-      ) : <Empty title="لا يوجد مستخدمون بهذا البحث" />}
+      ) : <Empty title="لا يوجد مستخدمون بهذا البحث"><button className="btn-ghost btn-sm" onClick={tf.reset}>مسح التصفية</button></Empty>}
 
       <section className="mt-8 grid gap-4 lg:grid-cols-3">
         {ROLE_RIGHTS.map(([r, rights]) => (

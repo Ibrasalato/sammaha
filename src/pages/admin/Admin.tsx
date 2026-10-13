@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Icon, SectionCard, StatTile } from '../../components/dash'
+import { NoResults, TableTools, useTableFilter } from '../../components/TableTools'
 import { InvoiceDoc } from '../../components/InvoiceDoc'
 import { Countdown, Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, PhasePill, RequestStatusPill, Segmented, TypeBadge } from '../../components/ui'
 import { RULES, TYPE_LABEL } from '../../lib/config'
@@ -98,7 +99,12 @@ export function AdminRequests() {
   const [status, setStatus] = useState<RequestStatus | 'all'>('under_review')
   const [type, setType] = useState<NameType | 'all'>('all')
   const { data, loading } = useLoad(() => api.listRequests(status), [status])
-  const list = (data ?? []).filter((r) => type === 'all' || r.type === type)
+  const rows = useMemo(() => (data ?? []).filter((r) => type === 'all' || r.type === type), [data, type])
+  const tf = useTableFilter(rows, {
+    fields: (r) => [r.number, r.ownerName, ...r.candidates.map((c) => c.name)],
+    filters: [{ key: 'similar', label: 'التشابه', options: [['', 'الكل'], ['yes', 'فيها أسماء شبيهة'], ['no', 'بلا تشابه']], test: (r, v) => r.candidates.some((c) => c.similar.length) === (v === 'yes') }],
+  })
+  const list = tf.list
   return (
     <>
       <PageHead title="طلبات الشعارات" />
@@ -106,6 +112,7 @@ export function AdminRequests() {
         <Segmented value={status} onChange={setStatus} options={[['under_review', 'تحت المراجعة'], ['accepted', 'مقبولة'], ['rejected', 'مرفوضة'], ['cancelled', 'ملغاة'], ['all', 'الكل']]} />
         <Segmented value={type} onChange={setType} options={[['all', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']]} />
       </div>
+      <TableTools t={tf} placeholder="بحث برقم الطلب أو المالك أو الاسم" />
       {loading && !data ? <Loading /> : list.length ? (
         <div className="panel overflow-x-auto">
           <table className="tbl">
@@ -118,7 +125,7 @@ export function AdminRequests() {
                   <td><TypeBadge type={r.type} /></td>
                   <td className="font-extrabold">
                     {r.candidates.map((c, i) => (
-                      <span key={c.id} className={c.status === 'rejected' ? 'text-bad line-through' : c.status === 'accepted' ? 'text-ok' : ''}>
+                      <span key={c.id} className={c.status === 'rejected' ? 'text-bad line-through' : c.status === 'withdrawn' ? 'text-muted line-through' : c.status === 'accepted' ? 'text-ok' : ''}>
                         {c.name}{c.similar.length ? <sup className="text-gold-deep">●</sup> : null}{i < r.candidates.length - 1 ? '، ' : ''}
                       </span>
                     ))}
@@ -150,15 +157,15 @@ export function AdminReview() {
   useEffect(() => {
     if (!r) return
     // default: exact matches rejected, everything else undecided
-    setDec(Object.fromEntries(r.candidates.map((c) => [c.id, c.similar.some((h) => h.score === 1)
+    setDec(Object.fromEntries(r.candidates.filter((c) => c.status !== 'withdrawn').map((c) => [c.id, c.similar.some((h) => h.score === 1)
       ? { candidateId: c.id, status: 'rejected', reason: `مطابق لـ«${c.similar.find((h) => h.score === 1)!.name}»` }
-      : { candidateId: c.id, status: c.status === 'pending' ? (undefined as never) : c.status, reason: c.rejectReason }])))
+      : { candidateId: c.id, status: c.status === 'pending' ? (undefined as never) : (c.status as 'accepted' | 'rejected'), reason: c.rejectReason }])))
   }, [r])
 
   if (loading && !r) return <Loading />
   if (error || !r) return <ErrorBox text={error || 'الطلب غير موجود'} />
   const editable = r.status === 'under_review'
-  const allDecided = r.candidates.every((c) => dec[c.id]?.status)
+  const allDecided = r.candidates.every((c) => c.status === 'withdrawn' || dec[c.id]?.status)
 
   async function run(fn: () => Promise<unknown>, msg: string) {
     setBusy(true)
@@ -198,7 +205,9 @@ export function AdminReview() {
                 ) : <p className="mt-1 text-sm font-semibold text-ok">لا توجد أسماء شبيهة</p>}
               </div>
               <div>
-                {editable ? (
+                {c.status === 'withdrawn' ? (
+                  <div><span className="pill bg-stone-deep text-muted">سحبه المالك</span><p className="mt-1 text-sm text-muted">لا يحتاج قرارًا.</p></div>
+                ) : editable ? (
                   <fieldset className="space-y-2">
                     <legend className="label">القرار</legend>
                     <div className="grid grid-cols-2 gap-2">
@@ -266,6 +275,10 @@ export function AdminSchedule() {
   const [ends, setEnds] = useState(toLocalInput(base + 3 * 86400_000))
   const [busy, setBusy] = useState(false)
 
+  const tf = useTableFilter(data, {
+    fields: (c) => [c.name, c.request.number, c.request.ownerName],
+    filters: [{ key: 'type', label: 'النوع', options: [['', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']], test: (x, v) => x.request.type === v }],
+  })
   const toggle = (id: string) => { const s = new Set(sel); if (s.has(id)) s.delete(id); else s.add(id); setSel(s) }
   const dur = (days: number) => setEnds(toLocalInput(Date.parse(fromLocalInput(starts)) + days * 86400_000))
 
@@ -274,11 +287,14 @@ export function AdminSchedule() {
       <PageHead title="فتح المزادات" sub={`الأسماء المقبولة بانتظار تحديد موعد المزاد. السعر الافتتاحي ${sar(RULES.openingPrice)}، والتوقيت بتوقيت الرياض.`} />
       {loading && !data ? <Loading /> : data?.length ? (
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+          <div>
+          <TableTools t={tf} placeholder="بحث بالاسم أو الطلب أو المالك" />
           <div className="panel overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th><input type="checkbox" aria-label="تحديد الكل" checked={sel.size === data.length} onChange={(e) => setSel(e.target.checked ? new Set(data.map((c) => c.id)) : new Set())} /></th><th>الاسم</th><th>النوع</th><th>الطلب</th><th>المالك</th></tr></thead>
+              <thead><tr><th><input type="checkbox" aria-label="تحديد الظاهر" checked={!!tf.list.length && tf.list.every((c) => sel.has(c.id))} onChange={(e) => { const s = new Set(sel); tf.list.forEach((c) => (e.target.checked ? s.add(c.id) : s.delete(c.id))); setSel(s) }} /></th><th>الاسم</th><th>النوع</th><th>الطلب</th><th>المالك</th></tr></thead>
               <tbody>
-                {data.map((c) => (
+                {!tf.list.length && <NoResults cols={5} onReset={tf.reset} />}
+                {tf.list.map((c) => (
                   <tr key={c.id} className="cursor-pointer hover:bg-stone" onClick={() => toggle(c.id)}>
                     <td><input type="checkbox" checked={sel.has(c.id)} onChange={() => toggle(c.id)} onClick={(e) => e.stopPropagation()} aria-label={c.name} /></td>
                     <td className="font-extrabold text-lg">{c.name}</td>
@@ -289,6 +305,7 @@ export function AdminSchedule() {
                 ))}
               </tbody>
             </table>
+          </div>
           </div>
           <aside className="panel h-fit p-5">
             <h2 className="text-lg">موعد المزاد</h2>
@@ -316,6 +333,13 @@ export function AdminAuctions() {
   const [phase, setPhase] = useState<AuctionPhase | 'all'>('live')
   const [type, setType] = useState<NameType | 'all'>('all')
   const { data, loading } = useLoad(() => api.listAuctions({ phase, type }), [phase, type], 10000)
+  const tf = useTableFilter(data, {
+    fields: (a) => [a.name, a.winnerName, a.leaderLabel],
+    filters: [
+      { key: 'bids', label: 'المزايدات', options: [['', 'الكل'], ['some', 'عليها مزايدات'], ['none', 'بلا مزايدات']], test: (a, v) => (v === 'some' ? a.bidCount > 0 : a.bidCount === 0) },
+      { key: 'settle', label: 'الترسية', options: [['', 'الكل'], ['requester', 'رست على مقدم الطلب'], ['bidder', 'رست على مزايد'], ['open', 'لم تُرسَ']], test: (a, v) => (v === 'open' ? !a.settled : a.settled && (v === 'requester') === !!a.wonByRequester) },
+    ],
+  })
   return (
     <>
       <PageHead title="متابعة المزادات" />
@@ -323,12 +347,14 @@ export function AdminAuctions() {
         <Segmented value={phase} onChange={setPhase} options={[['live', 'جارية'], ['scheduled', 'قادمة'], ['ended', 'منتهية'], ['all', 'الكل']]} />
         <Segmented value={type} onChange={setType} options={[['all', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']]} />
       </div>
+      <TableTools t={tf} placeholder="بحث باسم الشعار أو الفائز" />
       {loading && !data ? <Loading /> : data?.length ? (
         <div className="panel overflow-x-auto">
           <table className="tbl">
             <thead><tr><th>الاسم</th><th>الحالة</th><th>السعر</th><th>المزايدات</th><th>الوقت</th><th>الترسية</th></tr></thead>
             <tbody>
-              {data.map((a) => {
+              {!tf.list.length && <NoResults cols={6} onReset={tf.reset} />}
+              {tf.list.map((a) => {
                 const p = phaseOf(a)
                 return (
                   <tr key={a.id}>
@@ -353,15 +379,28 @@ export function AdminInvoices() {
   const { toast } = useApp()
   const { data, loading, reload } = useLoad(() => api.allInvoices(), [])
   const [view, setView] = useState<Invoice | null>(null)
+  const tf = useTableFilter(data, {
+    fields: (i) => [i.number, i.buyerName, i.buyerPhone, i.name, i.total],
+    filters: [
+      { key: 'status', label: 'الحالة', options: [['', 'الكل'], ['unpaid', 'غير مدفوعة'], ['paid', 'مدفوعة']], test: (i, v) => i.status === v },
+      { key: 'type', label: 'النوع', options: [['', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']], test: (x, v) => x.type === v },
+    ],
+  })
+  const due = tf.list.filter((i) => i.status === 'unpaid').reduce((s, i) => s + i.amountDue, 0)
   return (
     <>
       <PageHead title="الفواتير الإلكترونية" />
       {loading && !data ? <Loading /> : data?.length ? (
+        <>
+        <TableTools t={tf} placeholder="بحث برقم الفاتورة أو المشتري أو الاسم">
+          {due > 0 && <span className="pill bg-gold-soft text-gold-deep">مستحق غير محصّل {sar(due)}</span>}
+        </TableTools>
         <div className="panel overflow-x-auto">
           <table className="tbl">
             <thead><tr><th>الفاتورة</th><th>المشتري</th><th>الاسم</th><th>الإجمالي</th><th>الضريبة</th><th>المستحق</th><th>الحالة</th><th></th></tr></thead>
             <tbody>
-              {data.map((i) => (
+              {!tf.list.length && <NoResults cols={8} onReset={tf.reset} />}
+              {tf.list.map((i) => (
                 <tr key={i.id}>
                   <td className="num font-semibold">{i.number}</td>
                   <td>{i.buyerName}</td>
@@ -382,6 +421,7 @@ export function AdminInvoices() {
             </tbody>
           </table>
         </div>
+        </>
       ) : <Empty title="لا توجد فواتير بعد"><p className="text-muted">تُصدر الفاتورة تلقائيًا عند ترسية كل مزاد.</p></Empty>}
       <Modal open={!!view} onClose={() => setView(null)} title="الفاتورة" wide>{view && <InvoiceDoc inv={view} />}</Modal>
     </>
@@ -395,16 +435,28 @@ export function AdminEvents() {
   const { data, loading, reload } = useLoad(() => api.listEvents(), [])
   const [edit, setEdit] = useState<CamelEvent | null>(null)
   const set = (k: keyof CamelEvent, v: string | boolean) => setEdit((e) => (e ? { ...e, [k]: v } : e))
+  const today = new Date().toISOString().slice(0, 10)
+  const tf = useTableFilter(data, {
+    fields: (e) => [e.title, e.titleEn, e.city, e.country, e.startsOn],
+    filters: [
+      { key: 'kind', label: 'النوع', options: [['', 'الكل'], ...(Object.entries(EVENT_KIND) as [EventKind, { label: string }][]).map(([k, v]) => [k, v.label] as [string, string])], test: (e, v) => e.kind === v },
+      { key: 'when', label: 'الموعد', options: [['', 'الكل'], ['upcoming', 'قادمة'], ['now', 'جارية الآن'], ['past', 'منتهية']], test: (e, v) => (v === 'past' ? e.endsOn < today : v === 'now' ? e.startsOn <= today && e.endsOn >= today : e.startsOn > today) },
+      { key: 'approx', label: 'الإعلان', options: [['', 'الكل'], ['yes', 'موعد متوقع'], ['no', 'معلن رسميًا']], test: (e, v) => e.approx === (v === 'yes') },
+    ],
+  })
   return (
     <>
       <PageHead title="المواعيد والفعاليات" sub="تظهر في تقويم المنصة وصفحتها الرئيسية. ألغِ علامة «موعد متوقع» عند الإعلان الرسمي."
         action={<button className="btn-gold" onClick={() => setEdit({ ...EMPTY_EVENT })}>إضافة فعالية</button>} />
       {loading && !data ? <Loading /> : data?.length ? (
+        <>
+        <TableTools t={tf} placeholder="بحث باسم الفعالية أو المدينة" />
         <div className="panel overflow-x-auto">
           <table className="tbl">
             <thead><tr><th>الفعالية</th><th>النوع</th><th>من</th><th>إلى</th><th>المكان</th><th>الحالة</th><th></th></tr></thead>
             <tbody>
-              {data.map((e) => (
+              {!tf.list.length && <NoResults cols={7} onReset={tf.reset} />}
+              {tf.list.map((e) => (
                 <tr key={e.id}>
                   <td className="font-bold">{e.title}</td>
                   <td><span className={`pill ${EVENT_KIND[e.kind].cls}`}>{EVENT_KIND[e.kind].label}</span></td>
@@ -424,6 +476,7 @@ export function AdminEvents() {
             </tbody>
           </table>
         </div>
+        </>
       ) : <Empty title="لا توجد فعاليات"><button className="btn-gold btn-sm" onClick={() => setEdit({ ...EMPTY_EVENT })}>إضافة فعالية</button></Empty>}
 
       <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? 'تعديل فعالية' : 'إضافة فعالية'} wide>

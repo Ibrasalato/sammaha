@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PayModal } from '../../components/PayModal'
+import { TableTools, useTableFilter } from '../../components/TableTools'
 import { Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, RequestStatusPill, TypeBadge } from '../../components/ui'
 import { RULES, TYPE_HINT, TYPE_LABEL } from '../../lib/config'
 import { dateTime, sar } from '../../lib/format'
@@ -15,7 +16,7 @@ const DEPOSIT_STATE: Record<LogoRequest['depositState'], string> = {
 }
 
 function CandidateChip({ c, type }: { c: Candidate; type: NameType }) {
-  const tone = c.status === 'accepted' ? 'text-ok' : c.status === 'rejected' ? 'text-bad line-through' : 'text-ink'
+  const tone = c.status === 'accepted' ? 'text-ok' : c.status === 'rejected' ? 'text-bad line-through' : c.status === 'withdrawn' ? 'text-muted line-through' : 'text-ink'
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1 font-extrabold ${tone}`}>
       <span className={`h-2 w-2 rounded-full ${type === 'qaadan' ? 'bg-qaadan' : 'bg-bakkar'}`} />{c.name}
@@ -69,18 +70,65 @@ function CancelRequest({ r, onClose, onDone }: { r: LogoRequest; onClose: () => 
   )
 }
 
+/** Withdraw a single name. The last remaining name cancels the request and refunds the guarantee. */
+function WithdrawName({ r, c, onClose, onDone }: { r: LogoRequest; c: Candidate; onClose: () => void; onDone: () => void }) {
+  const { toast } = useApp()
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const others = r.candidates.filter((x) => x.id !== c.id && (x.status === 'pending' || x.status === 'accepted'))
+  const last = others.length === 0
+  const held = r.depositState === 'held'
+  async function confirm() {
+    setBusy(true); setErr('')
+    try {
+      const res = await api.withdrawName(r.id, c.id)
+      toast(res.requestCancelled ? (res.refunded ? `سُحبت كل الأسماء وأُعيد ${sar(res.refunded)} إلى محفظتك` : 'سُحبت كل الأسماء وأُلغي الطلب') : `سُحب الاسم «${c.name}» من الطلب`)
+      onDone()
+    } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
+  }
+  return (
+    <Modal open onClose={onClose} title={`سحب الاسم «${c.name}»`}>
+      <div className="space-y-4">
+        {err && <ErrorBox text={err} />}
+        <div className="flex justify-center"><NameSeal name={c.name} type={r.type} size="md" /></div>
+        <ul className="space-y-2 rounded-lg bg-stone p-4 text-[15px]">
+          {c.auctionId && <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" /><span>يُلغى مزاده المجدول قبل أن يبدأ.</span></li>}
+          {last
+            ? <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-ok" /><span>هذا آخر اسم في الطلب، فيُلغى الطلب كاملًا{held ? <> ويُعاد الضمان <b>{sar(r.depositAmount)}</b> إلى محفظتك.</> : '.'}</span></li>
+            : <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-pine" /><span>يستمر الطلب بالأسماء الباقية ({others.map((x) => x.name).join('، ')})، ويبقى الضمان لها. إن سحبتها كلها يُعاد الضمان إلى محفظتك.</span></li>}
+          <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-bad" /><span>يصبح الاسم متاحًا لغيرك، ولا يمكن التراجع.</span></li>
+        </ul>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn bg-bad text-paper hover:bg-bad/90" disabled={busy} onClick={confirm}>{busy ? 'جارٍ السحب…' : last && held ? `سحب واسترداد ${sar(r.depositAmount)}` : 'سحب الاسم'}</button>
+          <button className="btn-ghost" disabled={busy} onClick={onClose}>تراجع</button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 export function MyRequests() {
   const { toast } = useApp()
   const { data, loading, reload } = useLoad(() => api.myRequests(), [])
   const [paying, setPaying] = useState<LogoRequest | null>(null)
   const [cancelling, setCancelling] = useState<LogoRequest | null>(null)
+  const tf = useTableFilter(data, {
+    fields: (r) => [r.number, ...r.candidates.map((c) => c.name)],
+    filters: [
+      { key: 'status', label: 'الحالة', options: [['', 'الكل'], ['pending_payment', 'بانتظار السداد'], ['under_review', 'تحت المراجعة'], ['accepted', 'مقبول'], ['rejected', 'مرفوض'], ['cancelled', 'ملغى']], test: (r, v) => r.status === v },
+      { key: 'type', label: 'النوع', options: [['', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']], test: (r, v) => r.type === v },
+    ],
+  })
 
   return (
     <>
       <PageHead title="طلبات الشعارات" sub="كل طلب يضم ثلاثة أسماء وضمان مزاد قدره 50 ريال." action={<Link to="/dashboard/requests/new" className="btn-gold">طلب شعار جديد</Link>} />
       {loading && !data ? <Loading /> : data?.length ? (
+        <>
+        <TableTools t={tf} placeholder="بحث برقم الطلب أو الاسم" />
+        {!tf.list.length && <p className="panel px-5 py-10 text-center text-muted">لا توجد نتائج مطابقة. <button className="font-bold text-pine underline" onClick={tf.reset}>مسح التصفية</button></p>}
         <ul className="space-y-3">
-          {data.map((r) => (
+          {tf.list.map((r) => (
             <li key={r.id} className="panel p-4">
               <div className="flex flex-wrap items-center gap-3">
                 <Link to={`/dashboard/requests/${r.id}`} className="num font-semibold hover:text-gold-deep">{r.number}</Link>
@@ -92,11 +140,13 @@ export function MyRequests() {
               <div className="mt-3 flex flex-wrap gap-2">
                 {r.status === 'pending_payment' && <button className="btn-gold btn-sm" onClick={() => setPaying(r)}>سداد الضمان {sar(r.depositAmount)}</button>}
                 <Link to={`/dashboard/requests/${r.id}`} className="btn-ghost btn-sm">التفاصيل</Link>
-                {r.cancellable && <button className="btn-danger btn-sm" onClick={() => setCancelling(r)}>{r.depositState === 'held' ? 'إلغاء واسترداد الضمان' : 'إلغاء الطلب'}</button>}
+                {r.cancellable && <button className="btn-danger btn-sm" onClick={() => setCancelling(r)}>{r.depositState === 'held' ? 'إلغاء كل الأسماء واسترداد الضمان' : 'إلغاء الطلب'}</button>}
+                {r.candidates.some((c) => c.withdrawable) && r.candidates.filter((c) => c.status === 'pending' || c.status === 'accepted').length > 1 && <Link to={`/dashboard/requests/${r.id}`} className="btn-ghost btn-sm">سحب اسم معيّن</Link>}
               </div>
             </li>
           ))}
         </ul>
+        </>
       ) : (
         <Empty title="لم تقدّم أي طلب بعد">
           <p className="text-muted">اختر ثلاثة أسماء لإبلك وقدّمها للجنة الاعتماد.</p>
@@ -214,6 +264,7 @@ export function RequestDetail() {
   const { data: r, error, loading, reload } = useLoad(() => api.getRequest(id), [id])
   const [paying, setPaying] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [withdrawing, setWithdrawing] = useState<Candidate | null>(null)
   if (loading && !r) return <Loading />
   if (error || !r) return <ErrorBox text={error || 'الطلب غير موجود'} />
 
@@ -228,7 +279,7 @@ export function RequestDetail() {
     <>
       <PageHead title={`الطلب ${r.number}`} sub={<span className="flex flex-wrap items-center gap-2"><TypeBadge type={r.type} /><RequestStatusPill status={r.status} /></span>}
         action={r.cancellable ? (
-          <button className="btn-danger btn-sm" onClick={() => setCancelling(true)}>{r.depositState === 'held' ? 'إلغاء الطلب واسترداد الضمان' : 'إلغاء الطلب'}</button>
+          <button className="btn-danger btn-sm" onClick={() => setCancelling(true)}>{r.depositState === 'held' ? 'إلغاء كل الأسماء واسترداد الضمان' : 'إلغاء الطلب'}</button>
         ) : undefined} />
 
       {r.status === 'cancelled' && (
@@ -262,10 +313,11 @@ export function RequestDetail() {
         {r.candidates.map((c) => (
           <div key={c.id} className="panel flex flex-col items-center gap-3 p-5 text-center">
             <NameSeal name={c.name} type={r.type} size="md" />
-            <span className={`pill ${r.status === 'cancelled' ? 'bg-stone-deep text-muted' : c.status === 'accepted' ? 'bg-ok/10 text-ok' : c.status === 'rejected' ? 'bg-bad/10 text-bad' : 'bg-stone-deep text-muted'}`}>
-              {r.status === 'cancelled' ? 'ملغى' : c.status === 'accepted' ? 'مقبول' : c.status === 'rejected' ? 'مرفوض' : 'قيد المراجعة'}
+            <span className={`pill ${r.status === 'cancelled' || c.status === 'withdrawn' ? 'bg-stone-deep text-muted' : c.status === 'accepted' ? 'bg-ok/10 text-ok' : c.status === 'rejected' ? 'bg-bad/10 text-bad' : 'bg-stone-deep text-muted'}`}>
+              {c.status === 'withdrawn' ? 'سحبته' : r.status === 'cancelled' ? 'ملغى' : c.status === 'accepted' ? 'مقبول' : c.status === 'rejected' ? 'مرفوض' : r.status === 'pending_payment' ? 'بانتظار السداد' : 'قيد المراجعة'}
             </span>
             {c.rejectReason && <p className="text-sm text-bad">{c.rejectReason}</p>}
+            {c.withdrawable && <button className="text-[13.5px] font-bold text-bad hover:underline" onClick={() => setWithdrawing(c)}>سحب هذا الاسم</button>}
             {c.status === 'accepted' && r.status !== 'cancelled' && (c.auctionId
               ? <Link to={`/auctions/${c.auctionId}`} className="btn-ghost btn-sm">صفحة المزاد</Link>
               : <p className="text-sm text-muted">بانتظار تحديد موعد المزاد</p>)}
@@ -281,6 +333,7 @@ export function RequestDetail() {
       </dl>
 
       {cancelling && <CancelRequest r={r} onClose={() => setCancelling(false)} onDone={() => { setCancelling(false); reload() }} />}
+      {withdrawing && <WithdrawName r={r} c={withdrawing} onClose={() => setWithdrawing(null)} onDone={() => { setWithdrawing(null); reload() }} />}
       {paying && (
         <PayModal open title={`سداد ضمان الطلب ${r.number}`} amount={r.depositAmount} onClose={() => setPaying(false)}
           onPay={async (m) => { try { await api.payDeposit(r.id, m); toast('تم السداد، طلبك الآن تحت المراجعة'); reload() } catch (e) { toast((e as Error).message, 'bad'); throw e } }} />

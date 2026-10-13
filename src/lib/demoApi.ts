@@ -259,7 +259,7 @@ function matchPool(db: DB, excludeRequestId?: string): MatchSource[] {
     if (r.id === excludeRequestId) continue
     if (r.status !== 'under_review' && r.status !== 'accepted' && r.status !== 'pending_payment') continue
     for (const c of r.candidates) {
-      if (c.status === 'rejected') continue
+      if (c.status === 'rejected' || c.status === 'withdrawn') continue
       const a = c.auctionId ? db.auctions.find((x) => x.id === c.auctionId) : undefined
       if (a?.settled) continue // already in reserved
       pool.push({ name: c.name, normalized: c.normalized, type: r.type, source: a ? 'auction' : 'request' })
@@ -302,7 +302,16 @@ function cancellable(db: DB, r: LogoRequest, t = now()) {
     return !a || (t < Date.parse(a.startsAt) && a.bidCount === 0)
   })
 }
-const withCancel = (db: DB, r: LogoRequest): LogoRequest => ({ ...r, cancellable: cancellable(db, r) })
+/** A single name can be withdrawn while it is pending or accepted and its auction (if any) has not started. */
+function withdrawable(db: DB, r: LogoRequest, c: LogoRequest['candidates'][number], t = now()) {
+  if (!['pending_payment', 'under_review', 'accepted'].includes(r.status)) return false
+  if (c.status !== 'pending' && c.status !== 'accepted') return false
+  const a = c.auctionId ? db.auctions.find((x) => x.id === c.auctionId) : undefined
+  return !a || (t < Date.parse(a.startsAt) && a.bidCount === 0)
+}
+const withCancel = (db: DB, r: LogoRequest): LogoRequest => ({
+  ...r, cancellable: cancellable(db, r), candidates: r.candidates.map((c) => ({ ...c, withdrawable: withdrawable(db, r, c) })),
+})
 
 function refundDeposit(db: DB, r: LogoRequest, why: string) {
   if (r.depositState !== 'held') return
@@ -344,7 +353,7 @@ function sweep(db: DB) {
     issueInvoice(db, a, winner, price, depositApplied)
     db.reserved.push({ id: uid(db, 'r'), name: a.name, normalized: normalizeName(a.name), type: a.type, ownerId: winner.id, ownerName: winner.fullName, price, acquiredAt: a.endsAt, source: 'auction' })
     Object.assign(a, { settled: true, winnerId, winnerName: winner.fullName, finalPrice: price, wonByRequester: winnerId === r.userId })
-    notify(db, winnerId, 'won', `رسا عليك اسم «${a.name}»`, `بسعر ${price} ريال. فاتورتك الإلكترونية جاهزة.`, '/dashboard/invoices')
+    notify(db, winnerId, 'won', `مبارك عليك الفوز بمزاد شعار «${a.name}»`, `بسعر ${price} ريال. فاتورتك الإلكترونية جاهزة، سدّدها لإصدار شهادة التسجيل.`, '/dashboard/invoices')
     for (const uidLost of new Set(db.bids.filter((b) => b.auctionId === a.id && b.userId !== winnerId).map((b) => b.userId))) {
       notify(db, uidLost, 'lost', `انتهى مزاد «${a.name}»`, `رسا الاسم بسعر ${price} ريال.`, `/auctions/${a.id}`)
     }
@@ -642,6 +651,29 @@ export const demoApi: SammhaApi = {
     return { refunded: held }
   }),
 
+  withdrawName: (requestId, candidateId) => tx((db) => {
+    const u = me(db)
+    const r = db.requests.find((x) => x.id === requestId && x.userId === u.id)
+    const c = r?.candidates.find((x) => x.id === candidateId)
+    if (!r || !c) throw new ApiError('الاسم غير موجود')
+    if (!withdrawable(db, r, c)) throw new ApiError(c.status === 'withdrawn' ? 'سُحب هذا الاسم مسبقًا' : c.auctionId ? 'بدأ مزاد هذا الاسم، فلا يمكن سحبه' : 'لا يمكن سحب هذا الاسم')
+    if (c.auctionId) { db.auctions = db.auctions.filter((a) => a.id !== c.auctionId); c.auctionId = undefined }
+    Object.assign(c, { status: 'withdrawn', withdrawnAt: iso(now()) })
+    const remaining = r.candidates.filter((x) => x.status === 'pending' || x.status === 'accepted')
+    if (remaining.length) return { refunded: 0, requestCancelled: false }
+    // nothing left in the request
+    const held = r.depositState === 'held' ? r.depositAmount : 0
+    const hadAuctions = db.auctions.some((a) => a.requestId === r.id)
+    if (!hadAuctions) {
+      Object.assign(r, { status: 'cancelled', cancelledAt: iso(now()), cancelledBy: 'owner', cancelReason: 'سحب المالك كل الأسماء' })
+      refundDeposit(db, r, 'سحب المالك كل الأسماء')
+      return { refunded: held, requestCancelled: true }
+    }
+    // some names already went to auction: refund only if all of them are settled and none was won by the owner
+    if (db.auctions.filter((a) => a.requestId === r.id).every((a) => a.settled)) refundDeposit(db, r, 'لم يُرسَ عليك أي اسم')
+    return { refunded: r.depositState === 'refunded' ? held : 0, requestCancelled: false }
+  }),
+
   myWallet: () => tx((db) => {
     const u = me(db)
     return { balance: balanceOf(db, u.id), txs: db.txs.filter((t) => t.userId === u.id).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)) }
@@ -744,7 +776,7 @@ export const demoApi: SammhaApi = {
     if (r.status !== 'under_review') throw new ApiError('تمت مراجعة هذا الطلب')
     for (const d of decisions) {
       const c = r.candidates.find((x) => x.id === d.candidateId)
-      if (!c) continue
+      if (!c || c.status === 'withdrawn') continue
       if (d.status === 'accepted') {
         const exact = similarFor(db, c.normalized, r.id).find((h) => h.score === 1)
         if (exact) throw new ApiError(`لا يمكن قبول «${c.name}»: مطابق لـ«${exact.name}»`)
@@ -766,7 +798,7 @@ export const demoApi: SammhaApi = {
     const u = staff(db)
     const r = db.requests.find((x) => x.id === id)
     if (!r || r.status !== 'under_review') throw new ApiError('لا يمكن رفض هذا الطلب')
-    r.candidates.forEach((c) => { c.status = 'rejected'; c.rejectReason = reason })
+    r.candidates.forEach((c) => { if (c.status !== 'withdrawn') { c.status = 'rejected'; c.rejectReason = reason } })
     Object.assign(r, { status: 'rejected', reviewedAt: iso(now()), reviewerName: u.fullName, reviewNote: reason })
     notify(db, r.userId, 'reviewed', `لم يُقبل طلبك ${r.number}`, reason, `/dashboard/requests/${r.id}`)
     refundDeposit(db, r, 'مرفوض')

@@ -1,3 +1,4 @@
+import { Icon } from './dash'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { dateTime } from '../lib/format'
@@ -46,7 +47,9 @@ export function NotificationBell() {
                 <li key={n.id}>
                   <button onClick={() => { setOpen(false); if (n.link) nav(n.link) }}
                     className={`flex w-full gap-3 border-b border-line/60 px-4 py-3 text-start hover:bg-stone ${n.read ? '' : 'bg-gold-soft/40'}`}>
-                    <span className={`mt-2 h-2 w-2 shrink-0 rounded-full ${DOT[n.kind]}`} />
+                    {n.kind === 'won'
+                      ? <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-gradient-to-b from-[#E2C27E] to-[#AE832C] text-paper"><Icon name="trophy" className="h-3.5 w-3.5" /></span>
+                      : <span className={`mt-2 h-2 w-2 shrink-0 rounded-full ${DOT[n.kind]}`} />}
                     <span className="min-w-0">
                       <span className="block text-[14.5px] font-bold">{n.title}</span>
                       <span className="block text-[13.5px] text-muted">{n.body}</span>

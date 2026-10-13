@@ -18,6 +18,7 @@ const PATHS = {
   alert: 'M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z',
   coins: 'M8 14a6 6 0 100-12 6 6 0 000 12zM18.1 10.4A6 6 0 1110.4 18.1M7 6h1v4M16.7 13.9l.7.7-2.8 2.8',
   arrow: 'M5 12h14M13 6l6 6-6 6',
+  trophy: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4zM17 6h3v1.5a3.5 3.5 0 01-3.5 3.5M7 6H4v1.5A3.5 3.5 0 007.5 11',
 } as const
 
 export type IconName = keyof typeof PATHS
@@ -83,6 +84,26 @@ export function Alert({ icon = 'alert', tone = 'gold', to, children, aside }: {
   )
   const cls = `flex items-center gap-3 rounded-lg border px-4 py-3 ${t}`
   return to ? <Link to={to} className={`${cls} hover:brightness-[.98]`}>{inner}</Link> : <div className={cls}>{inner}</div>
+}
+
+/** Celebration banner for a name the owner won at auction. */
+export function WinAlert({ name, note, to, aside }: { name: string; note?: ReactNode; to?: string; aside?: ReactNode }) {
+  const inner = (
+    <>
+      <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-b from-[#E2C27E] to-[#AE832C] text-paper shadow-[0_6px_16px_-6px_rgba(174,131,44,.8)] ring-4 ring-gold/15">
+        <Icon name="trophy" className="h-6 w-6" />
+        <span className="absolute -end-0.5 -top-0.5 text-[13px]" aria-hidden>✦</span>
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[16.5px] font-extrabold text-ink">مبارك عليك الفوز بمزاد شعار «{name}»</span>
+        {note && <span className="mt-0.5 block text-[14px] font-medium text-gold-deep">{note}</span>}
+      </span>
+      {aside}
+      {to && <Icon name="arrow" className="h-4 w-4 shrink-0 text-gold-deep rtl:rotate-180" />}
+    </>
+  )
+  const cls = 'flex items-center gap-4 rounded-xl border border-gold/60 bg-gradient-to-l from-gold-soft via-[#FBF4E4] to-gold-soft px-4 py-3.5'
+  return to ? <Link to={to} className={`${cls} transition hover:shadow-card`}>{inner}</Link> : <div className={cls}>{inner}</div>
 }
 
 /** 4-step progress used for a request's journey */

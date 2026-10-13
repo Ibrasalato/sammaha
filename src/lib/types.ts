@@ -32,7 +32,7 @@ export type RequestStatus =
   | 'rejected' // committee rejected the whole request → deposit refunded
   | 'cancelled' // cancelled (by owner before payment or by committee) → deposit refunded if paid
 
-export type CandidateStatus = 'pending' | 'accepted' | 'rejected'
+export type CandidateStatus = 'pending' | 'accepted' | 'rejected' | 'withdrawn'
 
 export interface Candidate {
   id: string
@@ -43,6 +43,10 @@ export interface Candidate {
   similar: SimilarHit[]
   rejectReason?: string
   auctionId?: string
+  /** the owner withdrew this name from the request */
+  withdrawnAt?: string
+  /** the owner can still withdraw this name (no auction of it has started) */
+  withdrawable?: boolean
 }
 
 export interface SimilarHit {

@@ -43,6 +43,8 @@ export interface SammhaApi {
   payDeposit(requestId: string, method: PayMethod): Promise<LogoRequest>
   /** returns the amount refunded to the wallet (0 if the guarantee was not paid yet) */
   cancelMyRequest(requestId: string, reason?: string): Promise<{ refunded: number }>
+  /** withdraw one name; withdrawing the last remaining name cancels the request and refunds the guarantee */
+  withdrawName(requestId: string, candidateId: string): Promise<{ refunded: number; requestCancelled: boolean }>
   myWallet(): Promise<Wallet>
   topUp(amount: number): Promise<Wallet>
   myInvoices(): Promise<Invoice[]>
