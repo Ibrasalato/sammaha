@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { AuctionGrid, CardStylePicker } from '../components/AuctionCard'
+import { useCardStyle } from '../lib/cardStyle'
 import { Avatar } from '../components/Avatar'
 import { HeroSlides } from '../components/HeroSlides'
 import { CalendarRow, useCalendar } from './Events'
@@ -25,6 +26,7 @@ const STEPS = (): [string, string][] => [
 export default function Home() {
   const { user } = useApp()
   const [type, setType] = useState<NameType | 'all'>('all')
+  const cardStyle = useCardStyle()
   const live = useLoad(() => api.listAuctions({ phase: 'live' }), [], 15000)
   const upcoming = useLoad(() => api.listAuctions({ phase: 'scheduled' }), [])
   const stats = useLoad(() => api.stats(), [])
@@ -91,8 +93,8 @@ export default function Home() {
           <div>
             <h2 className="sec-title">{tr('المزادات الجارية', 'Live auctions')}</h2>
             <p className="mt-2 flex flex-wrap items-center gap-4 ps-4 text-[14px] text-muted">
-              <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-sm bg-qaadan" />{TYPE_LABEL.qaadan}</span>
-              <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-sm bg-bakkar" />{TYPE_LABEL.bakkar}</span>
+              <span className="inline-flex items-center gap-2"><span className={`h-3 w-3 rounded-sm ${cardStyle === 'brand' ? 'bg-[#1D5C2F]' : 'bg-qaadan'}`} />{TYPE_LABEL.qaadan}</span>
+              <span className="inline-flex items-center gap-2"><span className={`h-3 w-3 rounded-sm ${cardStyle === 'brand' ? 'bg-[#9C7425]' : 'bg-bakkar'}`} />{TYPE_LABEL.bakkar}</span>
             </p>
           </div>
           <div className="flex items-center gap-3">

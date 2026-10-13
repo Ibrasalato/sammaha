@@ -148,30 +148,37 @@ function LiveDot({ light }: { light?: boolean }) {
   return <span className={`h-1.5 w-1.5 animate-pulse rounded-full ${light ? 'bg-[#5BE39B]' : 'bg-ok'}`} />
 }
 
-/** Sammha identity: the logo's green and gold — green header with the logo mark, gold rule and gold price. */
+/** Sammha identity: the logo's colours — qaadan in the logo green, bakkar in the logo gold. */
+const BRAND = {
+  qaadan: { head: '#1D5C2F', glow: 'rgba(226,194,126,.22)', rule: 'from-[#AE832C] via-[#E2C27E] to-[#AE832C]', price: '#1D5C2F', ink: '#123D20', soft: '#EAF2EC', btn: '#1D5C2F', btnHover: 'group-hover:bg-[#164A25]', btnRing: 'ring-[#E2C27E]/60', status: '#F1DDA8' },
+  bakkar: { head: '#9C7425', glow: 'rgba(255,255,255,.20)', rule: 'from-[#1D5C2F] via-[#3E8550] to-[#1D5C2F]', price: '#8C6A22', ink: '#5C4413', soft: '#F6EEDB', btn: '#8C6A22', btnHover: 'group-hover:bg-[#765817]', btnRing: 'ring-[#1D5C2F]/40', status: '#FFF3D6' },
+} as const
+
 function BrandCard({ a }: { a: Auction }) {
   const l = useLot(a)
-  const c = TYPE_HEX[a.type]
+  const b = BRAND[a.type]
   return (
-    <Link to={`/auctions/${a.id}`} className="group flex flex-col overflow-hidden rounded-xl border border-[#1D5C2F]/25 bg-paper shadow-card transition hover:-translate-y-0.5 hover:border-[#1D5C2F]/60 hover:shadow-lift">
-      <div className="relative overflow-hidden bg-[#1D5C2F] px-4 pb-5 pt-3 text-paper" style={{ backgroundImage: 'radial-gradient(ellipse 90% 80% at 100% 0%, rgba(226,194,126,.22), transparent 60%)' }}>
-        <img src="./sammha-logo-light.png" alt="" aria-hidden className="pointer-events-none absolute -bottom-3 end-2 h-20 w-auto max-w-none opacity-[.12]" />
+    <Link to={`/auctions/${a.id}`} className="group flex flex-col overflow-hidden rounded-xl border bg-paper shadow-card transition hover:-translate-y-0.5 hover:shadow-lift" style={{ borderColor: `${b.head}40` }}>
+      <div className="relative overflow-hidden px-4 pb-5 pt-3 text-paper" style={{ backgroundColor: b.head, backgroundImage: `radial-gradient(ellipse 90% 80% at 100% 0%, ${b.glow}, transparent 60%)` }}>
+        <img src="./sammha-logo-light.png" alt="" aria-hidden className="pointer-events-none absolute -bottom-3 end-2 h-20 w-auto max-w-none opacity-[.14]" />
         <div className="relative flex items-center justify-between text-[12px] font-bold">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-paper px-2 py-0.5 font-extrabold" style={{ color: c.deep }}><span className="h-2 w-2 rounded-full" style={{ background: c.base }} />{TYPE_LABEL[a.type]}</span>
-          <span className="inline-flex items-center gap-1.5 text-[#F1DDA8]">{l.phase === 'live' && <LiveDot light />}{l.status}</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-paper px-2 py-0.5 font-extrabold" style={{ color: b.ink }}><span className="h-2 w-2 rounded-full" style={{ background: b.head }} />{TYPE_LABEL[a.type]}</span>
+          <span className="inline-flex items-center gap-1.5" style={{ color: b.status }}>{l.phase === 'live' && <LiveDot light />}{l.status}</span>
         </div>
-        <div className="relative mt-4 text-center text-[30px] font-extrabold leading-tight">{a.name}</div>
+        <div className="relative mt-4 text-center text-[30px] font-extrabold leading-tight drop-shadow-sm">{a.name}</div>
       </div>
-      <div className="h-1 bg-gradient-to-l from-[#AE832C] via-[#E2C27E] to-[#AE832C]" aria-hidden />
+      <div className={`h-1 bg-gradient-to-l ${b.rule}`} aria-hidden />
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="flex items-end justify-between">
-          <div><div className="text-[12.5px] text-muted">{l.priceLabel}</div><div className="flex items-baseline gap-1.5"><span className="num text-[26px] font-extrabold leading-none text-[#8C6A22]">{num(l.price)}</span><span className="text-[13px] text-muted">{cur()}</span></div></div>
-          <span className="flex items-center gap-1.5 text-[12px] font-medium text-[#1D5C2F]"><Icon d={ICON.gavel} />{l.bids}</span>
+          <div><div className="text-[12.5px] text-muted">{l.priceLabel}</div><div className="flex items-baseline gap-1.5"><span className="num text-[26px] font-extrabold leading-none" style={{ color: b.price }}>{num(l.price)}</span><span className="text-[13px] text-muted">{cur()}</span></div></div>
+          <span className="flex items-center gap-1.5 text-[12px] font-medium" style={{ color: b.price }}><Icon d={ICON.gavel} />{l.bids}</span>
         </div>
         {l.lastDay
           ? <CountdownBoxes to={a.endsAt} tone={l.urgent ? 'urgent' : 'ink'} />
-          : <div className="flex items-center justify-between rounded-md bg-[#EAF2EC] px-3 py-2 text-[13px]"><span className="text-[#1D5C2F]/80">{l.timeLabel}</span><b className="text-[#123D20]">{l.timeValue}</b></div>}
-        <span className={`mt-auto btn btn-sm w-full py-2 ${l.phase === 'live' ? 'bg-[#1D5C2F] text-paper ring-1 ring-inset ring-[#E2C27E]/60 group-hover:bg-[#164A25]' : 'border border-[#1D5C2F]/30 text-[#1D5C2F] group-hover:border-[#1D5C2F]'}`}>{l.cta}</span>
+          : <div className="flex items-center justify-between rounded-md px-3 py-2 text-[13px]" style={{ background: b.soft }}><span style={{ color: b.price }}>{l.timeLabel}</span><b style={{ color: b.ink }}>{l.timeValue}</b></div>}
+        {l.phase === 'live'
+          ? <span className={`mt-auto btn btn-sm w-full py-2 text-paper ring-1 ring-inset ${b.btnRing} ${b.btnHover}`} style={{ backgroundColor: b.btn }}>{l.cta}</span>
+          : <span className="mt-auto btn btn-sm w-full border py-2" style={{ borderColor: `${b.head}55`, color: b.price }}>{l.cta}</span>}
       </div>
     </Link>
   )
@@ -321,7 +328,7 @@ export function AuctionGrid({ list, className = '' }: { list: Auction[]; classNa
 function Thumb({ s }: { s: CardStyle }) {
   const box = 'h-6 w-8 shrink-0 overflow-hidden rounded-[3px]'
   if (s === 'modern') return <span className={`${box} flex flex-col border border-line bg-paper`}><span className="h-3 bg-qaadan" /><span className="mx-1 mt-1 h-0.5 rounded bg-muted/40" /></span>
-  if (s === 'brand') return <span className={`${box} flex flex-col border border-[#1D5C2F]/30 bg-paper`}><span className="h-3 bg-[#1D5C2F]" /><span className="h-[2px] bg-[#E2C27E]" /><span className="mx-1 mt-1 h-0.5 w-3 rounded bg-[#AE832C]" /></span>
+  if (s === 'brand') return <span className={`${box} flex border border-[#1D5C2F]/30 bg-paper`}><span className="h-3 flex-1 bg-[#1D5C2F]" /><span className="h-3 flex-1 bg-[#9C7425]" /></span>
   if (s === 'classic') return <span className={`${box} grid place-items-center border border-gold/70 bg-paper p-[2px]`}><span className="grid h-full w-full place-items-center rounded-[2px] border border-gold/50"><span className="h-0.5 w-3 bg-qaadan-deep" /></span></span>
   if (s === 'heritage') return <span className={`${box} flex flex-col border border-[#E5D7B8] bg-[#FBF6EA]`}><span className="sadu h-1.5" style={{ backgroundSize: '12px 6px' }} /><span className="m-auto h-1.5 w-1.5 rotate-45 bg-bakkar" /></span>
   if (s === 'luxury') return <span className={`${box} grid place-items-center bg-pine ring-1 ring-gold/60`}><span className="h-0.5 w-4 bg-gold-light" /></span>
