@@ -13,6 +13,16 @@ export interface User {
   avatarUrl?: string
   /** owner agreed to show the photo publicly (leaderboards) */
   showAvatar?: boolean
+  /** false = account suspended by the super admin */
+  active?: boolean
+}
+
+export interface StaffInput {
+  fullName: string
+  phone: string
+  email: string
+  password: string
+  role: 'committee' | 'admin'
 }
 
 export type RequestStatus =

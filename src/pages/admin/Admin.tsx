@@ -388,33 +388,6 @@ export function AdminInvoices() {
   )
 }
 
-export function AdminUsers() {
-  const { data, loading } = useLoad(() => api.listUsers(), [])
-  return (
-    <>
-      <PageHead title="المستخدمون" />
-      {loading && !data ? <Loading /> : (
-        <div className="panel overflow-x-auto">
-          <table className="tbl">
-            <thead><tr><th>الاسم</th><th>الجوال</th><th>البريد</th><th>الدور</th><th>التسجيل</th></tr></thead>
-            <tbody>
-              {data?.map((u) => (
-                <tr key={u.id}>
-                  <td className="font-semibold">{u.fullName}</td>
-                  <td className="num" dir="ltr" style={{ textAlign: 'right' }}>{u.phone}</td>
-                  <td className="text-muted">{u.email}</td>
-                  <td>{u.role === 'owner' ? 'مالك' : u.role === 'committee' ? 'لجنة الاعتماد' : 'مدير'}</td>
-                  <td className="text-muted">{date(u.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </>
-  )
-}
-
 const EMPTY_EVENT: CamelEvent = { id: '', title: '', titleEn: '', kind: 'mazayin', startsOn: '', endsOn: '', approx: true, city: '', country: 'السعودية', description: '', url: '' }
 
 export function AdminEvents() {

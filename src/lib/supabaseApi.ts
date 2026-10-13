@@ -51,13 +51,28 @@ export const supabaseApi: SammhaApi = {
     return u
   },
 
-  async signIn(login, password) {
+  async signIn(login, password, portal) {
     let email = login.trim()
     if (!email.includes('@')) email = await rpc<string>('email_for_phone', { p_phone: email })
+    const wrong = new ApiError(portal === 'staff' ? 'البيانات غير صحيحة' : 'رقم الجوال أو كلمة المرور غير صحيحة')
     const { error } = await sb().auth.signInWithPassword({ email, password })
-    if (error) throw new ApiError('رقم الجوال أو كلمة المرور غير صحيحة')
-    return (await profile())!
+    if (error) throw wrong
+    const u = await profile()
+    // staff sign in only on the staff portal, owners only on the public page; same error either way
+    if (!u || (portal === 'staff') !== (u.role !== 'owner')) { await sb().auth.signOut(); throw wrong }
+    if (u.active === false) { await sb().auth.signOut(); throw new ApiError('هذا الحساب موقوف، تواصل مع مدير النظام') }
+    return u
   },
+
+  async changePassword(current, next) {
+    if (next.length < 8) throw new ApiError('كلمة المرور الجديدة 8 أحرف على الأقل')
+    const { data: { user } } = await sb().auth.getUser()
+    const { error: e1 } = await sb().auth.signInWithPassword({ email: user?.email ?? '', password: current })
+    if (e1) throw new ApiError('كلمة المرور الحالية غير صحيحة')
+    const { error } = await sb().auth.updateUser({ password: next })
+    if (error) throw new ApiError(error.message)
+  },
+
 
   async signOut() { await sb().auth.signOut() },
 
@@ -121,6 +136,14 @@ export const supabaseApi: SammhaApi = {
   allInvoices: () => rpc('admin_invoices'),
   markInvoicePaid: (id) => rpc('admin_mark_invoice_paid', { p_invoice: id }),
   listUsers: () => rpc('admin_users'),
+  // creating a sign-in needs the service role, so it runs in the Edge Function admin-create-staff
+  async createStaff(input) {
+    const { data, error } = await sb().functions.invoke('admin-create-staff', { body: input })
+    if (error || data?.error) throw new ApiError(data?.error ?? error!.message)
+    return data as User
+  },
+  setUserRole: (id, role) => rpc('admin_set_role', { p_user: id, p_role: role }),
+  setUserActive: (id, active) => rpc('admin_set_active', { p_user: id, p_active: active }),
   saveEvent: (e) => rpc('admin_save_event', { p_event: e }),
   async deleteEvent(id) { await rpc('admin_delete_event', { p_id: id }) },
   listTickets: () => rpc('admin_list_tickets'),

@@ -1,6 +1,6 @@
 import type {
   AppNotification, CamelEvent, AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
-  PublicStats, RequestStatus, ReservedName, ReviewDecision, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
+  PublicStats, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
 } from './types'
 
 export interface SignUpInput {
@@ -18,7 +18,9 @@ export interface SammhaApi {
   // auth
   currentUser(): Promise<User | null>
   signUp(input: SignUpInput): Promise<User>
-  signIn(login: string, password: string): Promise<User>
+  /** portal 'owner' accepts camel owners only, 'staff' accepts committee and admins only */
+  signIn(login: string, password: string, portal: 'owner' | 'staff'): Promise<User>
+  changePassword(current: string, next: string): Promise<void>
   signOut(): Promise<void>
 
   // public
@@ -64,6 +66,10 @@ export interface SammhaApi {
   allInvoices(): Promise<Invoice[]>
   markInvoicePaid(id: string): Promise<Invoice>
   listUsers(): Promise<User[]>
+  // super admin only
+  createStaff(input: StaffInput): Promise<User>
+  setUserRole(id: string, role: Role): Promise<User>
+  setUserActive(id: string, active: boolean): Promise<User>
   saveEvent(e: CamelEvent): Promise<CamelEvent>
   deleteEvent(id: string): Promise<void>
   listTickets(): Promise<Ticket[]>

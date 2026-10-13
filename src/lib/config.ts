@@ -40,4 +40,9 @@ export const TYPE_HINT: Record<NameType, string> = {
   get bakkar() { return ar() ? 'أسماء الإناث من الإبل' : 'Names for female camels' },
 }
 
+/** The platform owner's super admin account: cannot be demoted or suspended. */
+export const SUPER_ADMIN_EMAIL = 'ibrasalato@gmail.com'
+/** Staff sign-in lives on its own unlisted address, not on the public login page. */
+export const STAFF_LOGIN_PATH = '/ico-staff'
+
 export const IS_DEMO = !import.meta.env.VITE_SUPABASE_URL

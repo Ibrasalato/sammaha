@@ -1,10 +1,10 @@
 import { tr } from '../lib/i18n'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Logo } from '../components/Layout'
 import { ErrorBox } from '../components/ui'
-import { IS_DEMO } from '../lib/config'
+import { IS_DEMO, SUPER_ADMIN_EMAIL } from '../lib/config'
 import { api, useApp } from '../lib/store'
 import type { User } from '../lib/types'
 
@@ -47,7 +47,7 @@ export function Login() {
   async function submit(e?: FormEvent, l = login, p = password) {
     e?.preventDefault()
     setBusy(true); setErr('')
-    try { const u = await api.signIn(l, p); setUser(u); done(u) } catch (x) { setErr((x as Error).message) } finally { setBusy(false) }
+    try { const u = await api.signIn(l, p, 'owner'); setUser(u); done(u) } catch (x) { setErr((x as Error).message) } finally { setBusy(false) }
   }
 
   return (
@@ -62,13 +62,57 @@ export function Login() {
       {IS_DEMO && (
         <div className="mt-6 border-t border-line pt-5">
           <p className="mb-3 text-sm text-muted">{tr('حسابات تجريبية:', 'Demo accounts:')}</p>
-          <div className="grid grid-cols-2 gap-2">
-            <button className="btn-ghost btn-sm" disabled={busy} onClick={() => submit(undefined, '0500000001', '123456')}>{tr('مالك إبل', 'Camel owner')}</button>
-            <button className="btn-ghost btn-sm" disabled={busy} onClick={() => submit(undefined, '0500000002', '123456')}>{tr('لجنة الاعتماد', 'Approval committee')}</button>
-          </div>
+          <button className="btn-ghost btn-sm w-full" disabled={busy} onClick={() => submit(undefined, '0500000001', '123456')}>{tr('دخول بحساب مالك إبل تجريبي', 'Try a demo camel-owner account')}</button>
         </div>
       )}
     </AuthFrame>
+  )
+}
+
+/** Unlisted staff portal: approval committee and super admin. Owners can't sign in here. */
+export function StaffLogin() {
+  const { user, setUser } = useApp()
+  const nav = useNavigate()
+  const loc = useLocation()
+  const from = (loc.state as { from?: string } | null)?.from
+  const [login, setLogin] = useState('')
+  const [password, setPassword] = useState('')
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  if (user && user.role !== 'owner') return <Navigate to="/admin" replace />
+  const firstSuper = IS_DEMO && login.trim().toLowerCase() === SUPER_ADMIN_EMAIL
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true); setErr('')
+    try { const u = await api.signIn(login, password, 'staff'); setUser(u); nav(from?.startsWith('/admin') ? from : '/admin', { replace: true }) } catch (x) { setErr((x as Error).message) } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="hero-field flex min-h-[calc(100vh-0px)] items-center justify-center px-4 py-16">
+      <div className="w-full max-w-md overflow-hidden rounded-xl bg-paper shadow-lift">
+        <div className="sadu sadu-thin" aria-hidden />
+        <div className="p-7 sm:p-9">
+          <div className="flex items-center justify-between">
+            <Logo className="h-14" />
+            <span className="rounded bg-pine-soft px-2.5 py-1 text-[12.5px] font-bold text-pine">بوابة الموظفين</span>
+          </div>
+          <h1 className="mt-6 text-[24px]">دخول لجنة الاعتماد والإدارة</h1>
+          <p className="mt-1 text-[14.5px] text-muted">للموظفين المصرّح لهم فقط. الحسابات ينشئها مدير النظام.</p>
+          <form onSubmit={submit} className="mt-6 space-y-4">
+            {err && <ErrorBox text={err} />}
+            <div><label className="label" htmlFor="sl">البريد الإلكتروني أو رقم الجوال</label><input id="sl" className="field" dir="ltr" autoComplete="username" value={login} onChange={(e) => setLogin(e.target.value)} required /></div>
+            <div>
+              <label className="label" htmlFor="sp">كلمة المرور</label>
+              <input id="sp" type="password" className="field" dir="ltr" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              {firstSuper && <p className="hint">في النسخة التجريبية: أول دخول لحساب مدير النظام يحفظ كلمة المرور التي تكتبها الآن (8 أحرف على الأقل).</p>}
+            </div>
+            <button className="btn-primary w-full" disabled={busy}>دخول</button>
+          </form>
+          <p className="mt-6 border-t border-line pt-4 text-center text-[13px] text-muted">نسيت كلمة المرور؟ تواصل مع مدير النظام. <Link to="/" className="font-bold text-pine underline">الصفحة الرئيسية</Link></p>
+        </div>
+      </div>
+    </div>
   )
 }
 

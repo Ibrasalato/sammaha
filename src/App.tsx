@@ -10,7 +10,7 @@ import type { Role } from './lib/types'
 import About from './pages/About'
 import AuctionDetail from './pages/AuctionDetail'
 import Auctions from './pages/Auctions'
-import { Login, Signup } from './pages/Auth'
+import { Login, Signup, StaffLogin } from './pages/Auth'
 import { Faq, Privacy, Refund, Terms } from './pages/Content'
 import { Contact, TrackTicket } from './pages/Support'
 import { AdminTicket, AdminTickets } from './pages/admin/Tickets'
@@ -20,7 +20,9 @@ import Events from './pages/Events'
 import Home from './pages/Home'
 import ReservedNames from './pages/ReservedNames'
 import Verify from './pages/Verify'
-import { AdminAuctions, AdminEvents, AdminHome, AdminInvoices, AdminRequests, AdminReview, AdminSchedule, AdminUsers } from './pages/admin/Admin'
+import { AdminAuctions, AdminEvents, AdminHome, AdminInvoices, AdminRequests, AdminReview, AdminSchedule } from './pages/admin/Admin'
+import { AdminUsers, StaffAccount } from './pages/admin/Users'
+import { STAFF_LOGIN_PATH } from './lib/config'
 import { CertificatePage, DashHome, InvoicePage, MyBids, MyInvoices, MyNames, ProfilePage, WalletPage } from './pages/owner/Owner'
 import { MyRequests, NewRequest, RequestDetail } from './pages/owner/Requests'
 
@@ -33,7 +35,8 @@ function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
     if (lang === 'en') { setLang('ar'); toast('لوحة التحكم متاحة بالعربية حاليًا. Dashboards are in Arabic for now.') }
   }, [lang, setLang, toast])
   if (!ready) return <Loading />
-  if (!user) return <Navigate to="/login" replace state={{ from: loc.pathname }} />
+  // staff pages send visitors to the unlisted staff portal, not the public login
+  if (!user) return <Navigate to={roles.includes('owner') ? '/login' : STAFF_LOGIN_PATH} replace state={{ from: loc.pathname }} />
   if (!roles.includes(user.role)) return <Navigate to={user.role === 'owner' ? '/dashboard' : '/admin'} replace />
   return <>{children}</>
 }
@@ -57,8 +60,16 @@ const ADMIN_NAV: NavItem[] = [
   { to: '/admin/invoices', label: 'الفواتير', icon: 'receipt' },
   { to: '/admin/tickets', label: 'الشكاوى والبلاغات', icon: 'alert' },
   { to: '/admin/events', label: 'المواعيد والفعاليات', icon: 'list' },
-  { to: '/admin/users', label: 'المستخدمون', icon: 'users' },
+  { to: '/admin/users', label: 'المستخدمون والصلاحيات', icon: 'users' },
+  { to: '/admin/account', label: 'حسابي', icon: 'shield' },
 ]
+
+/** The users and permissions page is for the super admin only. */
+function AdminShell() {
+  const { user } = useApp()
+  const nav = user?.role === 'admin' ? ADMIN_NAV : ADMIN_NAV.filter((n) => n.to !== '/admin/users')
+  return <Shell nav={nav} title={user?.role === 'admin' ? 'إدارة المنصة' : 'لجنة الاعتماد'} />
+}
 
 export default function App() {
   return (
@@ -110,14 +121,16 @@ function AppRoutes() {
             <Route path="profile" element={<ProfilePage />} />
             <Route path="tickets" element={<MyTickets />} />
           </Route>
-          <Route path="admin" element={<Guard roles={['committee', 'admin']}><Shell nav={ADMIN_NAV} title="لجنة الاعتماد" /></Guard>}>
+          <Route path={STAFF_LOGIN_PATH.slice(1)} element={<StaffLogin />} />
+          <Route path="admin" element={<Guard roles={['committee', 'admin']}><AdminShell /></Guard>}>
             <Route index element={<AdminHome />} />
             <Route path="requests" element={<AdminRequests />} />
             <Route path="requests/:id" element={<AdminReview />} />
             <Route path="schedule" element={<AdminSchedule />} />
             <Route path="auctions" element={<AdminAuctions />} />
             <Route path="invoices" element={<AdminInvoices />} />
-            <Route path="users" element={<AdminUsers />} />
+            <Route path="users" element={<Guard roles={['admin']}><AdminUsers /></Guard>} />
+            <Route path="account" element={<StaffAccount />} />
             <Route path="events" element={<AdminEvents />} />
             <Route path="tickets" element={<AdminTickets />} />
             <Route path="tickets/:id" element={<AdminTicket />} />

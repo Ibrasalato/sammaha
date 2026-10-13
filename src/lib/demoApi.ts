@@ -5,7 +5,7 @@
  */
 import { ApiError } from './api'
 import type { PayMethod, SammhaApi, SignUpInput } from './api'
-import { RULES } from './config'
+import { RULES, SUPER_ADMIN_EMAIL } from './config'
 import { namesCount } from './format'
 import { SEED_EVENTS } from './events'
 import { certNo } from './cert'
@@ -35,7 +35,7 @@ interface DB {
 
 const KEY = 'sammha-demo-db'
 const SESSION = 'sammha-demo-session'
-const VERSION = 5
+const VERSION = 6
 
 const now = () => Date.now()
 const iso = (t: number) => new Date(t).toISOString()
@@ -64,6 +64,7 @@ function seed(): DB {
   db.users.push(
     mkUser('u-owner', 'سعد بن ناصر العتيبي', '0500000001', 'owner', 'owner@demo.sa'),
     mkUser('u-staff', 'لجنة الاعتماد', '0500000002', 'committee', 'committee@demo.sa'),
+    superAdmin(t),
     mkUser('u-b1', 'مزرعة الوسم للإبل', '0500000003', 'owner', 'b1@demo.sa'),
     mkUser('u-b2', 'فهد عبدالله الدوسري', '0500000004', 'owner', 'b2@demo.sa'),
     mkUser('u-b3', 'نايف سالم المري', '0500000005', 'owner', 'b3@demo.sa'),
@@ -194,6 +195,12 @@ function notify(db: DB, userId: string, kind: AppNotification['kind'], title: st
   db.notes.push({ id: uid(db, 'n'), userId, kind, title, body, link, createdAt: iso(now()), read: false })
 }
 
+/** The super admin has no password in the demo: the first sign-in on the staff portal sets it. */
+function superAdmin(t: number): DemoUser {
+  return { id: 'u-super', fullName: 'إبراهيم صلاح', phone: '0500000010', email: SUPER_ADMIN_EMAIL, role: 'admin', password: '', createdAt: iso(t - 120 * D) }
+}
+const isSuper = (u: Pick<User, 'email'>) => u.email.toLowerCase() === SUPER_ADMIN_EMAIL
+
 function seedTickets(db: DB, t: number) {
   const mk = (n: number, ago: number, x: Omit<Ticket, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'messages'>, replies: [Ticket['messages'][number]['by'], string, string, boolean?][] = []) => {
     const created = t - ago
@@ -217,7 +224,11 @@ function load(): DB {
     if (raw) {
       const db = JSON.parse(raw) as DB
       if (db.v === VERSION) return db
-      if (db.v === 4) { db.tickets = []; seedTickets(db, now()); db.v = VERSION; save(db); return db }
+      if (db.v === 4) { db.tickets = []; seedTickets(db, now()); db.v = 5 }
+      if (db.v === 5) {
+        if (!db.users.some(isSuper)) db.users.push(superAdmin(now()))
+        db.v = VERSION; save(db); return db
+      }
     }
   } catch { /* storage unavailable */ }
   const db = seed()
@@ -351,12 +362,25 @@ function me(db: DB): DemoUser {
   const id = getSession()
   const u = db.users.find((x) => x.id === id)
   if (!u) throw new ApiError('سجّل الدخول أولًا')
+  if (u.active === false) { setSession(null); throw new ApiError('هذا الحساب موقوف') }
   return u
 }
 function staff(db: DB): DemoUser {
   const u = me(db)
   if (u.role === 'owner') throw new ApiError('هذه الصفحة للجنة الاعتماد فقط')
   return u
+}
+function superOnly(db: DB): DemoUser {
+  const u = me(db)
+  if (u.role !== 'admin') throw new ApiError('هذه العملية لمدير النظام فقط')
+  return u
+}
+function targetUser(db: DB, id: string, actor: DemoUser) {
+  const t = db.users.find((x) => x.id === id)
+  if (!t) throw new ApiError('المستخدم غير موجود')
+  if (isSuper(t)) throw new ApiError('لا يمكن تعديل حساب مدير النظام الرئيسي')
+  if (t.id === actor.id) throw new ApiError('لا يمكنك تعديل صلاحيات حسابك')
+  return t
 }
 const publicUser = ({ password: _p, ...u }: DemoUser): User => u
 
@@ -379,12 +403,28 @@ export const demoApi: SammhaApi = {
     return publicUser(u)
   }),
 
-  signIn: (login, password) => tx((db) => {
+  signIn: (login, password, portal) => tx((db) => {
     const l = login.trim().toLowerCase()
     const u = db.users.find((x) => x.phone === l || x.email.toLowerCase() === l)
-    if (!u || u.password !== password) throw new ApiError('رقم الجوال أو كلمة المرور غير صحيحة')
+    const wrong = new ApiError(portal === 'staff' ? 'البيانات غير صحيحة' : 'رقم الجوال أو كلمة المرور غير صحيحة')
+    if (!u) throw wrong
+    // the same generic error whichever portal is wrong, so the staff portal is not revealed
+    if ((portal === 'staff') !== (u.role !== 'owner')) throw wrong
+    if (portal === 'staff' && isSuper(u) && !u.password) {
+      if (password.length < 8) throw new ApiError('أول دخول لحساب مدير النظام: اختر كلمة مرور من 8 أحرف على الأقل')
+      u.password = password
+    }
+    if (u.password !== password) throw wrong
+    if (u.active === false) throw new ApiError('هذا الحساب موقوف، تواصل مع مدير النظام')
     setSession(u.id)
     return publicUser(u)
+  }),
+
+  changePassword: (current, next) => tx((db) => {
+    const u = me(db)
+    if (u.password !== current) throw new ApiError('كلمة المرور الحالية غير صحيحة')
+    if (next.length < 8) throw new ApiError('كلمة المرور الجديدة 8 أحرف على الأقل')
+    u.password = next
   }),
 
   signOut: async () => { setSession(null) },
@@ -772,7 +812,37 @@ export const demoApi: SammhaApi = {
 
   listUsers: () => tx((db) => {
     staff(db)
-    return db.users.map(publicUser)
+    return [...db.users].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).map(publicUser)
+  }),
+
+  createStaff: (input) => tx((db) => {
+    superOnly(db)
+    const phone = input.phone.replace(/\s/g, '')
+    const email = input.email.trim()
+    if (input.fullName.trim().length < 3) throw new ApiError('اكتب اسم الموظف')
+    if (!/^05\d{8}$/.test(phone)) throw new ApiError('رقم الجوال يبدأ بـ 05 ويتكون من 10 أرقام')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ApiError('البريد الإلكتروني غير صحيح')
+    if (db.users.some((u) => u.phone === phone)) throw new ApiError('رقم الجوال مسجل لحساب آخر')
+    if (db.users.some((u) => u.email.toLowerCase() === email.toLowerCase())) throw new ApiError('البريد الإلكتروني مسجل لحساب آخر')
+    if (input.password.length < 8) throw new ApiError('كلمة المرور المؤقتة 8 أحرف على الأقل')
+    if (input.role !== 'committee' && input.role !== 'admin') throw new ApiError('اختر الصلاحية')
+    const u: DemoUser = { id: uid(db, 'u'), fullName: input.fullName.trim(), phone, email, role: input.role, password: input.password, active: true, createdAt: iso(now()) }
+    db.users.push(u)
+    return publicUser(u)
+  }),
+
+  setUserRole: (id, role) => tx((db) => {
+    const t = targetUser(db, id, superOnly(db))
+    if (!['owner', 'committee', 'admin'].includes(role)) throw new ApiError('صلاحية غير معروفة')
+    t.role = role
+    return publicUser(t)
+  }),
+
+  setUserActive: (id, active) => tx((db) => {
+    const t = targetUser(db, id, superOnly(db))
+    t.active = active
+    if (!active && getSession() === t.id) setSession(null)
+    return publicUser(t)
   }),
 
   saveEvent: (e) => tx((db) => {

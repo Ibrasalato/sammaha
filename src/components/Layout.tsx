@@ -182,7 +182,7 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
             <NotificationBell />
             {user && (user.role === 'owner'
               ? <Link to="/dashboard/profile" aria-label="حسابي"><Avatar name={user.fullName} src={user.avatarUrl} size={36} /></Link>
-              : <Avatar name={user.fullName} src={user.avatarUrl} size={36} />)}
+              : <Link to="/admin/account" aria-label="حسابي"><Avatar name={user.fullName} src={user.avatarUrl} size={36} /></Link>)}
             <button className="btn-on-dark btn-sm" onClick={async () => { await api.signOut(); setUser(null); navigate('/') }}>خروج</button>
           </div>
         </div>

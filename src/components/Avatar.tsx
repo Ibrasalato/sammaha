@@ -5,10 +5,12 @@ export function Avatar({ name, src, size = 40, ring }: { name: string; src?: str
   const clean = name.replace(/^(الأمير|الشيخ|م\.|د\.)\s+/, '').trim()
   const tone = TONES[[...clean].reduce((s, c) => s + c.charCodeAt(0), 0) % TONES.length]
   const style = { width: size, height: size, fontSize: Math.round(size * 0.42) }
+  // a lone alef (ا أ إ آ) reads like "!" or "I", so names starting with one show two letters
+  const initial = /^[اأإآ]/.test(clean) ? [...clean].slice(0, 2).join('') : clean[0]
   const ringCls = ring ? 'ring-2 ring-gold ring-offset-2 ring-offset-paper' : ''
   return src
     ? <img src={src} alt={name} style={style} className={`shrink-0 rounded-full object-cover ${ringCls}`} />
-    : <span style={style} className={`flex shrink-0 items-center justify-center rounded-full font-extrabold ${tone} ${ringCls}`} aria-hidden>{clean[0]}</span>
+    : <span style={style} className={`flex shrink-0 items-center justify-center rounded-full font-extrabold ${tone} ${ringCls}`} aria-hidden>{initial}</span>
 }
 
 /** Resize a picked image file to a square JPEG data URL (center crop). */
