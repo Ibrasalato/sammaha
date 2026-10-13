@@ -6,7 +6,7 @@
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'
 import { OTP, RULES, SUPER_ADMIN_EMAIL } from './config'
-import { maskPhone, otpDigits } from './otp'
+import { maskEmail, maskPhone, otpDigits } from './otp'
 import { namesCount } from './format'
 import { SEED_EVENTS } from './events'
 import { certNo } from './cert'
@@ -249,12 +249,12 @@ function seedTickets(db: DB, t: number) {
 
 // ───────────────────────── one-time codes ─────────────────────────
 // Demo: the code is OTP.fixedCode until an SMS provider is connected.
-interface Challenge { userId: string; purpose: 'login' | 'phone'; phone: string; expires: number; attempts: number }
+interface Challenge { userId: string; purpose: 'login' | 'phone' | 'email'; phone: string; expires: number; attempts: number }
 const challenges = new Map<string, Challenge>()
 function issueOtp(userId: string, purpose: Challenge['purpose'], phone: string, id = `otp${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`): OtpChallenge {
   const expires = now() + OTP.ttlMinutes * 60_000
   challenges.set(id, { userId, purpose, phone, expires, attempts: 0 })
-  return { challenge: id, phoneMasked: maskPhone(phone), expiresAt: iso(expires) }
+  return { challenge: id, phoneMasked: purpose === 'email' ? maskEmail(phone) : maskPhone(phone), expiresAt: iso(expires), length: OTP.length }
 }
 function consumeOtp(id: string, code: string, purpose: Challenge['purpose']): Challenge {
   const c = challenges.get(id)
@@ -508,23 +508,38 @@ export const demoApi: SammhaApi = {
     return issueOtp(c.userId, c.purpose, c.phone, challenge)
   }),
 
-  updateMyAccount: ({ fullName, email, nationalId }) => tx((db) => {
+  updateMyAccount: ({ fullName, nationalId }) => tx((db) => {
     const u = me(db)
     const name = fullName.trim().replace(/\s+/g, ' ')
-    const mail = email.trim()
     if (name.length < 6) throw new ApiError('اكتب الاسم الرباعي')
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) throw new ApiError('البريد الإلكتروني غير صحيح')
-    if (isSuper(u) && mail.toLowerCase() !== SUPER_ADMIN_EMAIL) throw new ApiError('بريد مدير النظام الرئيسي ثابت')
-    if (db.users.some((x) => x.id !== u.id && x.email.toLowerCase() === mail.toLowerCase())) throw new ApiError('البريد الإلكتروني مسجل لحساب آخر')
     const nid = nationalId?.trim()
     if (nid && !/^[12]\d{9}$/.test(nid)) throw new ApiError('رقم الهوية أو الإقامة 10 أرقام يبدأ بـ 1 أو 2')
     const renamed = name !== u.fullName
-    Object.assign(u, { fullName: name, email: mail, nationalId: nid || undefined })
+    Object.assign(u, { fullName: name, nationalId: nid || undefined })
     // keep the owner's name on registered names and requests in step
     if (renamed) {
       db.reserved.forEach((r) => { if (r.ownerId === u.id) r.ownerName = name })
       db.requests.forEach((r) => { if (r.userId === u.id) r.ownerName = name })
     }
+    return publicUser(u)
+  }),
+
+  requestEmailChange: (newEmail) => tx((db) => {
+    const u = me(db)
+    const mail = newEmail.trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) throw new ApiError('البريد الإلكتروني غير صحيح')
+    if (mail.toLowerCase() === u.email.toLowerCase()) throw new ApiError('هذا بريدك الحالي')
+    if (isSuper(u)) throw new ApiError('بريد مدير النظام الرئيسي ثابت')
+    if (db.users.some((x) => x.email.toLowerCase() === mail.toLowerCase())) throw new ApiError('البريد الإلكتروني مسجل لحساب آخر')
+    return issueOtp(u.id, 'email', mail)
+  }),
+
+  confirmEmailChange: (challenge, code) => tx((db) => {
+    const u = me(db)
+    const c = consumeOtp(challenge, code, 'email')
+    if (c.userId !== u.id) throw new ApiError('تعذّر التحقق')
+    if (db.users.some((x) => x.id !== u.id && x.email.toLowerCase() === c.phone.toLowerCase())) throw new ApiError('البريد الإلكتروني مسجل لحساب آخر')
+    u.email = c.phone
     return publicUser(u)
   }),
 

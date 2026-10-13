@@ -15,8 +15,10 @@ export type PayMethod = 'wallet' | 'card'
 
 export interface OtpChallenge {
   challenge: string
-  /** e.g. 05•••••567 */
+  /** where the code went: 05•••••567 or a•••@mail.com */
   phoneMasked: string
+  /** digits in the code (4 by SMS; the email provider may use 6) */
+  length?: number
   expiresAt: string
 }
 
@@ -64,7 +66,10 @@ export interface SammhaApi {
   myBids(): Promise<(Bid & { auction: Auction })[]>
   myNames(): Promise<ReservedName[]>
   updateMyProfile(p: { avatarUrl?: string | null; showAvatar: boolean }): Promise<User>
-  updateMyAccount(p: { fullName: string; email: string; nationalId?: string }): Promise<User>
+  updateMyAccount(p: { fullName: string; nationalId?: string }): Promise<User>
+  /** sends a one-time code to the new email; the email changes only after the code is confirmed */
+  requestEmailChange(newEmail: string): Promise<OtpChallenge>
+  confirmEmailChange(challenge: string, code: string): Promise<User>
   /** sends a one-time code to the new number */
   requestPhoneChange(newPhone: string): Promise<OtpChallenge>
   confirmPhoneChange(challenge: string, code: string): Promise<User>

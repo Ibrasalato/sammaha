@@ -394,67 +394,88 @@ export function CertificatePage() {
   )
 }
 
-/** Owner edits name, email and ID directly; a new mobile number is confirmed with a one-time code. */
-function AccountDetails() {
+/** Change the mobile number or the email: a one-time code goes to the NEW address and must be confirmed. */
+function ChangeContact({ kind, onClose }: { kind: 'phone' | 'email'; onClose: () => void }) {
   const { user, setUser, toast } = useApp()
-  const [f, setF] = useState({ fullName: user?.fullName ?? '', email: user?.email ?? '', nationalId: user?.nationalId ?? '' })
+  const [value, setValue] = useState('')
+  const [otp, setOtp] = useState<OtpChallenge | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const [phoneOpen, setPhoneOpen] = useState(false)
-  const [newPhone, setNewPhone] = useState('')
-  const [otp, setOtp] = useState<OtpChallenge | null>(null)
-  const [pErr, setPErr] = useState('')
   if (!user) return null
-  const dirty = f.fullName !== user.fullName || f.email !== user.email || f.nationalId !== (user.nationalId ?? '')
+  const phone = kind === 'phone'
+  async function send(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true); setErr('')
+    try { setOtp(phone ? await api.requestPhoneChange(value) : await api.requestEmailChange(value)) } catch (x) { setErr((x as Error).message) } finally { setBusy(false) }
+  }
+  return (
+    <Modal open onClose={onClose} title={phone ? 'تغيير رقم الجوال' : 'تغيير البريد الإلكتروني'}>
+      {otp ? (
+        <OtpForm c={otp} title={phone ? 'أكّد الرقم الجديد' : 'أكّد البريد الجديد'} onBack={() => setOtp(null)}
+          onResend={async () => { const n = phone ? await api.requestPhoneChange(value) : await api.requestEmailChange(value); setOtp(n); return n }}
+          onVerify={async (code) => {
+            const u = phone ? await api.confirmPhoneChange(otp.challenge, code) : await api.confirmEmailChange(otp.challenge, code)
+            setUser(u); toast(phone ? `تم تغيير رقم الجوال إلى ${u.phone}` : `تم تغيير البريد إلى ${u.email}`); onClose()
+          }} />
+      ) : (
+        <form onSubmit={send} className="space-y-4">
+          {err && <ErrorBox text={err} />}
+          <p className="text-[15px] text-muted">{phone ? 'رقمك الحالي' : 'بريدك الحالي'} <b className="num text-ink" dir="ltr">{phone ? user.phone : user.email}</b>. سنرسل رمز تحقق إلى {phone ? 'الرقم' : 'البريد'} الجديد للتأكد أنه لك.</p>
+          <div>
+            <label className="label" htmlFor="nc">{phone ? 'رقم الجوال الجديد' : 'البريد الإلكتروني الجديد'}</label>
+            <input id="nc" className="field num" dir="ltr" type={phone ? 'text' : 'email'} inputMode={phone ? 'tel' : 'email'} placeholder={phone ? '05XXXXXXXX' : 'name@example.com'}
+              value={value} onChange={(e) => setValue(e.target.value)} required autoFocus />
+            {!phone && <p className="hint">تصلك الفواتير الإلكترونية على البريد الجديد بعد التأكيد.</p>}
+          </div>
+          <button className="btn-primary w-full" disabled={busy}>{busy ? 'جارٍ الإرسال…' : 'إرسال رمز التحقق'}</button>
+        </form>
+      )}
+    </Modal>
+  )
+}
+
+/** Owner edits name and ID directly; the mobile number and the email are confirmed with a one-time code. */
+function AccountDetails() {
+  const { user, setUser, toast } = useApp()
+  const [f, setF] = useState({ fullName: user?.fullName ?? '', nationalId: user?.nationalId ?? '' })
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [changing, setChanging] = useState<'phone' | 'email' | null>(null)
+  if (!user) return null
+  const dirty = f.fullName !== user.fullName || f.nationalId !== (user.nationalId ?? '')
   async function save(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true); setErr('')
-    try { const u = await api.updateMyAccount(f); setUser(u); toast(u.email === f.email ? 'حُفظت بياناتك' : 'حُفظت بياناتك، وأرسلنا رابط تأكيد إلى بريدك الجديد') } catch (x) { setErr((x as Error).message) } finally { setBusy(false) }
+    try { setUser(await api.updateMyAccount(f)); toast('حُفظت بياناتك') } catch (x) { setErr((x as Error).message) } finally { setBusy(false) }
   }
-  async function sendCode(e: React.FormEvent) {
-    e.preventDefault()
-    setBusy(true); setPErr('')
-    try { setOtp(await api.requestPhoneChange(newPhone)) } catch (x) { setPErr((x as Error).message) } finally { setBusy(false) }
-  }
-  const closePhone = () => { setPhoneOpen(false); setOtp(null); setNewPhone(''); setPErr('') }
+  const Locked = ({ label, value, kind, hint }: { label: string; value: string; kind: 'phone' | 'email'; hint: string }) => (
+    <div>
+      <span className="label">{label}</span>
+      <div className="flex items-center gap-2">
+        <span className="field num flex-1 truncate bg-stone" dir="ltr">{value}</span>
+        <button type="button" className="btn-ghost btn-sm shrink-0" onClick={() => setChanging(kind)}>تغيير</button>
+      </div>
+      <p className="hint">{hint}</p>
+    </div>
+  )
   return (
     <SectionCard title="بيانات الحساب" icon="file">
       <form onSubmit={save} className="space-y-4 p-5">
         {err && <ErrorBox text={err} />}
         <div className="grid gap-4 sm:grid-cols-2">
           <div><label className="label" htmlFor="af">الاسم الرباعي</label><input id="af" className="field" value={f.fullName} onChange={(e) => setF({ ...f, fullName: e.target.value })} required /></div>
-          <div><label className="label" htmlFor="ae">البريد الإلكتروني</label><input id="ae" type="email" className="field" dir="ltr" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required /><p className="hint">تصلك عليه الفواتير الإلكترونية.</p></div>
           <div><label className="label" htmlFor="an">رقم الهوية أو الإقامة <span className="font-normal text-muted">(اختياري)</span></label><input id="an" className="field num" dir="ltr" inputMode="numeric" maxLength={10} value={f.nationalId} onChange={(e) => setF({ ...f, nationalId: e.target.value.replace(/\D/g, '') })} /></div>
-          <div>
-            <span className="label">رقم الجوال</span>
-            <div className="flex items-center gap-2">
-              <span className="field num flex-1 bg-stone" dir="ltr">{user.phone}</span>
-              <button type="button" className="btn-ghost btn-sm shrink-0" onClick={() => setPhoneOpen(true)}>تغيير</button>
-            </div>
-            <p className="hint">يتطلب رمز تحقق يُرسل إلى الرقم الجديد.</p>
-          </div>
+          <Locked label="رقم الجوال" value={user.phone} kind="phone" hint="يتطلب رمز تحقق يُرسل إلى الرقم الجديد." />
+          <Locked label="البريد الإلكتروني" value={user.email} kind="email" hint="تصلك عليه الفواتير. يتطلب رمز تحقق يُرسل إلى البريد الجديد." />
         </div>
         <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
           <button className="btn-primary" disabled={!dirty || busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ التعديلات'}</button>
-          {dirty && <button type="button" className="text-[14px] font-bold text-muted hover:text-ink" onClick={() => setF({ fullName: user.fullName, email: user.email, nationalId: user.nationalId ?? '' })}>تراجع</button>}
+          {dirty && <button type="button" className="text-[14px] font-bold text-muted hover:text-ink" onClick={() => setF({ fullName: user.fullName, nationalId: user.nationalId ?? '' })}>تراجع</button>}
           <span className="ms-auto text-[13px] text-muted">مسجّل منذ {date(user.createdAt)}</span>
         </div>
         <p className="text-[13px] text-muted">تعديل الاسم يحدّث اسم المالك على أسمائك المسجلة وشهاداتها.</p>
       </form>
-      <Modal open={phoneOpen} onClose={closePhone} title="تغيير رقم الجوال">
-        {otp ? (
-          <OtpForm c={otp} title="أكّد الرقم الجديد" onBack={() => setOtp(null)}
-            onResend={async () => { const n = await api.resendOtp(otp.challenge); setOtp(n); return n }}
-            onVerify={async (code) => { const u = await api.confirmPhoneChange(otp.challenge, code); setUser(u); toast(`تم تغيير رقم الجوال إلى ${u.phone}`); closePhone() }} />
-        ) : (
-          <form onSubmit={sendCode} className="space-y-4">
-            {pErr && <ErrorBox text={pErr} />}
-            <p className="text-[15px] text-muted">رقمك الحالي <b className="num text-ink" dir="ltr">{user.phone}</b>. سنرسل رمز تحقق إلى الرقم الجديد للتأكد أنه لك.</p>
-            <div><label className="label" htmlFor="np">رقم الجوال الجديد</label><input id="np" className="field num" dir="ltr" inputMode="tel" placeholder="05XXXXXXXX" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} required autoFocus /></div>
-            <button className="btn-primary w-full" disabled={busy}>{busy ? 'جارٍ الإرسال…' : 'إرسال رمز التحقق'}</button>
-          </form>
-        )}
-      </Modal>
+      {changing && <ChangeContact kind={changing} onClose={() => setChanging(null)} />}
     </SectionCard>
   )
 }

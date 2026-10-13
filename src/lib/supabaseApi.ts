@@ -9,6 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
 import type { SammhaApi } from './api'
 import { normalizePhone, validateTicket } from './tickets'
+import { maskEmail } from './otp'
 import type { User } from './types'
 
 let client: SupabaseClient | null = null
@@ -86,13 +87,22 @@ export const supabaseApi: SammhaApi = {
 
   resendOtp: (challenge) => rpc('resend_otp', { p_challenge: challenge }),
 
-  updateMyAccount: async ({ fullName, email, nationalId }) => {
-    const { data: { user } } = await sb().auth.getUser()
-    if (user && email.trim().toLowerCase() !== (user.email ?? '').toLowerCase()) {
-      const { error } = await sb().auth.updateUser({ email: email.trim() }) // Supabase sends a confirmation link
-      if (error) throw new ApiError(error.message)
-    }
-    return rpc('update_my_account', { p_full_name: fullName, p_national_id: nationalId ?? null })
+  updateMyAccount: ({ fullName, nationalId }) => rpc('update_my_account', { p_full_name: fullName, p_national_id: nationalId ?? null }),
+
+  // Email change uses Supabase Auth's own one-time code (template "Change Email Address" must include {{ .Token }}).
+  async requestEmailChange(newEmail) {
+    const mail = newEmail.trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) throw new ApiError('البريد الإلكتروني غير صحيح')
+    const { error } = await sb().auth.updateUser({ email: mail })
+    if (error) throw new ApiError(error.message.includes('already') ? 'البريد الإلكتروني مسجل لحساب آخر' : error.message)
+    return { challenge: mail, phoneMasked: maskEmail(mail), expiresAt: new Date(Date.now() + 3600_000).toISOString(), length: 6 }
+  },
+  async confirmEmailChange(challenge, code) {
+    const { error } = await sb().auth.verifyOtp({ email: challenge, token: code, type: 'email_change' })
+    if (error) throw new ApiError('الرمز غير صحيح أو انتهت صلاحيته')
+    const u = await rawProfile()
+    if (!u) throw new ApiError('تعذّر التحقق')
+    return u
   },
   requestPhoneChange: (newPhone) => rpc('request_otp', { p_purpose: 'phone', p_phone: newPhone }),
   async confirmPhoneChange(challenge, code) {
