@@ -15,6 +15,7 @@ const PUBLIC_NAV = (): [string, string][] => [
   ['/auctions', tr('المزادات', 'Auctions')],
   ['/events', tr('المواعيد', 'Calendar')],
   ['/names', tr('سجل الأسماء', 'Registry')],
+  ['/invest', tr('استثمار الاسم', 'Name investment')],
   ['/about', tr('عن المنصة', 'About')],
 ]
 
@@ -120,7 +121,7 @@ export function Footer() {
           </p>
         </div>
         <FooterCol title={tr('المنصة', 'Platform')} links={[['/auctions', tr('المزادات', 'Auctions')], ['/events', tr('مواعيد الإبل', 'Camel calendar')], ['/names', tr('سجل الأسماء', 'Names registry')], ['/verify', tr('التحقق من شهادة', 'Verify a certificate')], ['/about', tr('عن المنصة', 'About')]]} />
-        <FooterCol title={tr('المساعدة', 'Help')} links={[['/faq', tr('الأسئلة الشائعة', 'FAQ')], ['/signup', tr('إنشاء حساب', 'Create account')], ['/dashboard/requests/new', tr('طلب اسم شعار', 'Request a name')], ['/contact', tr('تواصل معنا', 'Contact us')], ['/contact/track', tr('متابعة شكوى أو بلاغ', 'Track a request')]]} />
+        <FooterCol title={tr('المساعدة', 'Help')} links={[['/faq', tr('الأسئلة الشائعة', 'FAQ')], ['/signup', tr('إنشاء حساب', 'Create account')], ['/dashboard/requests/new', tr('طلب اسم شعار', 'Request a name')], ['/invest', tr('استثمار الاسم', 'Name investment')], ['/contact', tr('تواصل معنا', 'Contact us')], ['/contact/track', tr('متابعة شكوى أو بلاغ', 'Track a request')]]} />
         <div>
           <h3 className="text-[15px] font-extrabold text-paper">{tr('تواصل معنا', 'Contact')}</h3>
           <ul className="mt-4 space-y-2.5 text-[14.5px]">

@@ -13,6 +13,7 @@ const DEPOSIT_STATE: Record<LogoRequest['depositState'], string> = {
   held: 'محجوز لدى المنصة',
   applied: 'خُصم من قيمة الاسم الذي رسا عليك',
   refunded: 'أُعيد إلى محفظتك',
+  fee: 'رسوم دراسة غير مستردة',
 }
 
 function CandidateChip({ c, type }: { c: Candidate; type: NameType }) {
@@ -52,7 +53,9 @@ function CancelRequest({ r, onClose, onDone }: { r: LogoRequest; onClose: () => 
         <ul className="space-y-2 rounded-lg bg-stone p-4 text-[15px]">
           {held
             ? <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-ok" /><span>يُعاد ضمان المزاد <b>{sar(r.depositAmount)}</b> إلى محفظتك فورًا، وتستخدمه في طلب جديد.</span></li>
-            : <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-muted" />لم تسدّد الضمان بعد، فلا يوجد مبلغ للاسترداد.</li>}
+            : r.depositState === 'fee'
+              ? <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-bad" /><span>رسوم الدراسة <b>{sar(r.depositAmount)}</b> غير مستردة، فلن يُعاد أي مبلغ.</span></li>
+              : <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-muted" />لم تسدّد {r.kind === 'investment' ? 'الرسوم' : 'الضمان'} بعد، فلا يوجد مبلغ للاسترداد.</li>}
           {scheduled > 0 && <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" /><span>{scheduled === 1 ? 'يُلغى المزاد المجدول' : `تُلغى المزادات المجدولة (${scheduled})`} لأسماء هذا الطلب قبل أن يبدأ.</span></li>}
           <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-bad" />تصبح الأسماء متاحة لغيرك، ولا يمكن التراجع عن الإلغاء.</li>
         </ul>
@@ -117,7 +120,7 @@ export function MyRequests() {
     filters: [
       { key: 'status', label: 'الحالة', options: [['', 'الكل'], ['pending_payment', 'بانتظار السداد'], ['under_review', 'تحت المراجعة'], ['accepted', 'مقبول'], ['rejected', 'مرفوض'], ['cancelled', 'ملغى']], test: (r, v) => r.status === v },
       { key: 'type', label: 'النوع', options: typeOptions('', 'الكل'), test: (r, v) => r.type === v },
-      { key: 'kind', label: 'الطلب', options: [['', 'الكل'], ['standard', 'طلب شعار'], ['compound', 'اسم مركب']], test: (r, v) => (r.kind ?? 'standard') === v },
+      { key: 'kind', label: 'الطلب', options: [['', 'الكل'], ['standard', 'طلب شعار'], ['compound', 'اسم مركب'], ['investment', 'استثمار الاسم']], test: (r, v) => (r.kind ?? 'standard') === v },
     ],
   })
 
@@ -136,12 +139,13 @@ export function MyRequests() {
                 <Link to={`/dashboard/requests/${r.id}`} className="num font-semibold hover:text-gold-deep">{r.number}</Link>
                 <TypeBadge type={r.type} />
                 {r.kind === 'compound' && <span className="pill bg-gold-soft text-gold-deep">اسم مركب لـ«{r.baseName}»</span>}
+                {r.kind === 'investment' && <span className="pill bg-invest-soft text-invest-deep">استثمار الاسم</span>}
                 <RequestStatusPill status={r.status} />
                 <span className="ms-auto text-sm text-muted">{dateTime(r.submittedAt || r.createdAt)}</span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">{r.candidates.map((c) => <CandidateChip key={c.id} c={c} type={r.type} />)}</div>
               <div className="mt-3 flex flex-wrap gap-2">
-                {r.status === 'pending_payment' && <button className="btn-gold btn-sm" onClick={() => setPaying(r)}>سداد الضمان {sar(r.depositAmount)}</button>}
+                {r.status === 'pending_payment' && <button className="btn-gold btn-sm" onClick={() => setPaying(r)}>{r.kind === 'investment' ? 'سداد الرسوم' : 'سداد الضمان'} {sar(r.depositAmount)}</button>}
                 <Link to={`/dashboard/requests/${r.id}`} className="btn-ghost btn-sm">التفاصيل</Link>
                 {r.cancellable && <button className="btn-danger btn-sm" onClick={() => setCancelling(r)}>{r.depositState === 'held' ? 'إلغاء كل الأسماء واسترداد الضمان' : 'إلغاء الطلب'}</button>}
                 {r.candidates.some((c) => c.withdrawable) && r.candidates.filter((c) => c.status === 'pending' || c.status === 'accepted').length > 1 && <Link to={`/dashboard/requests/${r.id}`} className="btn-ghost btn-sm">سحب اسم معيّن</Link>}
@@ -158,7 +162,7 @@ export function MyRequests() {
       )}
       {cancelling && <CancelRequest r={cancelling} onClose={() => setCancelling(null)} onDone={() => { setCancelling(null); reload() }} />}
       {paying && (
-        <PayModal open title={`سداد ضمان الطلب ${paying.number}`} amount={paying.depositAmount} onClose={() => setPaying(null)}
+        <PayModal open title={`${paying.kind === 'investment' ? 'رسوم دراسة' : 'سداد ضمان'} الطلب ${paying.number}`} amount={paying.depositAmount} onClose={() => setPaying(null)}
           onPay={async (m) => {
             try { await api.payDeposit(paying.id, m); toast('تم السداد، طلبك الآن تحت المراجعة'); reload() } catch (e) { toast((e as Error).message, 'bad'); throw e }
           }} />
@@ -272,7 +276,13 @@ export function RequestDetail() {
   if (error || !r) return <ErrorBox text={error || 'الطلب غير موجود'} />
 
   const compound = r.kind === 'compound'
-  const steps: [string, boolean][] = compound ? [
+  const invest = r.kind === 'investment'
+  const auctionOf = r.candidates.find((c) => c.auctionId)
+  const steps: [string, boolean][] = invest ? [
+    ['سداد رسوم الدراسة', r.depositPaid],
+    ['دراسة اللجنة', !!r.reviewedAt],
+    ['المزاد العام', !!auctionOf],
+  ] : compound ? [
     ['تقديم الطلب', true],
     ['مراجعة اللجنة', !!r.reviewedAt],
     ['التسجيل باسمك', r.status === 'accepted'],
@@ -285,7 +295,7 @@ export function RequestDetail() {
 
   return (
     <>
-      <PageHead title={compound ? `طلب اسم مركب ${r.number}` : `الطلب ${r.number}`} sub={<span className="flex flex-wrap items-center gap-2"><TypeBadge type={r.type} />{compound && <span className="pill bg-gold-soft text-gold-deep">مركب من «{r.baseName}»</span>}<RequestStatusPill status={r.status} /></span>}
+      <PageHead title={compound ? `طلب اسم مركب ${r.number}` : invest ? `استثمار الاسم ${r.number}` : `الطلب ${r.number}`} sub={<span className="flex flex-wrap items-center gap-2"><TypeBadge type={r.type} />{compound && <span className="pill bg-gold-soft text-gold-deep">مركب من «{r.baseName}»</span>}{invest && <span className="pill bg-invest-soft text-invest-deep">استثمار الاسم</span>}<RequestStatusPill status={r.status} /></span>}
         action={r.cancellable ? (
           <button className="btn-danger btn-sm" onClick={() => setCancelling(true)}>{r.depositState === 'held' ? 'إلغاء كل الأسماء واسترداد الضمان' : 'إلغاء الطلب'}</button>
         ) : undefined} />
@@ -297,7 +307,7 @@ export function RequestDetail() {
           {r.depositState === 'refunded' && <> أُعيد الضمان {sar(r.depositAmount)} إلى <Link to="/dashboard/wallet" className="font-bold text-pine underline">محفظتك</Link>.</>}
         </div>
       )}
-      {r.status === 'accepted' && !r.cancellable && (
+      {r.status === 'accepted' && !r.cancellable && !invest && (
         <p className="mb-4 text-[14px] text-muted">بدأ مزاد أحد أسماء هذا الطلب، لذلك لا يمكن إلغاؤه. يُعاد الضمان تلقائيًا إن رست كل الأسماء على غيرك.</p>
       )}
 
@@ -309,7 +319,16 @@ export function RequestDetail() {
             : r.status === 'rejected' ? 'لم تعتمد اللجنة هذا الاسم المركب. تقدر تطلب صيغة أخرى من «أسمائي».' : 'أُلغي هذا الطلب.'}
         </div>
       )}
-      <ol className={`panel mb-4 grid grid-cols-2 gap-3 p-4 ${compound ? 'sm:grid-cols-3' : 'sm:grid-cols-4'}`}>
+      {invest && (
+        <div className={`mb-4 rounded-xl border p-4 text-[15px] ${r.status === 'rejected' ? 'border-bad/30 bg-bad/5' : 'border-invest/30 bg-invest-soft'}`}>
+          {r.status === 'pending_payment' ? `سدّد رسوم الدراسة ${sar(r.depositAmount)} (غير مستردة) ليصل اسمك إلى اللجنة المختصة.`
+            : r.status === 'under_review' ? 'تدرس اللجنة المختصة اسمك وفق المعايير المعتمدة، وتصلك رسالة بالنتيجة.'
+            : r.status === 'rejected' ? 'لم يُقبل الاسم وفق معايير اللجنة، وأُبلغت برسالة نصية. رسوم الدراسة غير مستردة.'
+            : r.status === 'accepted' ? <>قُبل اسمك ويُطرح في مزاد عام، ولك {Math.round(RULES.investOwnerShare * 100)}% من قيمة البيع قبل الضريبة. <Link to="/dashboard/invest" className="font-bold text-pine underline">تابع عوائدك</Link>.</>
+            : 'أُلغي هذا الطلب.'}
+        </div>
+      )}
+      <ol className={`panel mb-4 grid grid-cols-2 gap-3 p-4 ${compound || invest ? 'sm:grid-cols-3' : 'sm:grid-cols-4'}`}>
         {steps.map(([label, done], i) => (
           <li key={label} className="flex items-center gap-2">
             <span className={`num flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${done ? 'bg-ok text-paper' : 'border border-line text-muted'}`}>{i + 1}</span>
@@ -320,7 +339,7 @@ export function RequestDetail() {
 
       {r.status === 'pending_payment' && (
         <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-gold bg-gold-soft p-4">
-          <p className="flex-1 font-semibold">سدّد ضمان المزاد ليصل طلبك إلى لجنة الاعتماد.</p>
+          <p className="flex-1 font-semibold">{invest ? 'سدّد رسوم الدراسة ليصل اسمك إلى اللجنة المختصة.' : 'سدّد ضمان المزاد ليصل طلبك إلى لجنة الاعتماد.'}</p>
           <button className="btn-gold" onClick={() => setPaying(true)}>سداد {sar(r.depositAmount)}</button>
         </div>
       )}
@@ -345,6 +364,7 @@ export function RequestDetail() {
         <div><dt className="text-muted">تاريخ التقديم</dt><dd className="font-semibold">{dateTime(r.submittedAt || r.createdAt)}</dd></div>
         {compound
           ? <div><dt className="text-muted">الاسم الأساسي</dt><dd className="font-semibold">{r.baseName}، بلا ضمان ولا مزاد</dd></div>
+          : invest ? <div><dt className="text-muted">رسوم الدراسة</dt><dd className="font-semibold">{sar(r.depositAmount)}، {r.depositPaid ? 'مدفوعة وغير مستردة' : 'لم تُسدَّد'}</dd></div>
           : <div><dt className="text-muted">ضمان المزاد</dt><dd className="font-semibold">{sar(r.depositAmount)}، {DEPOSIT_STATE[r.depositState]}</dd></div>}
         {r.reviewedAt && <div><dt className="text-muted">تاريخ المراجعة</dt><dd className="font-semibold">{dateTime(r.reviewedAt)}</dd></div>}
         {r.reviewNote && <div><dt className="text-muted">ملاحظة اللجنة</dt><dd className="font-semibold">{r.reviewNote}</dd></div>}
@@ -353,7 +373,7 @@ export function RequestDetail() {
       {cancelling && <CancelRequest r={r} onClose={() => setCancelling(false)} onDone={() => { setCancelling(false); reload() }} />}
       {withdrawing && <WithdrawName r={r} c={withdrawing} onClose={() => setWithdrawing(null)} onDone={() => { setWithdrawing(null); reload() }} />}
       {paying && (
-        <PayModal open title={`سداد ضمان الطلب ${r.number}`} amount={r.depositAmount} onClose={() => setPaying(false)}
+        <PayModal open title={`${invest ? 'رسوم دراسة' : 'سداد ضمان'} الطلب ${r.number}`} amount={r.depositAmount} onClose={() => setPaying(false)}
           onPay={async (m) => { try { await api.payDeposit(r.id, m); toast('تم السداد، طلبك الآن تحت المراجعة'); reload() } catch (e) { toast((e as Error).message, 'bad'); throw e } }} />
       )}
     </>

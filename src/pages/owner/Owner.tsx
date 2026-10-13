@@ -138,7 +138,7 @@ export function DashHome() {
   )
 }
 
-const TX_LABEL = { topup: 'شحن', deposit: 'ضمان مزاد', refund: 'استرداد', invoice_payment: 'سداد فاتورة' }
+const TX_LABEL = { topup: 'شحن', deposit: 'ضمان مزاد', refund: 'استرداد', invoice_payment: 'سداد فاتورة', service_fee: 'رسوم استثمار الاسم', investment_payout: 'عائد استثمار الاسم' }
 
 export function WalletPage() {
   const { toast } = useApp()

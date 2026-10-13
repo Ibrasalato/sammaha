@@ -48,6 +48,7 @@ export default function AuctionDetail() {
   const phase = phaseOf(a, now)
   const min = a.currentPrice + a.minIncrement
   const isRequester = user?.id === a.requesterId
+  const ownInvest = !!a.investment && isRequester // the proposer may not bid on his own name
   const leading = !!user && a.leaderId === user.id
   const mine = data.mine
   const endsSoon = phase === 'live' && Date.parse(a.endsAt) - now < RULES.extendMinutes * 60_000 * 3
@@ -82,7 +83,7 @@ export default function AuctionDetail() {
           <div className="mt-6 flex flex-col items-start gap-6 sm:flex-row sm:items-center">
             <NameSeal name={a.name} type={a.type} size="lg" />
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2"><TypeBadge type={a.type} /><PhasePill phase={phase} />{(a.extensions ?? 0) > 0 && phase === 'live' && <span className="pill bg-gold text-paper">{tr(`مُدّد ${num(a.extensions!)} مرة`, `Extended ${num(a.extensions!)}×`)}</span>}</div>
+              <div className="flex flex-wrap items-center gap-2"><TypeBadge type={a.type} />{a.investment && <Link to="/invest" className="pill bg-gold text-pine hover:bg-gold-light">{tr('استثمار الاسم', 'Name investment')}</Link>}<PhasePill phase={phase} />{(a.extensions ?? 0) > 0 && phase === 'live' && <span className="pill bg-gold text-paper">{tr(`مُدّد ${num(a.extensions!)} مرة`, `Extended ${num(a.extensions!)}×`)}</span>}</div>
               <h1 className="mt-3 text-[40px] font-extrabold leading-none text-paper sm:text-[48px]">{a.name}</h1>
               <p className="mt-2 text-paper/65">{TYPE_HINT[a.type]}</p>
             </div>
@@ -183,7 +184,10 @@ export default function AuctionDetail() {
                 )}
               </div>
 
-              {phase === 'live' && (user ? (
+              {phase !== 'ended' && ownInvest && (
+                <p className="mt-5 rounded-lg border border-line bg-stone p-4 text-[14.5px] leading-7">{tr('هذا اسمك المقدّم في «استثمار الاسم»، ولا يمكنك المزايدة عليه حفاظًا على عدالة المزاد. لك 30% من قيمة بيعه قبل الضريبة، وإن لم يزايد أحد يؤول إليك.', 'This is your «Name investment» name, so you cannot bid on it. You get 30% of its sale before VAT; if nobody bids, it is yours.')}</p>
+              )}
+              {phase === 'live' && !ownInvest && (user ? (
                 <form className="mt-5" onSubmit={(e) => { e.preventDefault(); bid(Number(amount)) }}>
                   {isRequester && <p className="mb-3 rounded-md bg-stone px-3 py-2 text-[13px] text-muted">{tr('أنت مقدم طلب هذا الاسم. إن لم يزايد أحد يرسو عليك بمبلغ الضمان.', 'You requested this name. If nobody bids it is yours for the guarantee amount.')}</p>}
                   <span className="label">{tr('مزايدة سريعة', 'Quick bid')}</span>
@@ -218,7 +222,7 @@ export default function AuctionDetail() {
               ))}
             </div>
 
-            {user && phase !== 'ended' && (
+            {user && phase !== 'ended' && !ownInvest && (
               <div className="border-t border-line bg-stone/60 p-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-[16px]">{tr('المزايدة التلقائية', 'Automatic bidding')}</h3>
@@ -245,7 +249,7 @@ export default function AuctionDetail() {
       </div>
 
       {/* mobile: price and bid button always in reach */}
-      {phase === 'live' && (
+      {phase === 'live' && !ownInvest && (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(0,0,0,.25)] backdrop-blur lg:hidden print:hidden">
           <div className="mx-auto flex max-w-xl items-center gap-3">
             <div className="min-w-0 flex-1">

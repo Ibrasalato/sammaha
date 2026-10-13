@@ -1,4 +1,4 @@
-export type NameType = 'qaadan' | 'bakkar' | 'istithmar'
+export type NameType = 'qaadan' | 'bakkar'
 export type Role = 'owner' | 'committee' | 'admin'
 
 export interface User {
@@ -66,7 +66,8 @@ export interface LogoRequest {
   status: RequestStatus
   depositAmount: number
   depositPaid: boolean
-  depositState: 'none' | 'held' | 'applied' | 'refunded'
+  /** 'fee' = the non-refundable study fee of a name-investment request */
+  depositState: 'none' | 'held' | 'applied' | 'refunded' | 'fee'
   createdAt: string
   submittedAt?: string
   reviewedAt?: string
@@ -77,8 +78,9 @@ export interface LogoRequest {
   cancelledAt?: string
   cancelledBy?: 'owner' | 'committee'
   cancelReason?: string
-  /** 'compound' = a compound name for a name the owner already holds; registered on approval, no auction */
-  kind?: 'standard' | 'compound'
+  /** 'compound' = a compound name for a name the owner already holds; registered on approval, no auction.
+   *  'investment' = «استثمار الاسم»: one new name, non-refundable study fee, public auction, 30% of the proceeds to its owner */
+  kind?: 'standard' | 'compound' | 'investment'
   baseName?: string
   baseReservedId?: string
 }
@@ -107,6 +109,8 @@ export interface Auction {
   wonByRequester?: boolean
   /** times the end was pushed back by a last-minute bid */
   extensions?: number
+  /** offered through «استثمار الاسم»: its proposer cannot bid on it */
+  investment?: boolean
 }
 
 export interface Bid {
@@ -142,14 +146,14 @@ export interface ReservedName {
   ownerName: string
   price: number
   acquiredAt: string
-  source: 'auction' | 'legacy' | 'compound'
+  source: 'auction' | 'legacy' | 'compound' | 'investment'
   /** for a compound name: the owned name it was built on */
   baseName?: string
   /** owner's public photo, only when they chose to show it */
   ownerAvatar?: string
 }
 
-export type TxKind = 'topup' | 'deposit' | 'refund' | 'invoice_payment'
+export type TxKind = 'topup' | 'deposit' | 'refund' | 'invoice_payment' | 'service_fee' | 'investment_payout'
 
 export interface WalletTx {
   id: string
@@ -177,6 +181,21 @@ export interface Invoice {
   status: 'paid' | 'unpaid'
   issuedAt: string
   paidAt?: string
+  /** name investment: the proposer's share of the proceeds, paid to their wallet once this invoice is paid */
+  ownerShare?: number
+  ownerShareTo?: string
+  ownerSharePaid?: boolean
+}
+
+/** One «استثمار الاسم» request as its owner sees it */
+export interface InvestmentItem {
+  request: LogoRequest
+  auction?: Auction
+  /** 30% of the sale before VAT, once the auction sold to a bidder */
+  share?: number
+  sharePaid?: boolean
+  /** the name went back to its owner because nobody bid */
+  keptByOwner?: boolean
 }
 
 export interface NameCheck {

@@ -95,7 +95,6 @@ export default function Home() {
             <p className="mt-2 flex flex-wrap items-center gap-4 ps-4 text-[14px] text-muted">
               <span className="inline-flex items-center gap-2"><span className={`h-3 w-3 rounded-sm ${cardStyle === 'brand' ? 'bg-[#1D5C2F]' : 'bg-qaadan'}`} />{TYPE_LABEL.qaadan}</span>
               <span className="inline-flex items-center gap-2"><span className={`h-3 w-3 rounded-sm ${cardStyle === 'brand' ? 'bg-[#9C7425]' : 'bg-bakkar'}`} />{TYPE_LABEL.bakkar}</span>
-              <span className="inline-flex items-center gap-2"><span className={`h-3 w-3 rounded-sm ${cardStyle === 'brand' ? 'bg-[#8B5A9F]' : 'bg-istithmar'}`} />{TYPE_LABEL.istithmar}</span>
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -137,6 +136,23 @@ export default function Home() {
             <Link to="/terms" className="btn-ghost">{tr('الشروط والضوابط', 'Terms and rules')}</Link>
           </div>
         </div>
+      </section>
+
+      {/* ─── Name investment ─── */}
+      <section className="wrap pt-16">
+        <Link to="/invest" className="group grid overflow-hidden rounded-2xl bg-pine text-paper shadow-card sm:grid-cols-[1fr_auto]">
+          <div className="p-6 sm:p-8">
+            <span className="pill bg-gold text-pine">{tr('خدمة جديدة', 'New service')}</span>
+            <h2 className="mt-3 text-[26px] text-paper sm:text-[30px]">{tr('استثمار الاسم', 'Name investment')}</h2>
+            <p className="mt-2 max-w-xl leading-8 text-paper/75">{tr(`اقترح اسمًا جديدًا مبتكرًا. إن اعتمدته اللجنة يُطرح في مزاد عام ولك ${Math.round(RULES.investOwnerShare * 100)}% من قيمة بيعه.`, `Propose a new, original name. If the committee approves it, it goes to a public auction and you get ${Math.round(RULES.investOwnerShare * 100)}% of the sale.`)}</p>
+            <span className="mt-4 inline-flex items-center gap-2 font-bold text-gold-light group-hover:underline">{tr('اعرف أكثر وقدّم اسمك', 'Learn more and submit')} <span aria-hidden>←</span></span>
+          </div>
+          <div className="hidden items-center gap-3 border-s border-paper/10 bg-paper/5 px-8 sm:flex">
+            {[[`${100 - Math.round(RULES.investOwnerShare * 100)}%`, tr('للمنظمة', 'Organization')], [`${Math.round(RULES.investOwnerShare * 100)}%`, tr('لصاحب الاسم', 'Name owner')]].map(([v, l], i) => (
+              <div key={l} className={`grid h-28 w-28 place-items-center rounded-full text-center ${i ? 'bg-gold text-pine' : 'border-2 border-paper/25'}`}><span><b className="num block text-[28px] leading-none">{v}</b><span className="text-[13px]">{l}</span></span></div>
+            ))}
+          </div>
+        </Link>
       </section>
 
       {/* ─── Upcoming ─── */}
@@ -200,7 +216,6 @@ function NameChecker({ ctaTo }: { ctaTo: string }) {
             <select aria-label={tr('النوع', 'Type')} className="rounded-md border border-line bg-stone px-3 text-[15px] font-bold text-pine" value={t} onChange={(e) => { setT(e.target.value as NameType); setRes(null) }}>
               <option value="qaadan">{TYPE_LABEL.qaadan}</option>
               <option value="bakkar">{TYPE_LABEL.bakkar}</option>
-              <option value="istithmar">{TYPE_LABEL.istithmar}</option>
             </select>
             <button className="btn-gold flex-1 px-6 sm:flex-none" disabled={busy || !name.trim()}>{tr('تحقق', 'Check')}</button>
           </div>

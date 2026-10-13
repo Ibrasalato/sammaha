@@ -1,6 +1,6 @@
 import type {
   AppNotification, CamelEvent, AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
-  AuctionView, PublicStats, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
+  AuctionView, InvestmentItem, PublicStats, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
 } from './types'
 
 export interface SignUpInput {
@@ -56,6 +56,9 @@ export interface SammhaApi {
   createRequest(type: NameType, names: string[]): Promise<LogoRequest>
   /** compound name for a name the owner holds; goes to the committee, registered directly on approval (no auction) */
   createCompoundRequest(reservedId: string, fullName: string): Promise<LogoRequest>
+  /** «استثمار الاسم»: one new name; pay the study fee with payDeposit */
+  createInvestmentRequest(type: NameType, name: string): Promise<LogoRequest>
+  myInvestments(): Promise<InvestmentItem[]>
   payDeposit(requestId: string, method: PayMethod): Promise<LogoRequest>
   /** returns the amount refunded to the wallet (0 if the guarantee was not paid yet) */
   cancelMyRequest(requestId: string, reason?: string): Promise<{ refunded: number }>

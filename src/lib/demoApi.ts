@@ -41,7 +41,7 @@ interface DB {
 
 const KEY = 'sammha-demo-db'
 const SESSION = 'sammha-demo-session'
-const VERSION = 7
+const VERSION = 8
 
 const now = () => Date.now()
 const iso = (t: number) => new Date(t).toISOString()
@@ -208,22 +208,24 @@ function superAdmin(t: number): DemoUser {
 }
 const isSuper = (u: Pick<User, 'email'>) => u.email.toLowerCase() === SUPER_ADMIN_EMAIL
 
-/** Sample names in the investment category, so it appears in the registry and auctions. */
+/** Sample «استثمار الاسم» requests: names offered by an owner, now in public auction. */
 function seedInvestment(db: DB, t: number) {
-  const owners = ['u-b1', 'u-b2', 'u-b3']
-  ;[['ثروة', 3200], ['الكنز', 5400], ['الرصيد', 1800]].forEach(([name, price], i) => {
-    const u = db.users.find((x) => x.id === owners[i])!
-    db.reserved.push({ id: `rv-inv${i}`, name: name as string, normalized: normalizeName(name as string), type: 'istithmar', ownerId: u.id, ownerName: u.fullName, price: price as number, acquiredAt: iso(t - (20 + i * 7) * D), source: 'auction' })
-  })
-  const r: LogoRequest = {
-    id: 'q-inv1', number: `SM-${1000 + db.requests.length + 1}`, userId: 'u-b2', ownerName: db.users.find((x) => x.id === 'u-b2')!.fullName, type: 'istithmar',
-    candidates: ['المكسب', 'الذخر', 'الوفرة'].map((n, i) => ({ id: `c-inv${i}`, name: n, normalized: normalizeName(n), status: 'accepted' as const, similar: [] })),
-    status: 'accepted', depositAmount: RULES.depositAmount, depositPaid: true, depositState: 'held', createdAt: iso(t - 4 * D), submittedAt: iso(t - 4 * D), reviewedAt: iso(t - 3 * D), reviewerName: 'لجنة الاعتماد',
+  const owner = db.users.find((x) => x.id === 'u-b2')!
+  const mkReq = (id: string, name: string, type: NameType, status: LogoRequest['status'], daysAgo: number): LogoRequest => {
+    const r: LogoRequest = {
+      id, number: `SM-${1000 + db.requests.length + 1}`, userId: owner.id, ownerName: owner.fullName, type, kind: 'investment',
+      candidates: [{ id: `c-${id}`, name, normalized: normalizeName(name), status: status === 'accepted' ? 'accepted' : 'pending', similar: [] }],
+      status, depositAmount: RULES.investFee, depositPaid: true, depositState: 'fee', createdAt: iso(t - daysAgo * D), submittedAt: iso(t - daysAgo * D),
+      reviewedAt: status === 'accepted' ? iso(t - (daysAgo - 1) * D) : undefined, reviewerName: status === 'accepted' ? 'لجنة الاعتماد' : undefined,
+    }
+    db.requests.push(r)
+    db.txs.push({ id: uid(db, 't'), userId: owner.id, amount: -RULES.investFee, kind: 'service_fee', note: `رسوم دراسة طلب استثمار الاسم ${r.number}`, createdAt: iso(t - daysAgo * D) })
+    return r
   }
-  db.requests.push(r)
-  const mk = (c: LogoRequest['candidates'][number], start: number, end: number, bids: [string, number][]) => {
-    const a: Auction = { id: `a-${c.id}`, requestId: r.id, candidateId: c.id, name: c.name, type: 'istithmar', requesterId: r.userId, openingPrice: RULES.openingPrice, minIncrement: RULES.minIncrement,
-      startsAt: iso(t + start), endsAt: iso(t + end), currentPrice: RULES.openingPrice, bidCount: 0, settled: false }
+  const mkAuction = (r: LogoRequest, start: number, end: number, bids: [string, number][]) => {
+    const c = r.candidates[0]
+    const a: Auction = { id: `a-${c.id}`, requestId: r.id, candidateId: c.id, name: c.name, type: r.type, requesterId: r.userId, openingPrice: RULES.openingPrice,
+      minIncrement: RULES.minIncrement, startsAt: iso(t + start), endsAt: iso(t + end), currentPrice: RULES.openingPrice, bidCount: 0, settled: false, investment: true }
     bids.forEach(([uidB, amount], k) => {
       const u = db.users.find((x) => x.id === uidB)!
       db.bids.push({ id: `b-${c.id}${k}`, auctionId: a.id, userId: uidB, bidderLabel: maskName(u.fullName), amount, createdAt: iso(t + start + (k + 1) * H) })
@@ -231,9 +233,9 @@ function seedInvestment(db: DB, t: number) {
     })
     db.auctions.push(a); c.auctionId = a.id
   }
-  mk(r.candidates[0], -1 * D, 2 * D, [['u-b1', 150], ['u-b3', 320], ['u-b1', 600]])
-  mk(r.candidates[1], -12 * H, 30 * H, [['u-owner', 90]])
-  mk(r.candidates[2], 2 * D, 5 * D, [])
+  mkAuction(mkReq('qi1', 'المكسب', 'qaadan', 'accepted', 6), -1 * D, 2 * D, [['u-b1', 150], ['u-b3', 320], ['u-b1', 600]])
+  mkAuction(mkReq('qi2', 'الذخر', 'bakkar', 'accepted', 5), -12 * H, 30 * H, [['u-owner', 90]])
+  mkReq('qi3', 'نسيم الوادي', 'bakkar', 'under_review', 1)
 }
 
 function seedTickets(db: DB, t: number) {
@@ -283,8 +285,17 @@ function load(): DB {
         if (!db.users.some(isSuper)) db.users.push(superAdmin(now()))
         db.v = 6
       }
-      if (db.v === 6) {
-        if (!db.reserved.some((r) => r.type === 'istithmar')) seedInvestment(db, now())
+      if (db.v === 6) db.v = 7
+      if (db.v === 7) {
+        // «استثمار» was briefly a name category; it is the «استثمار الاسم» service instead
+        const gone = (x: { type?: string }) => (x.type as string) === 'istithmar'
+        const oldAuctions = new Set(db.auctions.filter(gone).map((a) => a.id))
+        db.reserved = db.reserved.filter((x) => !gone(x))
+        db.requests = db.requests.filter((x) => !gone(x))
+        db.bids = db.bids.filter((b) => !oldAuctions.has(b.auctionId))
+        db.auctions = db.auctions.filter((a) => !oldAuctions.has(a.id))
+        db.invoices = db.invoices.filter((i) => !gone(i))
+        if (!db.requests.some((r) => r.kind === 'investment')) seedInvestment(db, now())
         db.v = VERSION; save(db); return db
       }
     }
@@ -367,7 +378,7 @@ function cancellable(db: DB, r: LogoRequest, t = now()) {
 /** A single name can be withdrawn while it is pending or accepted and its auction (if any) has not started. */
 function withdrawable(db: DB, r: LogoRequest, c: LogoRequest['candidates'][number], t = now()) {
   if (!['pending_payment', 'under_review', 'accepted'].includes(r.status)) return false
-  if (r.kind === 'compound') return false // a single name: cancel the request instead
+  if (r.kind === 'compound' || r.kind === 'investment') return false // a single name: cancel the request instead
   if (c.status !== 'pending' && c.status !== 'accepted') return false
   const a = c.auctionId ? db.auctions.find((x) => x.id === c.auctionId) : undefined
   return !a || (t < Date.parse(a.startsAt) && a.bidCount === 0)
@@ -399,6 +410,39 @@ function issueInvoice(db: DB, a: Auction, buyer: User, price: number, depositApp
 }
 
 /** Settle every auction whose end time has passed. Mirrors public.settle_due_auctions() in SQL. */
+// ───────────────────────── «استثمار الاسم» ─────────────────────────
+/** Sold to a bidder: invoice to the winner, 30% of the net price earmarked for the name owner.
+ *  No bids: the name goes to its owner at no price and without the 30%. */
+function settleInvestment(db: DB, a: Auction, r: LogoRequest) {
+  const owner = db.users.find((u) => u.id === r.userId)!
+  if (a.bidCount === 0 || !a.leaderId) {
+    db.reserved.push({ id: uid(db, 'r'), name: a.name, normalized: normalizeName(a.name), type: a.type, ownerId: owner.id, ownerName: owner.fullName, price: 0, acquiredAt: a.endsAt, source: 'investment' })
+    Object.assign(a, { settled: true, winnerId: owner.id, winnerName: owner.fullName, finalPrice: 0, wonByRequester: true })
+    notify(db, owner.id, 'won', `انتهى مزاد «${a.name}» دون مزايدات`, 'رسا الاسم عليك بلا مقابل، ولا تُستحق نسبة الـ30% لعدم وجود مزايدة.', '/dashboard/names')
+    return
+  }
+  const winner = db.users.find((u) => u.id === a.leaderId)!
+  const price = a.currentPrice
+  const inv = issueInvoice(db, a, winner, price, 0)
+  inv.ownerShare = round2((price - inv.vat) * RULES.investOwnerShare)
+  inv.ownerShareTo = owner.id
+  db.reserved.push({ id: uid(db, 'r'), name: a.name, normalized: normalizeName(a.name), type: a.type, ownerId: winner.id, ownerName: winner.fullName, price, acquiredAt: a.endsAt, source: 'investment' })
+  Object.assign(a, { settled: true, winnerId: winner.id, winnerName: winner.fullName, finalPrice: price, wonByRequester: false })
+  notify(db, winner.id, 'won', `مبارك عليك الفوز بمزاد شعار «${a.name}»`, `بسعر ${price} ريال. فاتورتك الإلكترونية جاهزة، سدّدها لإصدار شهادة التسجيل.`, '/dashboard/invoices')
+  notify(db, owner.id, 'won', `بيع اسمك «${a.name}» في المزاد`, `بسعر ${price} ريال. نصيبك ${inv.ownerShare} ريال (30%) يُضاف إلى محفظتك فور سداد الفائز.`, '/dashboard/invest')
+  for (const u of new Set(db.bids.filter((b) => b.auctionId === a.id && b.userId !== winner.id).map((b) => b.userId))) {
+    notify(db, u, 'lost', `انتهى مزاد «${a.name}»`, `رسا الاسم بسعر ${price} ريال.`, `/auctions/${a.id}`)
+  }
+}
+/** Pays the name owner's 30% once the winner's invoice is paid. */
+function payOwnerShare(db: DB, inv: Invoice) {
+  if (!inv.ownerShare || !inv.ownerShareTo || inv.ownerSharePaid) return
+  inv.ownerSharePaid = true
+  db.txs.push({ id: uid(db, 't'), userId: inv.ownerShareTo, amount: inv.ownerShare, kind: 'investment_payout', note: `نصيبك 30% من بيع الاسم «${inv.name}» (${inv.number})`, createdAt: iso(now()) })
+  notify(db, inv.ownerShareTo, 'refund', `أُضيف ${inv.ownerShare} ريال إلى محفظتك`, `نصيبك من بيع الاسم «${inv.name}» في المزاد.`, '/dashboard/wallet')
+}
+const isInvestment = (db: DB, a: Auction) => db.requests.find((r) => r.id === a.requestId)?.kind === 'investment'
+
 // ───────────────────────── bidding engine ─────────────────────────
 /** Record one bid: price, leader, anti-sniping extension and the outbid notice. */
 function recordBid(db: DB, a: Auction, userId: string, amount: number, auto = false) {
@@ -468,6 +512,7 @@ function sweep(db: DB) {
   for (const a of db.auctions) {
     if (a.settled || phaseOf(a) !== 'ended') continue
     const r = db.requests.find((x) => x.id === a.requestId)!
+    if (r.kind === 'investment') { settleInvestment(db, a, r); changed = true; continue }
     const noBids = a.bidCount === 0
     const winnerId = noBids ? a.requesterId : a.leaderId!
     const winner = db.users.find((u) => u.id === winnerId)!
@@ -838,6 +883,32 @@ export const demoApi: SammhaApi = {
     return withCancel(db, r)
   }),
 
+  createInvestmentRequest: (type, name) => tx((db) => {
+    const u = me(db)
+    if (type !== 'qaadan' && type !== 'bakkar') throw new ApiError('اختر النوع')
+    const check = checkNamesIn(db, [name])[0]
+    if (check.verdict === 'invalid') throw new ApiError(check.message || 'الاسم غير صالح')
+    if (check.verdict === 'exact') throw new ApiError(`«${check.name.trim()}» مسجل أو مطلوب مسبقًا، اختر اسمًا جديدًا غير مكرر`)
+    const r: LogoRequest = {
+      id: uid(db, 'q'), number: `SM-${1000 + db.requests.length + 1}`, userId: u.id, ownerName: u.fullName, type, kind: 'investment',
+      candidates: [{ id: uid(db, 'c'), name: check.name.trim(), normalized: check.normalized, status: 'pending', similar: check.hits }],
+      status: 'pending_payment', depositAmount: RULES.investFee, depositPaid: false, depositState: 'none', createdAt: iso(now()),
+    }
+    db.requests.push(r)
+    return withCancel(db, r)
+  }),
+
+  myInvestments: () => tx((db) => {
+    const u = me(db)
+    return db.requests.filter((r) => r.userId === u.id && r.kind === 'investment')
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .map((r) => {
+        const auction = db.auctions.find((a) => a.id === r.candidates[0]?.auctionId)
+        const inv = auction ? db.invoices.find((i) => i.auctionId === auction.id) : undefined
+        return { request: withCancel(db, r), auction, share: inv?.ownerShare, sharePaid: inv?.ownerSharePaid, keptByOwner: !!auction?.settled && auction.winnerId === r.userId }
+      })
+  }),
+
   payDeposit: (requestId, method: PayMethod) => tx((db) => {
     const u = me(db)
     const r = db.requests.find((x) => x.id === requestId && x.userId === u.id)
@@ -853,9 +924,10 @@ export const demoApi: SammhaApi = {
       // card: demo simulates a successful Moyasar payment that tops up then debits
       db.txs.push({ id: uid(db, 't'), userId: u.id, amount: r.depositAmount, kind: 'topup', note: `دفع بالبطاقة للطلب ${r.number}`, createdAt: iso(now()) })
     }
-    db.txs.push({ id: uid(db, 't'), userId: u.id, amount: -r.depositAmount, kind: 'deposit', note: `ضمان مزاد الطلب ${r.number}`, createdAt: iso(now()) })
+    const fee = r.kind === 'investment'
+    db.txs.push({ id: uid(db, 't'), userId: u.id, amount: -r.depositAmount, kind: fee ? 'service_fee' : 'deposit', note: fee ? `رسوم دراسة طلب استثمار الاسم ${r.number}` : `ضمان مزاد الطلب ${r.number}`, createdAt: iso(now()) })
     r.candidates.forEach((c, i) => { c.similar = checks[i].hits })
-    Object.assign(r, { status: 'under_review', depositPaid: true, depositState: 'held', submittedAt: iso(now()) })
+    Object.assign(r, { status: 'under_review', depositPaid: true, depositState: fee ? 'fee' : 'held', submittedAt: iso(now()) })
     return r
   }),
 
@@ -925,6 +997,7 @@ export const demoApi: SammhaApi = {
     db.txs.push({ id: uid(db, 't'), userId: inv.userId, amount: -inv.amountDue, kind: 'invoice_payment', note: `سداد الفاتورة ${inv.number} — ${inv.name}`, createdAt: iso(now()) })
     inv.status = 'paid'
     inv.paidAt = iso(now())
+    payOwnerShare(db, inv)
     return inv
   }),
 
@@ -954,6 +1027,7 @@ export const demoApi: SammhaApi = {
     const min = a.currentPrice + a.minIncrement
     if (!Number.isFinite(amount) || amount < min) throw new ApiError(`أقل مزايدة ${min} ريال`)
     if (a.leaderId === u.id) throw new ApiError('أنت صاحب أعلى مزايدة حاليًا')
+    if (isInvestment(db, a) && a.requesterId === u.id) throw new ApiError('لا يمكنك المزايدة على اسم قدّمته في «استثمار الاسم»')
     recordBid(db, a, u.id, amount)
     resolveAuto(db, a)
     return view(db, a)
@@ -964,6 +1038,7 @@ export const demoApi: SammhaApi = {
     const a = db.auctions.find((x) => x.id === auctionId)
     if (!a) throw new ApiError('المزاد غير موجود')
     if (phaseOf(a) === 'ended') throw new ApiError('انتهى المزاد')
+    if (isInvestment(db, a) && a.requesterId === u.id) throw new ApiError('لا يمكنك المزايدة على اسم قدّمته في «استثمار الاسم»')
     const floor = a.leaderId === u.id ? a.currentPrice + a.minIncrement : a.currentPrice + a.minIncrement
     if (!Number.isFinite(max) || max < floor) throw new ApiError(`الحد الأقصى ${floor} ريال على الأقل`)
     if (max > 1_000_000) throw new ApiError('الحد الأقصى كبير جدًا')
@@ -1045,12 +1120,17 @@ export const demoApi: SammhaApi = {
     const anyAccepted = r.candidates.some((c) => c.status === 'accepted')
     Object.assign(r, { status: anyAccepted ? 'accepted' : 'rejected', reviewedAt: iso(now()), reviewerName: u.fullName, reviewNote: note })
     const acc = r.candidates.filter((c) => c.status === 'accepted').map((c) => c.name)
+    if (r.kind === 'investment') {
+      notify(db, r.userId, 'reviewed', anyAccepted ? `قُبل اسمك «${acc[0]}» في «استثمار الاسم»` : `لم يُقبل الاسم المقدّم في «استثمار الاسم»`,
+        anyAccepted ? 'سيُطرح في مزاد عام قريبًا، ولك 30% من قيمة بيعه.' : `${r.candidates[0].rejectReason || 'وفق معايير اللجنة'}. رسوم الدراسة غير مستردة.`, `/dashboard/invest`)
+      return r
+    }
     if (r.kind === 'compound') {
       if (anyAccepted) {
         const c = r.candidates[0]
         db.reserved.push({ id: uid(db, 'r'), name: c.name, normalized: c.normalized, type: r.type, ownerId: r.userId, ownerName: r.ownerName, price: 0, acquiredAt: iso(now()), source: 'compound', baseName: r.baseName })
       }
-      notify(db, r.userId, 'reviewed', anyAccepted ? `اعتُمد الاسم المركب «${acc[0]}»` : `لم يُعتمد الاسم المركب لـ«${r.baseName}»`,
+    notify(db, r.userId, 'reviewed', anyAccepted ? `اعتُمد الاسم المركب «${acc[0]}»` : `لم يُعتمد الاسم المركب لـ«${r.baseName}»`,
         anyAccepted ? 'سُجّل باسمك مباشرة دون مزاد، وشهادته في «أسمائي».' : (r.candidates[0].rejectReason || 'راجع ملاحظة اللجنة في الطلب.'), anyAccepted ? '/dashboard/names' : `/dashboard/requests/${r.id}`)
       return r
     }
@@ -1066,7 +1146,8 @@ export const demoApi: SammhaApi = {
     if (!r || r.status !== 'under_review') throw new ApiError('لا يمكن رفض هذا الطلب')
     r.candidates.forEach((c) => { if (c.status !== 'withdrawn') { c.status = 'rejected'; c.rejectReason = reason } })
     Object.assign(r, { status: 'rejected', reviewedAt: iso(now()), reviewerName: u.fullName, reviewNote: reason })
-    notify(db, r.userId, 'reviewed', `لم يُقبل طلبك ${r.number}`, reason, `/dashboard/requests/${r.id}`)
+    if (r.kind === 'investment') notify(db, r.userId, 'reviewed', 'لم يُقبل الاسم المقدّم في «استثمار الاسم»', `${reason || 'وفق معايير اللجنة'}. رسوم الدراسة غير مستردة.`, '/dashboard/invest')
+    else notify(db, r.userId, 'reviewed', `لم يُقبل طلبك ${r.number}`, reason, `/dashboard/requests/${r.id}`)
     refundDeposit(db, r, 'مرفوض')
     return r
   }),
@@ -1102,7 +1183,7 @@ export const demoApi: SammhaApi = {
       const a: Auction = {
         id: uid(db, 'a'), requestId: r.id, candidateId: c.id, name: c.name, type: r.type, requesterId: r.userId,
         openingPrice: RULES.openingPrice, minIncrement: RULES.minIncrement, startsAt: iso(s), endsAt: iso(e),
-        currentPrice: RULES.openingPrice, bidCount: 0, settled: false,
+        currentPrice: RULES.openingPrice, bidCount: 0, settled: false, investment: r.kind === 'investment' || undefined,
       }
       c.auctionId = a.id
       db.auctions.push(a)
@@ -1123,6 +1204,7 @@ export const demoApi: SammhaApi = {
     if (!inv || inv.status === 'paid') throw new ApiError('الفاتورة غير موجودة أو مدفوعة')
     inv.status = 'paid'
     inv.paidAt = iso(now())
+    payOwnerShare(db, inv)
     return inv
   }),
 

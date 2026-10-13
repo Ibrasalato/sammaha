@@ -9,7 +9,7 @@ import { CARD_STYLES, CARD_STYLE_LABEL, setCardStyle, useCardStyle } from '../li
 import type { CardStyle } from '../lib/cardStyle'
 import { getLang } from '../lib/i18n'
 
-const TYPE_DEEP = { qaadan: '#143F63', bakkar: '#742838', istithmar: '#42286A' } as const
+const TYPE_DEEP = { qaadan: '#143F63', bakkar: '#742838' } as const
 const pad = (n: number) => String(n).padStart(2, '0')
 
 /** d / h / m / s boxes — the classic auction-house countdown */
@@ -142,17 +142,16 @@ function useLot(a: Auction) {
   }
 }
 
-const TYPE_HEX = { qaadan: { base: '#1E5A8C', deep: '#143F63', soft: '#E7EFF7' }, bakkar: { base: '#A23B4F', deep: '#742838', soft: '#F7E8EB' }, istithmar: { base: '#5E3D8F', deep: '#42286A', soft: '#EFE9F7' } } as const
+const TYPE_HEX = { qaadan: { base: '#1E5A8C', deep: '#143F63', soft: '#E7EFF7' }, bakkar: { base: '#A23B4F', deep: '#742838', soft: '#F7E8EB' } } as const
 
 function LiveDot({ light }: { light?: boolean }) {
   return <span className={`h-1.5 w-1.5 animate-pulse rounded-full ${light ? 'bg-[#5BE39B]' : 'bg-ok'}`} />
 }
 
-/** Sammha identity: the logo's colours — qaadan in the logo green, bakkar in the logo gold, investment in mauve. */
+/** Sammha identity: the logo's colours — qaadan in the logo green, bakkar in the logo gold. */
 const BRAND = {
   qaadan: { head: '#1D5C2F', glow: 'rgba(226,194,126,.22)', rule: 'from-[#AE832C] via-[#E2C27E] to-[#AE832C]', price: '#1D5C2F', ink: '#123D20', soft: '#EAF2EC', btn: '#1D5C2F', btnHover: 'group-hover:bg-[#164A25]', btnRing: 'ring-[#E2C27E]/60', status: '#F1DDA8' },
   bakkar: { head: '#9C7425', glow: 'rgba(255,255,255,.20)', rule: 'from-[#1D5C2F] via-[#3E8550] to-[#1D5C2F]', price: '#8C6A22', ink: '#5C4413', soft: '#F6EEDB', btn: '#8C6A22', btnHover: 'group-hover:bg-[#765817]', btnRing: 'ring-[#1D5C2F]/40', status: '#FFF3D6' },
-  istithmar: { head: '#8B5A9F', glow: 'rgba(226,194,126,.26)', rule: 'from-[#AE832C] via-[#E2C27E] to-[#AE832C]', price: '#6E4383', ink: '#4A2B5A', soft: '#F3ECF6', btn: '#6E4383', btnHover: 'group-hover:bg-[#5B356C]', btnRing: 'ring-[#E2C27E]/60', status: '#F6E7FF' },
 } as const
 
 function BrandCard({ a }: { a: Auction }) {
@@ -329,7 +328,7 @@ export function AuctionGrid({ list, className = '' }: { list: Auction[]; classNa
 function Thumb({ s }: { s: CardStyle }) {
   const box = 'h-6 w-8 shrink-0 overflow-hidden rounded-[3px]'
   if (s === 'modern') return <span className={`${box} flex flex-col border border-line bg-paper`}><span className="h-3 bg-qaadan" /><span className="mx-1 mt-1 h-0.5 rounded bg-muted/40" /></span>
-  if (s === 'brand') return <span className={`${box} flex border border-[#1D5C2F]/30 bg-paper`}><span className="h-3 flex-1 bg-[#1D5C2F]" /><span className="h-3 flex-1 bg-[#9C7425]" /><span className="h-3 flex-1 bg-[#8B5A9F]" /></span>
+  if (s === 'brand') return <span className={`${box} flex border border-[#1D5C2F]/30 bg-paper`}><span className="h-3 flex-1 bg-[#1D5C2F]" /><span className="h-3 flex-1 bg-[#9C7425]" /></span>
   if (s === 'classic') return <span className={`${box} grid place-items-center border border-gold/70 bg-paper p-[2px]`}><span className="grid h-full w-full place-items-center rounded-[2px] border border-gold/50"><span className="h-0.5 w-3 bg-qaadan-deep" /></span></span>
   if (s === 'heritage') return <span className={`${box} flex flex-col border border-[#E5D7B8] bg-[#FBF6EA]`}><span className="sadu h-1.5" style={{ backgroundSize: '12px 6px' }} /><span className="m-auto h-1.5 w-1.5 rotate-45 bg-bakkar" /></span>
   if (s === 'luxury') return <span className={`${box} grid place-items-center bg-pine ring-1 ring-gold/60`}><span className="h-0.5 w-4 bg-gold-light" /></span>

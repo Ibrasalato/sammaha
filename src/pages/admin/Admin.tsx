@@ -103,7 +103,7 @@ export function AdminRequests() {
   const tf = useTableFilter(rows, {
     fields: (r) => [r.number, r.ownerName, ...r.candidates.map((c) => c.name)],
     filters: [
-      { key: 'kind', label: 'الطلب', options: [['', 'الكل'], ['standard', 'طلب شعار'], ['compound', 'اسم مركب']], test: (r, v) => (r.kind ?? 'standard') === v },
+      { key: 'kind', label: 'الطلب', options: [['', 'الكل'], ['standard', 'طلب شعار'], ['compound', 'اسم مركب'], ['investment', 'استثمار الاسم']], test: (r, v) => (r.kind ?? 'standard') === v },
       { key: 'similar', label: 'التشابه', options: [['', 'الكل'], ['yes', 'فيها أسماء شبيهة'], ['no', 'بلا تشابه']], test: (r, v) => r.candidates.some((c) => c.similar.length) === (v === 'yes') },
     ],
   })
@@ -123,7 +123,7 @@ export function AdminRequests() {
             <tbody>
               {list.map((r) => (
                 <tr key={r.id}>
-                  <td><Link to={`/admin/requests/${r.id}`} className="num font-semibold underline-offset-4 hover:underline">{r.number}</Link>{r.kind === 'compound' && <span className="pill ms-2 bg-gold-soft text-gold-deep">اسم مركب</span>}</td>
+                  <td><Link to={`/admin/requests/${r.id}`} className="num font-semibold underline-offset-4 hover:underline">{r.number}</Link>{r.kind === 'compound' && <span className="pill ms-2 bg-gold-soft text-gold-deep">اسم مركب</span>}{r.kind === 'investment' && <span className="pill ms-2 bg-invest-soft text-invest-deep">استثمار الاسم</span>}</td>
                   <td>{r.ownerName}</td>
                   <td><TypeBadge type={r.type} /></td>
                   <td className="font-extrabold">
@@ -184,7 +184,13 @@ export function AdminReview() {
           <span>طلب <b>اسم مركب</b> من الاسم المسجل «<b>{r.baseName}</b>» المملوك لمقدم الطلب. عند القبول يُسجّل الاسم المركب باسمه مباشرة <b>دون مزاد</b>، وعند الرفض لا يترتب شيء.</span>
         </div>
       )}
-      <PageHead title={r.kind === 'compound' ? `مراجعة اسم مركب ${r.number}` : `مراجعة الطلب ${r.number}`} sub={<span className="flex flex-wrap items-center gap-2"><TypeBadge type={r.type} /><RequestStatusPill status={r.status} /><span>{r.ownerName}، قُدّم {dateTime(r.submittedAt)}</span></span>} />
+      {r.kind === 'investment' && (
+        <div className="mb-4 mt-3 flex items-start gap-3 rounded-xl border border-invest/30 bg-invest-soft p-4 text-[15px]">
+          <Icon name="coins" className="mt-0.5 h-5 w-5 shrink-0 text-invest-deep" />
+          <span>طلب <b>استثمار الاسم</b>: اسم واحد جديد يُدرس وفق المعايير المعتمدة. رسوم الدراسة {sar(r.depositAmount)} <b>غير مستردة</b>. عند القبول يُطرح في <b>مزاد عام</b> ويُوزَّع العائد {100 - Math.round(RULES.investOwnerShare * 100)}% للمنظمة و{Math.round(RULES.investOwnerShare * 100)}% لصاحب الاسم، وعند عدم القبول يُبلَّغ برسالة نصية.</span>
+        </div>
+      )}
+      <PageHead title={r.kind === 'compound' ? `مراجعة اسم مركب ${r.number}` : r.kind === 'investment' ? `دراسة استثمار الاسم ${r.number}` : `مراجعة الطلب ${r.number}`} sub={<span className="flex flex-wrap items-center gap-2"><TypeBadge type={r.type} /><RequestStatusPill status={r.status} /><span>{r.ownerName}، قُدّم {dateTime(r.submittedAt)}</span></span>} />
 
       <div className="space-y-4">
         {r.candidates.map((c) => {
@@ -256,6 +262,7 @@ export function AdminReview() {
           </div>
           <p className="hint">{r.kind === 'compound'
             ? 'لا ضمان على طلب الاسم المركب. القبول يسجّل الاسم باسم المالك فورًا دون مزاد.'
+            : r.kind === 'investment' ? 'رسوم الدراسة لا تُعاد عند الرفض أو الإلغاء. القبول ينقل الاسم إلى «فتح المزادات» لطرحه في مزاد عام.'
             : `الرفض أو الإلغاء يعيد ${sar(r.depositAmount)} إلى محفظة المالك. إن رُفضت الأسماء الثلاثة يُعدّ الطلب مرفوضًا ويُعاد الضمان.`}</p>
         </section>
       ) : r.status === 'accepted' && r.candidates.some((c) => c.status === 'accepted' && !c.auctionId) ? (
@@ -408,9 +415,9 @@ export function AdminInvoices() {
         </TableTools>
         <div className="panel overflow-x-auto">
           <table className="tbl">
-            <thead><tr><th>الفاتورة</th><th>المشتري</th><th>الاسم</th><th>الإجمالي</th><th>الضريبة</th><th>المستحق</th><th>الحالة</th><th></th></tr></thead>
+            <thead><tr><th>الفاتورة</th><th>المشتري</th><th>الاسم</th><th>الإجمالي</th><th>الضريبة</th><th>المستحق</th><th>نصيب صاحب الاسم</th><th>الحالة</th><th></th></tr></thead>
             <tbody>
-              {!tf.list.length && <NoResults cols={8} onReset={tf.reset} />}
+              {!tf.list.length && <NoResults cols={9} onReset={tf.reset} />}
               {tf.list.map((i) => (
                 <tr key={i.id}>
                   <td className="num font-semibold">{i.number}</td>
@@ -419,6 +426,7 @@ export function AdminInvoices() {
                   <td className="num">{sar(i.total)}</td>
                   <td className="num text-muted">{sar(i.vat)}</td>
                   <td className="num font-semibold">{sar(i.amountDue)}</td>
+                  <td>{i.ownerShare ? <span className="whitespace-nowrap"><span className="num font-semibold text-invest-deep">{sar(i.ownerShare)}</span> <span className="text-[12.5px] text-muted">{i.ownerSharePaid ? '· حُوّل' : '· بعد السداد'}</span></span> : <span className="text-muted">—</span>}</td>
                   <td><span className={`pill ${i.status === 'paid' ? 'bg-ok/10 text-ok' : 'bg-gold-soft text-gold-deep'}`}>{i.status === 'paid' ? 'مدفوعة' : 'غير مدفوعة'}</span></td>
                   <td className="whitespace-nowrap">
                     <button className="btn-ghost btn-sm" onClick={() => setView(i)}>عرض</button>
