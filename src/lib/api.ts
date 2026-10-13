@@ -41,6 +41,8 @@ export interface SammhaApi {
   getAuction(id: string): Promise<AuctionView>
   /** calls back whenever this auction may have changed (other tabs in the demo, realtime in production) */
   subscribeAuction(id: string, onChange: () => void): () => void
+  /** production only (SignalR): auction changes for list pages and the signed-in user's new notifications */
+  subscribeLive?(handlers: { onAuction?: (a: Auction) => void; onNotification?: (n: AppNotification) => void }): () => void
   listReservedNames(q?: string, type?: NameType | 'all'): Promise<ReservedName[]>
   checkNames(names: string[], type: NameType): Promise<NameCheck[]>
   listEvents(): Promise<CamelEvent[]>

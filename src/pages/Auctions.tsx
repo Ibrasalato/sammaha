@@ -1,6 +1,6 @@
 import { typeOptions } from '../lib/config'
 import { tr } from '../lib/i18n'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AuctionGrid, CardStylePicker } from '../components/AuctionCard'
 import { Empty, Loading, PageHead, Segmented } from '../components/ui'
 import { api, useLoad } from '../lib/store'
@@ -10,7 +10,13 @@ export default function Auctions() {
   const [phase, setPhase] = useState<AuctionPhase | 'all'>('live')
   const [type, setType] = useState<NameType | 'all'>('all')
   const [q, setQ] = useState('')
-  const { data, loading } = useLoad(() => api.listAuctions({ phase, type, q }), [phase, type, q], 15000)
+  const { data, loading, reload } = useLoad(() => api.listAuctions({ phase, type, q }), [phase, type, q], 15000)
+  // live prices: reload (at most once a second) when any listed auction changes
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined
+    const stop = api.subscribeLive?.({ onAuction: () => { t ??= setTimeout(() => { t = undefined; reload() }, 1000) } })
+    return () => { clearTimeout(t); stop?.() }
+  }, [reload])
 
   return (
     <div className="wrap py-10">

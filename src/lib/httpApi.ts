@@ -1,6 +1,6 @@
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi } from './api'
-import type { Auction, AuctionView, Invoice, LogoRequest, NameListing, User, Wallet } from './types'
+import type { AppNotification, Auction, AuctionView, Invoice, LogoRequest, NameListing, User, Wallet } from './types'
 
 /**
  * The production backend: Sammha API (ASP.NET Core + SQL Server, repo Ibrasalato/sammaha-api).
@@ -84,6 +84,63 @@ const qs = (o: Record<string, string | undefined>) => {
   return s ? `?${s}` : ''
 }
 
+// ───── realtime: one SignalR connection per tab, shared by every subscriber ─────
+type HubConnection = import('@microsoft/signalr').HubConnection
+const LOBBY = '__lobby'
+const live = { auction: new Set<(a: Auction) => void>(), notification: new Set<(n: AppNotification) => void>() }
+const rooms = new Map<string, number>()
+let current: Promise<HubConnection> | null = null
+
+const joinRoom = (c: HubConnection, room: string) => (room === LOBBY ? c.invoke('JoinLobby') : c.invoke('Join', room)).catch(() => {})
+const leaveRoom = (c: HubConnection, room: string) => (room === LOBBY ? c.invoke('LeaveLobby') : c.invoke('Leave', room)).catch(() => {})
+const wanted = () => rooms.size > 0 || live.notification.size > 0
+
+function hub(): Promise<HubConnection> {
+  if (current) return current
+  const p: Promise<HubConnection> = import('@microsoft/signalr').then(async ({ HubConnectionBuilder, LogLevel }) => {
+    const conn = new HubConnectionBuilder()
+      .withUrl(`${BASE}/hubs/auctions`, { accessTokenFactory: async () => (await accessToken()) ?? '' })
+      .withAutomaticReconnect()
+      .configureLogging(LogLevel.Warning)
+      .build()
+    conn.on('auction', (a: Auction) => live.auction.forEach((f) => f(a)))
+    conn.on('notification', (n: AppNotification) => live.notification.forEach((f) => f(n)))
+    conn.onreconnected(() => { rooms.forEach((_, r) => { void joinRoom(conn, r) }) })
+    conn.onclose(() => {
+      if (current !== p) return // replaced on purpose (sign-in / sign-out)
+      current = null
+      if (wanted()) setTimeout(() => { if (wanted()) hub().catch(() => {}) }, 5000)
+    })
+    await conn.start()
+    rooms.forEach((_, r) => { void joinRoom(conn, r) })
+    return conn
+  })
+  current = p
+  p.catch(() => { if (current === p) current = null }) // pages also poll, so a failed connection only costs freshness
+  return p
+}
+
+function enter(room: string) {
+  const n = rooms.get(room) ?? 0
+  rooms.set(room, n + 1)
+  if (n === 0) current?.then((c) => joinRoom(c, room)).catch(() => {})
+  if (!current) hub().catch(() => {})
+}
+function exit(room: string) {
+  const n = (rooms.get(room) ?? 1) - 1
+  if (n > 0) { rooms.set(room, n); return }
+  rooms.delete(room)
+  current?.then((c) => (wanted() ? leaveRoom(c, room) : c.stop())).catch(() => {})
+}
+
+/** the signed-in user changed: reconnect so the hub knows who this tab belongs to */
+function resetHub() {
+  const old = current
+  current = null
+  old?.then((c) => c.stop()).catch(() => {})
+  if (wanted()) hub().catch(() => {})
+}
+
 /** Card: Moyasar's hosted page (the webhook completes the action), or an immediate simulated charge in development. */
 async function card(purpose: 'topup' | 'deposit' | 'invoice' | 'bid_deposit' | 'listing', ref: string | null, amount = 0) {
   const r = await post<{ url?: string; simulated: boolean }>('/api/payments/card', { purpose, ref, amount, callback: location.href })
@@ -96,20 +153,23 @@ export const httpApi: SammhaApi = {
   async signUp(input) {
     const r = await post<AuthResult>('/api/auth/signup', input)
     saveSession(r)
+    resetHub()
     return r.user
   },
   startSignIn: (login, password, portal) => post<OtpChallenge>('/api/auth/signin', { login, password, portal }),
   async completeSignIn(challenge, code) {
     const r = await post<AuthResult>('/api/auth/signin/complete', { challenge, code })
     saveSession(r)
+    resetHub()
     return r.user
   },
   resendOtp: (challenge) => post('/api/auth/otp/resend', { challenge }),
   // other devices are signed out; this one gets a fresh session
-  changePassword: async (current, next) => { saveSession(await post<AuthResult>('/api/auth/password', { current, next })) },
+  changePassword: async (cur, next) => { saveSession(await post<AuthResult>('/api/auth/password', { current: cur, next })); resetHub() },
   async signOut() {
     const s = session
     saveSession(null)
+    resetHub()
     if (s) await fetch(`${BASE}/api/auth/signout`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.token}` }, body: JSON.stringify({ refreshToken: s.refreshToken }) }).catch(() => {})
   },
 
@@ -118,17 +178,18 @@ export const httpApi: SammhaApi = {
   listAuctions: (f = {}) => get(`/api/auctions${qs({ phase: f.phase, type: f.type, q: f.q })}`),
   getAuction: (id) => get(`/api/auctions/${id}`),
   subscribeAuction(id, onChange) {
-    let stop = () => {}
-    let closed = false
-    import('@microsoft/signalr').then(({ HubConnectionBuilder, LogLevel }) => {
-      if (closed) return
-      const conn = new HubConnectionBuilder().withUrl(`${BASE}/hubs/auctions`, { accessTokenFactory: async () => (await accessToken()) ?? '' }).withAutomaticReconnect().configureLogging(LogLevel.Warning).build()
-      conn.on('changed', () => onChange())
-      conn.onreconnected(() => { conn.invoke('Join', id).catch(() => {}) })
-      conn.start().then(() => conn.invoke('Join', id)).catch(() => { /* the page also polls */ })
-      stop = () => { conn.stop().catch(() => {}) }
-    }).catch(() => {})
-    return () => { closed = true; stop() }
+    const on = (a: Auction) => { if (a.id === id) onChange() }
+    live.auction.add(on)
+    enter(id)
+    return () => { live.auction.delete(on); exit(id) }
+  },
+  subscribeLive({ onAuction, onNotification }) {
+    if (onAuction) { live.auction.add(onAuction); enter(LOBBY) }
+    if (onNotification) { live.notification.add(onNotification); void hub().catch(() => {}) }
+    return () => {
+      if (onAuction) { live.auction.delete(onAuction); exit(LOBBY) }
+      if (onNotification) live.notification.delete(onNotification)
+    }
   },
   listReservedNames: (q, type) => get(`/api/names${qs({ q, type })}`),
   checkNames: (names, type) => post('/api/names/check', { names, type }),

@@ -15,6 +15,8 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const unread = data?.filter((n) => !n.read).length ?? 0
+  // production: new notifications arrive instantly over SignalR (polling stays as a fallback)
+  useEffect(() => api.subscribeLive?.({ onNotification: () => reload() }), [reload])
 
   useEffect(() => {
     if (!open) return
