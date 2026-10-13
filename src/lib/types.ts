@@ -164,6 +164,7 @@ export interface AdminOverview {
   scheduled: number
   unpaidInvoices: number
   revenue: number
+  openTickets: number
 }
 
 export interface AuctionFilter {
@@ -200,10 +201,47 @@ export interface CamelEvent {
 export interface AppNotification {
   id: string
   userId: string
-  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'refund'
+  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'refund' | 'ticket'
   title: string
   body: string
   link?: string
   createdAt: string
   read: boolean
+}
+
+// ───────────── contact tickets (complaints, reports, enquiries) ─────────────
+export type TicketKind = 'complaint' | 'report' | 'inquiry' | 'suggestion'
+export type TicketStatus = 'new' | 'in_progress' | 'answered' | 'closed'
+export type TicketPriority = 'normal' | 'urgent'
+
+export interface TicketMessage {
+  id: string
+  by: 'customer' | 'staff'
+  author: string
+  body: string
+  internal?: boolean // staff-only note, never shown to the customer
+  createdAt: string
+}
+
+export interface TicketInput {
+  kind: TicketKind
+  topic: string
+  subject: string
+  name: string
+  phone: string
+  email?: string
+  refNumber?: string // request, auction, invoice or certificate number
+  message: string
+}
+
+export interface Ticket extends TicketInput {
+  id: string
+  number: string // BL-YYNNNN
+  userId?: string
+  status: TicketStatus
+  priority: TicketPriority
+  assignee?: string
+  messages: TicketMessage[]
+  createdAt: string
+  updatedAt: string
 }

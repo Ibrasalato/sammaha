@@ -1,6 +1,6 @@
 import type {
   AppNotification, CamelEvent, AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
-  PublicStats, RequestStatus, ReservedName, ReviewDecision, User, Wallet,
+  PublicStats, RequestStatus, ReservedName, ReviewDecision, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
 } from './types'
 
 export interface SignUpInput {
@@ -29,6 +29,11 @@ export interface SammhaApi {
   checkNames(names: string[], type: NameType): Promise<NameCheck[]>
   listEvents(): Promise<CamelEvent[]>
   verifyCertificate(code: string): Promise<ReservedName | null>
+  /** contact form: anyone can file a complaint, report or enquiry and gets a tracking number */
+  submitTicket(input: TicketInput): Promise<Ticket>
+  /** public tracking: needs the ticket number and the mobile number it was filed with */
+  trackTicket(number: string, phone: string): Promise<Ticket | null>
+  followUpTicket(number: string, phone: string, body: string): Promise<Ticket>
 
   // owner
   myRequests(): Promise<LogoRequest[]>
@@ -44,6 +49,7 @@ export interface SammhaApi {
   updateMyProfile(p: { avatarUrl?: string | null; showAvatar: boolean }): Promise<User>
   myNotifications(): Promise<AppNotification[]>
   markNotificationsRead(): Promise<void>
+  myTickets(): Promise<Ticket[]>
   placeBid(auctionId: string, amount: number): Promise<{ auction: Auction; bids: Bid[] }>
 
   // approval committee
@@ -60,6 +66,10 @@ export interface SammhaApi {
   listUsers(): Promise<User[]>
   saveEvent(e: CamelEvent): Promise<CamelEvent>
   deleteEvent(id: string): Promise<void>
+  listTickets(): Promise<Ticket[]>
+  getTicket(id: string): Promise<Ticket>
+  updateTicket(id: string, patch: { status?: TicketStatus; priority?: TicketPriority; assignee?: string }): Promise<Ticket>
+  replyTicket(id: string, body: string, internal: boolean): Promise<Ticket>
 }
 
 export class ApiError extends Error {}

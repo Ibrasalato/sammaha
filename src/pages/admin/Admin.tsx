@@ -42,7 +42,7 @@ export function AdminHome() {
           <StatTile icon="gavel" tone="green" label="مزادات جارية" value={num(data.live)} hint={`${num(data.scheduled)} مزاد قادم`} to="/admin/auctions" />
           <StatTile icon="receipt" tone="red" label="فواتير غير مدفوعة" value={num(data.unpaidInvoices)} to="/admin/invoices" />
           <StatTile icon="coins" tone="pine" label="إيرادات محصّلة" value={sar(data.revenue)} hint="شاملة الضريبة" to="/admin/invoices" />
-          <StatTile icon="list" tone="gold" label="المواعيد والفعاليات" value="التقويم" hint="تعديل مواعيد المهرجانات" to="/admin/events" />
+          <StatTile icon="alert" tone="gold" label="شكاوى وبلاغات مفتوحة" value={num(data.openTickets ?? 0)} hint="من صفحة تواصل معنا" to="/admin/tickets" highlight={(data.openTickets ?? 0) > 0} />
         </div>
       )}
 

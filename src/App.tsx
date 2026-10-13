@@ -11,7 +11,11 @@ import About from './pages/About'
 import AuctionDetail from './pages/AuctionDetail'
 import Auctions from './pages/Auctions'
 import { Login, Signup } from './pages/Auth'
-import { Contact, Faq, Privacy, Refund, Terms } from './pages/Content'
+import { Faq, Privacy, Refund, Terms } from './pages/Content'
+import { Contact, TrackTicket } from './pages/Support'
+import { AdminTicket, AdminTickets } from './pages/admin/Tickets'
+import { MyTickets } from './pages/owner/Tickets'
+import { ChatWidget } from './components/ChatWidget'
 import Events from './pages/Events'
 import Home from './pages/Home'
 import ReservedNames from './pages/ReservedNames'
@@ -41,6 +45,7 @@ const OWNER_NAV: NavItem[] = [
   { to: '/dashboard/names', label: 'أسمائي', icon: 'tag' },
   { to: '/dashboard/wallet', label: 'المحفظة', icon: 'wallet' },
   { to: '/dashboard/invoices', label: 'الفواتير', icon: 'receipt' },
+  { to: '/dashboard/tickets', label: 'الشكاوى والاستفسارات', icon: 'alert' },
   { to: '/dashboard/profile', label: 'حسابي', icon: 'users' },
 ]
 
@@ -50,6 +55,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: '/admin/schedule', label: 'فتح المزادات', icon: 'calendar' },
   { to: '/admin/auctions', label: 'متابعة المزادات', icon: 'gavel' },
   { to: '/admin/invoices', label: 'الفواتير', icon: 'receipt' },
+  { to: '/admin/tickets', label: 'الشكاوى والبلاغات', icon: 'alert' },
   { to: '/admin/events', label: 'المواعيد والفعاليات', icon: 'list' },
   { to: '/admin/users', label: 'المستخدمون', icon: 'users' },
 ]
@@ -60,6 +66,7 @@ export default function App() {
       <AppProvider>
         <HashRouter>
           <AppRoutes />
+          <ChatWidget />
         </HashRouter>
       </AppProvider>
     </LangProvider>
@@ -82,6 +89,8 @@ function AppRoutes() {
             <Route path="privacy" element={<Privacy />} />
             <Route path="refund" element={<Refund />} />
             <Route path="contact" element={<Contact />} />
+            <Route path="contact/track" element={<TrackTicket />} />
+            <Route path="contact/track/:number" element={<TrackTicket />} />
             <Route path="verify/:code" element={<Verify />} />
             <Route path="about" element={<About />} />
             <Route path="login" element={<Login />} />
@@ -99,6 +108,7 @@ function AppRoutes() {
             <Route path="invoices" element={<MyInvoices />} />
             <Route path="invoices/:id" element={<InvoicePage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="tickets" element={<MyTickets />} />
           </Route>
           <Route path="admin" element={<Guard roles={['committee', 'admin']}><Shell nav={ADMIN_NAV} title="لجنة الاعتماد" /></Guard>}>
             <Route index element={<AdminHome />} />
@@ -109,6 +119,8 @@ function AppRoutes() {
             <Route path="invoices" element={<AdminInvoices />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="events" element={<AdminEvents />} />
+            <Route path="tickets" element={<AdminTickets />} />
+            <Route path="tickets/:id" element={<AdminTicket />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

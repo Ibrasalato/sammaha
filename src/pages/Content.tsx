@@ -1,11 +1,9 @@
-import { useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { RULES, SELLER } from '../lib/config'
 import { getLang, tr } from '../lib/i18n'
-import { useApp } from '../lib/store'
 
-function PageBand({ title, sub }: { title: string; sub?: string }) {
+export function PageBand({ title, sub }: { title: string; sub?: string }) {
   return (
     <section className="hero-field text-paper">
       <div className="wrap py-12">
@@ -169,48 +167,3 @@ export function Refund() {
   )
 }
 
-export function Contact() {
-  const { toast } = useApp()
-  const [f, setF] = useState({ name: '', phone: '', subject: tr('استفسار عام', 'General enquiry'), message: '' })
-  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value })
-  function submit(e: FormEvent) {
-    e.preventDefault()
-    const body = encodeURIComponent(`${f.message}\n\n${f.name}\n${f.phone}`)
-    location.href = `mailto:${SELLER.email}?subject=${encodeURIComponent(`[سمّها] ${f.subject}`)}&body=${body}`
-    toast(tr('فُتح تطبيق البريد لإرسال رسالتك', 'Your email app was opened to send the message'))
-  }
-  return (
-    <>
-      <PageBand title={tr('تواصل معنا', 'Contact us')} sub={tr('فريق المنصة يرد على استفساراتك في أيام العمل من الأحد إلى الخميس.', 'Our team answers Sunday to Thursday.')} />
-      <div className="wrap grid gap-6 py-12 lg:grid-cols-[1fr_1.3fr]">
-        <div className="space-y-3">
-          {([
-            [tr('البريد الإلكتروني', 'Email'), SELLER.email, `mailto:${SELLER.email}`],
-            [tr('واتساب', 'WhatsApp'), SELLER.whatsapp.replace(/^966/, '0'), `https://wa.me/${SELLER.whatsapp}`],
-            ['X', '@samha_ico', SELLER.x],
-            [tr('العنوان', 'Address'), tr(SELLER.address, 'Riyadh, Saudi Arabia'), ''],
-          ] as [string, string, string][]).map(([l, v, href]) => (
-            <div key={l} className="panel p-5">
-              <div className="text-[13px] font-medium text-muted">{l}</div>
-              {href ? <a href={href} target="_blank" rel="noreferrer" className="text-[18px] font-extrabold text-pine hover:text-gold-deep" dir="auto">{v}</a> : <div className="text-[18px] font-extrabold">{v}</div>}
-            </div>
-          ))}
-        </div>
-        <form onSubmit={submit} className="panel space-y-4 p-6">
-          <h2 className="text-xl">{tr('أرسل رسالة', 'Send a message')}</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div><label className="label" htmlFor="cn">{tr('الاسم', 'Name')}</label><input id="cn" className="field" value={f.name} onChange={set('name')} required /></div>
-            <div><label className="label" htmlFor="cp">{tr('رقم الجوال', 'Mobile')}</label><input id="cp" className="field" dir="ltr" value={f.phone} onChange={set('phone')} /></div>
-          </div>
-          <div><label className="label" htmlFor="cs">{tr('الموضوع', 'Subject')}</label>
-            <select id="cs" className="field" value={f.subject} onChange={set('subject')}>
-              {[tr('استفسار عام', 'General enquiry'), tr('طلب اسم', 'Name request'), tr('مزاد أو مزايدة', 'Auction or bidding'), tr('فاتورة أو دفع', 'Invoice or payment'), tr('استرداد الضمان', 'Guarantee refund'), tr('التحقق من شهادة', 'Certificate check')].map((x) => <option key={x}>{x}</option>)}
-            </select>
-          </div>
-          <div><label className="label" htmlFor="cm">{tr('الرسالة', 'Message')}</label><textarea id="cm" className="field" rows={5} value={f.message} onChange={set('message')} required /></div>
-          <button className="btn-primary w-full">{tr('إرسال', 'Send')}</button>
-        </form>
-      </div>
-    </>
-  )
-}

@@ -10,9 +10,10 @@ import { namesCount } from './format'
 import { SEED_EVENTS } from './events'
 import { certNo } from './cert'
 import { findMatches, normalizeName, validateName } from './names'
+import { emailTicketEvent, normalizePhone, publicTicket, validateTicket } from './tickets'
 import type { MatchSource } from './names'
 import type {
-  AppNotification, CamelEvent, Auction, AuctionPhase, Bid, Candidate, Invoice, LogoRequest, NameCheck, NameType, ReservedName,
+  AppNotification, CamelEvent, Auction, Ticket, AuctionPhase, Bid, Candidate, Invoice, LogoRequest, NameCheck, NameType, ReservedName,
   User, WalletTx,
 } from './types'
 
@@ -29,11 +30,12 @@ interface DB {
   invoices: Invoice[]
   events: CamelEvent[]
   notes: AppNotification[]
+  tickets: Ticket[]
 }
 
 const KEY = 'sammha-demo-db'
 const SESSION = 'sammha-demo-session'
-const VERSION = 4
+const VERSION = 5
 
 const now = () => Date.now()
 const iso = (t: number) => new Date(t).toISOString()
@@ -55,7 +57,7 @@ export function phaseOf(a: Pick<Auction, 'startsAt' | 'endsAt'>, t = now()): Auc
 // ───────────────────────── seed ─────────────────────────
 function seed(): DB {
   const t = now()
-  const db: DB = { v: VERSION, seq: 100, users: [], requests: [], auctions: [], bids: [], reserved: [], txs: [], invoices: [], events: structuredClone(SEED_EVENTS), notes: [] }
+  const db: DB = { v: VERSION, seq: 100, users: [], requests: [], auctions: [], bids: [], reserved: [], txs: [], invoices: [], events: structuredClone(SEED_EVENTS), notes: [], tickets: [] }
   const mkUser = (id: string, fullName: string, phone: string, role: User['role'], email: string): DemoUser =>
     ({ id, fullName, phone, email, role, password: '123456', createdAt: iso(t - 90 * D) })
 
@@ -176,6 +178,7 @@ function seed(): DB {
   void r7; void r8
 
   db.txs.push({ id: uid(db, 't'), userId: 'u-b2', amount: 2000, kind: 'topup', note: 'شحن المحفظة', createdAt: iso(t - 40 * D) })
+  seedTickets(db, t)
   // compute similar hits for pending requests
   for (const r of db.requests) for (const c of r.candidates) if (!c.similar.length) c.similar = similarFor(db, c.normalized, r.id)
   return db
@@ -191,6 +194,22 @@ function notify(db: DB, userId: string, kind: AppNotification['kind'], title: st
   db.notes.push({ id: uid(db, 'n'), userId, kind, title, body, link, createdAt: iso(now()), read: false })
 }
 
+function seedTickets(db: DB, t: number) {
+  const mk = (n: number, ago: number, x: Omit<Ticket, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'messages'>, replies: [Ticket['messages'][number]['by'], string, string, boolean?][] = []) => {
+    const created = t - ago
+    db.tickets.push({
+      ...x, id: `tk${n}`, number: `BL-26${String(n).padStart(4, '0')}`, createdAt: iso(created), updatedAt: iso(created + replies.length * H),
+      messages: replies.map(([by, author, body, internal], i) => ({ id: `tm${n}${i}`, by, author, body, internal, createdAt: iso(created + (i + 1) * H) })),
+    })
+  }
+  mk(1, 6 * D, { kind: 'inquiry', topic: 'استرداد الضمان', subject: 'متى يرجع ضمان الطلب المرفوض؟', name: 'فهد عبدالله الدوسري', phone: '0500000004', userId: 'u-b2', refNumber: 'SM-1003', message: 'رُفض طلبي ولم أجد مبلغ الضمان في المحفظة، أرجو التوضيح.', status: 'answered', priority: 'normal' },
+    [['staff', 'لجنة الاعتماد', 'حياك الله، الضمان أُعيد إلى محفظتك فور رفض الطلب، وتجده في سجل الحركات بعنوان «استرداد ضمان». يمكنك استخدامه في طلب جديد.']])
+  mk(2, 2 * D, { kind: 'report', topic: 'استخدام اسم بغير حق', subject: 'اسم مسجل باسمي يُستخدم في مزاين', name: 'سعد بن ناصر العتيبي', phone: '0500000001', userId: 'u-owner', email: 'owner@demo.sa', message: 'لاحظت أن اسم «الهيلع» المسجل باسمي يُستخدم على فردي آخر في مزاين محلية. أرفق اسم المشارك عند الطلب.', status: 'in_progress', priority: 'urgent', assignee: 'لجنة الاعتماد' },
+    [['staff', 'لجنة الاعتماد', 'تم التحقق من الشهادة، وجارٍ التواصل مع اللجنة المنظمة.', true]])
+  mk(3, 5 * H, { kind: 'complaint', topic: 'الفواتير والدفع', subject: 'الدفع بمدى لم يكتمل', name: 'نايف سالم المري', phone: '0500000005', userId: 'u-b3', message: 'حاولت سداد الفاتورة ببطاقة مدى وظهرت رسالة خطأ، ولم يُخصم المبلغ.', status: 'new', priority: 'normal' })
+  db.seq += 3
+}
+
 // ───────────────────────── persistence ─────────────────────────
 function load(): DB {
   try {
@@ -198,6 +217,7 @@ function load(): DB {
     if (raw) {
       const db = JSON.parse(raw) as DB
       if (db.v === VERSION) return db
+      if (db.v === 4) { db.tickets = []; seedTickets(db, now()); db.v = VERSION; save(db); return db }
     }
   } catch { /* storage unavailable */ }
   const db = seed()
@@ -420,6 +440,83 @@ export const demoApi: SammhaApi = {
     return db.reserved.find((r) => certNo(r) === c) ?? null
   }),
 
+  submitTicket: (input) => tx((db) => {
+    const clean = validateTicket(input)
+    const id = getSession()
+    const u = db.users.find((x) => x.id === id)
+    const year = new Date().getFullYear() % 100
+    const seq = db.tickets.filter((k) => k.number.startsWith(`BL-${year}`)).length + 1
+    const k: Ticket = {
+      ...clean, id: uid(db, 'tk'), number: `BL-${year}${String(seq).padStart(4, '0')}`, userId: u?.id,
+      status: 'new', priority: clean.kind === 'report' ? 'urgent' : 'normal', messages: [], createdAt: iso(now()), updatedAt: iso(now()),
+    }
+    db.tickets.push(k)
+    emailTicketEvent('created', k)
+    return publicTicket(k)
+  }),
+
+  trackTicket: (number, phone) => tx((db) => {
+    const k = db.tickets.find((x) => x.number === number.trim().toUpperCase() && x.phone === normalizePhone(phone))
+    return k ? publicTicket(k) : null
+  }),
+
+  followUpTicket: (number, phone, body) => tx((db) => {
+    const k = db.tickets.find((x) => x.number === number.trim().toUpperCase() && x.phone === normalizePhone(phone))
+    if (!k) throw new ApiError('لم نجد طلبًا بهذا الرقم والجوال')
+    if (k.status === 'closed') throw new ApiError('هذا الطلب مغلق، افتح طلبًا جديدًا')
+    const text = body.trim().slice(0, 3000)
+    if (text.length < 2) throw new ApiError('اكتب ردك')
+    k.messages.push({ id: uid(db, 'tm'), by: 'customer', author: k.name, body: text, createdAt: iso(now()) })
+    if (k.status === 'answered') k.status = 'in_progress'
+    k.updatedAt = iso(now())
+    return publicTicket(k)
+  }),
+
+  myTickets: () => tx((db) => {
+    const u = me(db)
+    return db.tickets.filter((k) => k.userId === u.id || k.phone === normalizePhone(u.phone)).map(publicTicket)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+  }),
+
+  listTickets: () => tx((db) => {
+    staff(db)
+    return [...db.tickets].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+  }),
+
+  getTicket: (id) => tx((db) => {
+    staff(db)
+    const k = db.tickets.find((x) => x.id === id)
+    if (!k) throw new ApiError('الطلب غير موجود')
+    return k
+  }),
+
+  updateTicket: (id, patch) => tx((db) => {
+    staff(db)
+    const k = db.tickets.find((x) => x.id === id)
+    if (!k) throw new ApiError('الطلب غير موجود')
+    const statusChanged = patch.status && patch.status !== k.status
+    Object.assign(k, Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)), { updatedAt: iso(now()) })
+    if (statusChanged && (k.status === 'closed' || k.status === 'in_progress')) emailTicketEvent('status', k)
+    return k
+  }),
+
+  replyTicket: (id, body, internal) => tx((db) => {
+    const u = staff(db)
+    const k = db.tickets.find((x) => x.id === id)
+    if (!k) throw new ApiError('الطلب غير موجود')
+    const text = body.trim().slice(0, 3000)
+    if (text.length < 2) throw new ApiError('اكتب الرد')
+    k.messages.push({ id: uid(db, 'tm'), by: 'staff', author: u.fullName, body: text, internal: internal || undefined, createdAt: iso(now()) })
+    if (!internal) {
+      k.status = 'answered'
+      if (k.userId) notify(db, k.userId, 'ticket', `رد فريق سمّها على طلبك ${k.number}`, text.slice(0, 120), `/dashboard/tickets`)
+      emailTicketEvent('reply', k, text)
+    } else if (k.status === 'new') k.status = 'in_progress'
+    if (!k.assignee) k.assignee = u.fullName
+    k.updatedAt = iso(now())
+    return k
+  }),
+
   updateMyProfile: ({ avatarUrl, showAvatar }) => tx((db) => {
     const u = me(db)
     if (avatarUrl !== undefined) u.avatarUrl = avatarUrl ?? undefined
@@ -564,6 +661,7 @@ export const demoApi: SammhaApi = {
       scheduled: db.auctions.filter((a) => phaseOf(a) === 'scheduled').length,
       unpaidInvoices: db.invoices.filter((i) => i.status === 'unpaid').length,
       revenue: round2(db.invoices.filter((i) => i.status === 'paid').reduce((s, i) => s + i.total, 0)),
+      openTickets: db.tickets.filter((k) => k.status === 'new' || k.status === 'in_progress').length,
     }
   }),
 

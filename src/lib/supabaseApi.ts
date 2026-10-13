@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
 import type { SammhaApi } from './api'
+import { normalizePhone, validateTicket } from './tickets'
 import type { User } from './types'
 
 let client: SupabaseClient | null = null
@@ -67,6 +68,11 @@ export const supabaseApi: SammhaApi = {
   checkNames: (names, type) => rpc('check_names', { p_names: names, p_type: type }),
   listEvents: () => rpc('list_events'),
   verifyCertificate: (code) => rpc('verify_certificate', { p_code: code }),
+  // the database validates again and emails through n8n (app_settings.ticket_webhook_url)
+  submitTicket: (i) => rpc('submit_ticket', { p_ticket: validateTicket(i) }),
+  trackTicket: (number, phone) => rpc('track_ticket', { p_number: number.trim().toUpperCase(), p_phone: normalizePhone(phone) }),
+  followUpTicket: (number, phone, body) => rpc('follow_up_ticket', { p_number: number.trim().toUpperCase(), p_phone: normalizePhone(phone), p_body: body }),
+  myTickets: () => rpc('my_tickets'),
 
   myRequests: () => rpc('my_requests'),
   createRequest: (type, names) => rpc('create_request', { p_type: type, p_names: names }),
@@ -117,4 +123,8 @@ export const supabaseApi: SammhaApi = {
   listUsers: () => rpc('admin_users'),
   saveEvent: (e) => rpc('admin_save_event', { p_event: e }),
   async deleteEvent(id) { await rpc('admin_delete_event', { p_id: id }) },
+  listTickets: () => rpc('admin_list_tickets'),
+  getTicket: (id) => rpc('admin_get_ticket', { p_id: id }),
+  updateTicket: (id, patch) => rpc('admin_update_ticket', { p_id: id, p_patch: patch }),
+  replyTicket: (id, body, internal) => rpc('admin_reply_ticket', { p_id: id, p_body: body, p_internal: internal }),
 }
