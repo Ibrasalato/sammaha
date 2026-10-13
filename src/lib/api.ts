@@ -41,6 +41,7 @@ export interface SammhaApi {
   payInvoice(id: string, method: PayMethod): Promise<Invoice>
   myBids(): Promise<(Bid & { auction: Auction })[]>
   myNames(): Promise<ReservedName[]>
+  updateMyProfile(p: { avatarUrl?: string | null; showAvatar: boolean }): Promise<User>
   myNotifications(): Promise<AppNotification[]>
   markNotificationsRead(): Promise<void>
   placeBid(auctionId: string, amount: number): Promise<{ auction: Auction; bids: Bid[] }>

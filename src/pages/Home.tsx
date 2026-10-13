@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { AuctionCard } from '../components/AuctionCard'
+import { Avatar } from '../components/Avatar'
 import { HeroSlides } from '../components/HeroSlides'
 import { CalendarRow, useCalendar } from './Events'
 import { Countdown, Loading, NameSeal, Segmented } from '../components/ui'
@@ -28,7 +29,8 @@ export default function Home() {
   const upcoming = useLoad(() => api.listAuctions({ phase: 'scheduled' }), [])
   const stats = useLoad(() => api.stats(), [])
 
-  const spot = live.data?.[0]
+  // spotlight: the live name with the highest bid right now
+  const spot = [...(live.data ?? [])].sort((a, b) => b.currentPrice - a.currentPrice || b.bidCount - a.bidCount)[0]
   const list = (live.data ?? []).filter((a) => type === 'all' || a.type === type)
   const ctaTo = user ? (user.role === 'owner' ? '/dashboard/requests/new' : '/admin') : '/signup'
 
@@ -51,7 +53,7 @@ export default function Home() {
             {spot ? (
               <Link to={`/auctions/${spot.id}`} className="block rounded-xl bg-paper/95 p-6 text-ink shadow-lift backdrop-blur">
                 <div className="flex items-center justify-between">
-                  <span className="text-[14px] font-medium text-muted">{tr('أقرب مزاد على الإغلاق', 'Closing soonest')}</span>
+                  <span className="text-[14px] font-medium text-muted">{tr('الشعار صاحب أعلى مزايدة', 'Highest bid right now')}</span>
                   <span className="flex items-center gap-1.5 text-[13px] font-bold text-ok"><span className="h-2 w-2 animate-pulse rounded-full bg-ok" />{tr('مباشر', 'Live')}</span>
                 </div>
                 <div className="mt-4"><NameSeal name={spot.name} type={spot.type} size="xl" /></div>
@@ -214,20 +216,23 @@ function Leaderboards() {
   const { data } = useLoad(() => api.listReservedNames('', 'all'), [])
   if (!data?.length) return null
   const topValue = [...data].sort((a, b) => b.price - a.price).slice(0, 5)
-  const byOwner = new Map<string, number>()
-  for (const r of data) byOwner.set(r.ownerName, (byOwner.get(r.ownerName) ?? 0) + 1)
-  const topOwners = [...byOwner.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const byOwner = new Map<string, { n: number; avatar?: string }>()
+  for (const r of data) {
+    const cur = byOwner.get(r.ownerName) ?? { n: 0 }
+    byOwner.set(r.ownerName, { n: cur.n + 1, avatar: cur.avatar ?? r.ownerAvatar })
+  }
+  const topOwners = [...byOwner.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 5)
   return (
     <section className="wrap grid gap-6 py-16 lg:grid-cols-2">
       <Leaderboard title={tr('أعلى قيمة للمزادات', 'Highest auction values')}
-        rows={topValue.map((r) => ({ key: r.id, to: `/names?q=${encodeURIComponent(r.name)}`, main: r.name, type: r.type, sub: r.ownerName, value: sar(r.price) }))} />
+        rows={topValue.map((r) => ({ key: r.id, to: `/names?q=${encodeURIComponent(r.name)}`, main: r.name, type: r.type, sub: r.ownerName, subAvatar: r.ownerAvatar, value: sar(r.price) }))} />
       <Leaderboard title={tr('أكثر ملكية للأسماء', 'Most names owned')}
-        rows={topOwners.map(([o, n]) => ({ key: o, to: `/names?q=${encodeURIComponent(o)}`, main: o, value: tr(n === 1 ? 'اسم واحد' : n === 2 ? 'اسمان' : n <= 10 ? `${n} أسماء` : `${n} اسمًا`, `${n} name${n > 1 ? 's' : ''}`) }))} />
+        rows={topOwners.map(([o, { n, avatar }]) => ({ key: o, to: `/names?q=${encodeURIComponent(o)}`, main: o, avatar: { src: avatar }, value: tr(n === 1 ? 'اسم واحد' : n === 2 ? 'اسمان' : n <= 10 ? `${n} أسماء` : `${n} اسمًا`, `${n} name${n > 1 ? 's' : ''}`) }))} />
     </section>
   )
 }
 
-interface Row { key: string; to: string; main: string; sub?: string; value: string; type?: NameType }
+interface Row { key: string; to: string; main: string; sub?: string; subAvatar?: string; value: string; type?: NameType; avatar?: { src?: string } }
 
 function Leaderboard({ title, rows }: { title: string; rows: Row[] }) {
   return (
@@ -241,12 +246,13 @@ function Leaderboard({ title, rows }: { title: string; rows: Row[] }) {
           <li key={r.key} className="border-b border-line/70 last:border-0">
             <Link to={r.to} className="flex items-center gap-4 px-6 py-3.5 hover:bg-stone">
               <span className={`num flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[14px] font-extrabold ${i === 0 ? 'bg-gold text-paper' : 'bg-navy-soft text-navy'}`}>{i + 1}</span>
+              {r.avatar && <Avatar name={r.main} src={r.avatar.src} size={46} ring={i === 0} />}
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2 text-[16px] font-bold">
                   {r.type && <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${r.type === 'qaadan' ? 'bg-qaadan' : 'bg-bakkar'}`} />}
                   <span className="truncate">{r.main}</span>
                 </span>
-                {r.sub && <span className="block truncate text-[13.5px] text-muted">{r.sub}</span>}
+                {r.sub && <span className="mt-0.5 flex items-center gap-1.5 truncate text-[13.5px] text-muted"><Avatar name={r.sub} src={r.subAvatar} size={20} />{r.sub}</span>}
               </span>
               <span className="num shrink-0 text-[15px] font-extrabold text-ink">{r.value}</span>
             </Link>

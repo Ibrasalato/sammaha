@@ -86,6 +86,19 @@ export const supabaseApi: SammhaApi = {
     return rpc('pay_invoice', { p_invoice: id })
   },
   myBids: () => rpc('my_bids'),
+  async updateMyProfile({ avatarUrl, showAvatar }) {
+    let url = avatarUrl
+    if (avatarUrl && avatarUrl.startsWith('data:')) {
+      // upload the resized photo to the public "avatars" bucket, one file per user
+      const { data: { user } } = await sb().auth.getUser()
+      const blob = await (await fetch(avatarUrl)).blob()
+      const path = `${user!.id}.jpg`
+      const { error } = await sb().storage.from('avatars').upload(path, blob, { upsert: true, contentType: 'image/jpeg' })
+      if (error) throw new ApiError(error.message)
+      url = `${sb().storage.from('avatars').getPublicUrl(path).data.publicUrl}?v=${Date.now()}`
+    }
+    return rpc('update_my_profile', { p_avatar_url: url === undefined ? null : url, p_keep: url === undefined, p_show: showAvatar })
+  },
   myNotifications: () => rpc('my_notifications'),
   async markNotificationsRead() { await rpc('mark_notifications_read') },
   myNames: () => rpc('my_names'),

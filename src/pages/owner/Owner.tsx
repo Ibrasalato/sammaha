@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { Avatar, resizeToSquare } from '../../components/Avatar'
 import { CertificateDoc } from '../../components/CertificateDoc'
 import { InvoiceDoc } from '../../components/InvoiceDoc'
 import { PayModal } from '../../components/PayModal'
@@ -296,6 +297,51 @@ export function CertificatePage() {
         <button className="btn-primary" onClick={() => window.print()}>طباعة أو حفظ PDF</button>
       </div>
       <CertificateDoc r={data} />
+    </>
+  )
+}
+
+export function ProfilePage() {
+  const { user, setUser, toast } = useApp()
+  const [busy, setBusy] = useState(false)
+  if (!user) return null
+  async function save(p: { avatarUrl?: string | null; showAvatar: boolean }, msg: string) {
+    setBusy(true)
+    try { setUser(await api.updateMyProfile(p)); toast(msg) } catch (e) { toast((e as Error).message, 'bad') } finally { setBusy(false) }
+  }
+  return (
+    <>
+      <PageHead title="حسابي" sub="بياناتك وصورتك التي تظهر في قوائم ملاك الأسماء." />
+      <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+        <SectionCard title="الصورة الشخصية" icon="users">
+          <div className="flex flex-col items-center gap-4 p-6 text-center">
+            <Avatar name={user.fullName} src={user.avatarUrl} size={120} ring />
+            <label className={`btn-primary btn-sm cursor-pointer ${busy ? 'pointer-events-none opacity-50' : ''}`}>
+              {user.avatarUrl ? 'تغيير الصورة' : 'رفع صورة'}
+              <input type="file" accept="image/*" className="sr-only" onChange={async (e) => {
+                const f = e.target.files?.[0]; e.target.value = ''
+                if (!f) return
+                if (f.size > 8 * 1024 * 1024) { toast('الصورة أكبر من 8 ميجابايت', 'bad'); return }
+                await save({ avatarUrl: await resizeToSquare(f), showAvatar: true }, 'حُفظت صورتك')
+              }} />
+            </label>
+            {user.avatarUrl && <button className="text-[14px] font-bold text-bad hover:underline" disabled={busy} onClick={() => save({ avatarUrl: null, showAvatar: false }, 'حُذفت صورتك')}>حذف الصورة</button>}
+            <label className={`flex items-start gap-2 text-start text-[14.5px] ${user.avatarUrl ? '' : 'opacity-50'}`}>
+              <input type="checkbox" className="mt-1.5" checked={!!user.showAvatar} disabled={!user.avatarUrl || busy}
+                onChange={(e) => save({ showAvatar: e.target.checked }, e.target.checked ? 'ستظهر صورتك في القوائم العامة' : 'أُخفيت صورتك من القوائم العامة')} />
+              <span>إظهار صورتي بجانب اسمي في قوائم «الأكثر ملكية» و«أعلى قيمة» على المنصة</span>
+            </label>
+          </div>
+        </SectionCard>
+        <SectionCard title="بيانات الحساب" icon="file">
+          <dl className="grid gap-px bg-line/60 sm:grid-cols-2">
+            {([['الاسم', user.fullName], ['رقم الجوال', user.phone], ['البريد الإلكتروني', user.email], ['رقم الهوية', user.nationalId || '—'], ['تاريخ التسجيل', date(user.createdAt)]] as [string, string][]).map(([l, v], i, all) => (
+              <div key={l} className={`bg-paper px-5 py-4 ${i === all.length - 1 && all.length % 2 ? 'sm:col-span-2' : ''}`}><dt className="text-[13px] font-medium text-muted">{l}</dt><dd className="mt-0.5 font-bold" dir="auto">{v}</dd></div>
+            ))}
+          </dl>
+          <p className="px-5 py-4 text-[14px] text-muted">لتعديل الاسم أو رقم الجوال تواصل مع فريق المنصة، لأنها مرتبطة بملكية الأسماء المسجلة.</p>
+        </SectionCard>
+      </div>
     </>
   )
 }

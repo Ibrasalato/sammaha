@@ -5,6 +5,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { IS_DEMO, SELLER } from '../lib/config'
 import { resetDemo } from '../lib/demoApi'
 import { api, useApp } from '../lib/store'
+import { Avatar } from './Avatar'
 import { NotificationBell } from './NotificationBell'
 import { Icon } from './dash'
 import type { IconName } from './dash'
@@ -179,7 +180,9 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
               <div className="text-[12px] text-paper/60">{roleLabel}</div>
             </div>
             <NotificationBell />
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gold text-[15px] font-extrabold text-paper">{user?.fullName.trim()[0]}</span>
+            {user && (user.role === 'owner'
+              ? <Link to="/dashboard/profile" aria-label="حسابي"><Avatar name={user.fullName} src={user.avatarUrl} size={36} /></Link>
+              : <Avatar name={user.fullName} src={user.avatarUrl} size={36} />)}
             <button className="btn-on-dark btn-sm" onClick={async () => { await api.signOut(); setUser(null); navigate('/') }}>خروج</button>
           </div>
         </div>

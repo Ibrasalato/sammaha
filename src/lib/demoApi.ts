@@ -401,7 +401,11 @@ export const demoApi: SammhaApi = {
 
   listReservedNames: (q, type) => tx((db) => {
     const n = q ? normalizeName(q) : ''
-    return db.reserved
+    const avatar = (r: ReservedName) => {
+      const u = db.users.find((x) => (r.ownerId ? x.id === r.ownerId : x.fullName === r.ownerName))
+      return u?.showAvatar && u.avatarUrl ? u.avatarUrl : undefined
+    }
+    return db.reserved.map((r) => ({ ...r, ownerAvatar: avatar(r) }))
       .filter((r) => (type && type !== 'all' ? r.type === type : true))
       .filter((r) => (n ? r.normalized.includes(n) || r.ownerName.includes(q!) : true))
       .sort((a, b) => Date.parse(b.acquiredAt) - Date.parse(a.acquiredAt))
@@ -414,6 +418,13 @@ export const demoApi: SammhaApi = {
   verifyCertificate: (code) => tx((db) => {
     const c = code.trim().toUpperCase()
     return db.reserved.find((r) => certNo(r) === c) ?? null
+  }),
+
+  updateMyProfile: ({ avatarUrl, showAvatar }) => tx((db) => {
+    const u = me(db)
+    if (avatarUrl !== undefined) u.avatarUrl = avatarUrl ?? undefined
+    u.showAvatar = showAvatar && !!u.avatarUrl
+    return publicUser(u)
   }),
 
   myNotifications: () => tx((db) => {

@@ -44,7 +44,7 @@ npm run dev
 ## الإنتاج (Supabase)
 
 1. أنشئ مشروع Supabase وفعّل الإضافات `pg_cron` و `pg_net`.
-2. نفّذ ملفات `supabase/migrations/` بالترتيب: `0001_schema.sql` ثم `0002_logic.sql` ثم `0003_events_notifications.sql`.
+2. نفّذ ملفات `supabase/migrations/` بالترتيب: `0001_schema.sql` ثم `0002_logic.sql` ثم `0003_events_notifications.sql` ثم `0004_owner_photos.sql`.
 3. انسخ `.env.example` إلى `.env` وضع `VITE_SUPABASE_URL` و `VITE_SUPABASE_ANON_KEY`.
 4. اجعل حسابات اللجنة `role = 'committee'` في جدول `profiles`.
 5. الدفع بالبطاقة: انشر الدالتين `create-payment` و `moyasar-webhook` وضع `MOYASAR_SECRET_KEY` و `MOYASAR_WEBHOOK_SECRET`.

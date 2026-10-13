@@ -17,7 +17,7 @@ import Home from './pages/Home'
 import ReservedNames from './pages/ReservedNames'
 import Verify from './pages/Verify'
 import { AdminAuctions, AdminEvents, AdminHome, AdminInvoices, AdminRequests, AdminReview, AdminSchedule, AdminUsers } from './pages/admin/Admin'
-import { CertificatePage, DashHome, InvoicePage, MyBids, MyInvoices, MyNames, WalletPage } from './pages/owner/Owner'
+import { CertificatePage, DashHome, InvoicePage, MyBids, MyInvoices, MyNames, ProfilePage, WalletPage } from './pages/owner/Owner'
 import { MyRequests, NewRequest, RequestDetail } from './pages/owner/Requests'
 
 function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
@@ -41,6 +41,7 @@ const OWNER_NAV: NavItem[] = [
   { to: '/dashboard/names', label: 'أسمائي', icon: 'tag' },
   { to: '/dashboard/wallet', label: 'المحفظة', icon: 'wallet' },
   { to: '/dashboard/invoices', label: 'الفواتير', icon: 'receipt' },
+  { to: '/dashboard/profile', label: 'حسابي', icon: 'users' },
 ]
 
 const ADMIN_NAV: NavItem[] = [
@@ -97,6 +98,7 @@ function AppRoutes() {
             <Route path="wallet" element={<WalletPage />} />
             <Route path="invoices" element={<MyInvoices />} />
             <Route path="invoices/:id" element={<InvoicePage />} />
+            <Route path="profile" element={<ProfilePage />} />
           </Route>
           <Route path="admin" element={<Guard roles={['committee', 'admin']}><Shell nav={ADMIN_NAV} title="لجنة الاعتماد" /></Guard>}>
             <Route index element={<AdminHome />} />

@@ -9,6 +9,10 @@ export interface User {
   nationalId?: string
   role: Role
   createdAt: string
+  /** profile photo (uploaded by the owner) */
+  avatarUrl?: string
+  /** owner agreed to show the photo publicly (leaderboards) */
+  showAvatar?: boolean
 }
 
 export type RequestStatus =
@@ -99,6 +103,8 @@ export interface ReservedName {
   price: number
   acquiredAt: string
   source: 'auction' | 'legacy'
+  /** owner's public photo, only when they chose to show it */
+  ownerAvatar?: string
 }
 
 export type TxKind = 'topup' | 'deposit' | 'refund' | 'invoice_payment'
