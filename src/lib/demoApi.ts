@@ -5,6 +5,7 @@
  */
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'
+import type { AuctionView } from './types'
 import { OTP, RULES, SUPER_ADMIN_EMAIL } from './config'
 import { maskEmail, maskPhone, otpDigits } from './otp'
 import { namesCount } from './format'
@@ -19,6 +20,8 @@ import type {
 } from './types'
 
 interface DemoUser extends User { password: string }
+interface AutoBid { auctionId: string; userId: string; max: number; createdAt: string }
+interface Watch { auctionId: string; userId: string; notifiedStart?: boolean; notifiedEnd?: boolean }
 interface DB {
   v: number
   seq: number
@@ -32,6 +35,8 @@ interface DB {
   events: CamelEvent[]
   notes: AppNotification[]
   tickets: Ticket[]
+  autobids?: AutoBid[]
+  watches?: Watch[]
 }
 
 const KEY = 'sammha-demo-db'
@@ -288,8 +293,11 @@ function load(): DB {
   save(db)
   return db
 }
+// other tabs hear about every change at once (the demo's stand-in for realtime)
+const live = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('sammha-live') : null
 function save(db: DB) {
   try { localStorage.setItem(KEY, JSON.stringify(db)) } catch { /* ignore */ }
+  try { live?.postMessage('changed') } catch { /* ignore */ }
 }
 let memSession: string | null = null
 function getSession(): string | null {
@@ -391,8 +399,72 @@ function issueInvoice(db: DB, a: Auction, buyer: User, price: number, depositApp
 }
 
 /** Settle every auction whose end time has passed. Mirrors public.settle_due_auctions() in SQL. */
-function sweep(db: DB) {
+// ───────────────────────── bidding engine ─────────────────────────
+/** Record one bid: price, leader, anti-sniping extension and the outbid notice. */
+function recordBid(db: DB, a: Auction, userId: string, amount: number, auto = false) {
+  const u = db.users.find((x) => x.id === userId)!
+  if (a.leaderId && a.leaderId !== userId) notify(db, a.leaderId, 'outbid', `تجاوز مزايد آخر مزايدتك على «${a.name}»`, `أعلى مزايدة الآن ${amount} ريال. زايد قبل انتهاء الوقت.`, `/auctions/${a.id}`)
+  const t = now()
+  db.bids.push({ id: uid(db, 'b'), auctionId: a.id, userId, bidderLabel: maskName(u.fullName), amount, createdAt: iso(t), auto: auto || undefined })
+  Object.assign(a, { currentPrice: amount, bidCount: a.bidCount + 1, leaderId: userId, leaderLabel: maskName(u.fullName) })
+  const win = RULES.extendMinutes * 60_000
+  if (Date.parse(a.endsAt) - t < win) { a.endsAt = iso(t + win); a.extensions = (a.extensions ?? 0) + 1 }
+}
+
+/** Proxy bidding: each auto-bidder is raised by the minimum step up to their ceiling (earlier ceiling wins ties). */
+function resolveAuto(db: DB, a: Auction) {
+  const list = db.autobids ?? []
+  for (let guard = 0; guard < 20; guard++) {
+    if (phaseOf(a) !== 'live') return
+    const inc = a.minIncrement
+    const challenger = list.filter((x) => x.auctionId === a.id && x.userId !== a.leaderId && x.max >= a.currentPrice + inc)
+      .sort((x, y) => y.max - x.max || Date.parse(x.createdAt) - Date.parse(y.createdAt))[0]
+    if (!challenger) return
+    const leaderAuto = a.leaderId ? list.find((x) => x.auctionId === a.id && x.userId === a.leaderId) : undefined
+    const leaderMax = Math.max(leaderAuto?.max ?? 0, a.currentPrice)
+    if (challenger.max > leaderMax) {
+      if (leaderAuto && leaderAuto.max > a.currentPrice) recordBid(db, a, a.leaderId!, leaderAuto.max, true)
+      recordBid(db, a, challenger.userId, Math.min(challenger.max, leaderMax + inc), true)
+    } else {
+      const leader = a.leaderId!
+      recordBid(db, a, challenger.userId, challenger.max, true)
+      recordBid(db, a, leader, Math.min(leaderMax, challenger.max + inc), true)
+    }
+  }
+}
+
+function mineFor(db: DB, auctionId: string) {
+  const id = getSession()
+  if (!id) return undefined
+  return { watching: !!db.watches?.some((w) => w.auctionId === auctionId && w.userId === id), autoMax: db.autobids?.find((x) => x.auctionId === auctionId && x.userId === id)?.max }
+}
+function view(db: DB, a: Auction): AuctionView {
+  return { auction: a, bids: db.bids.filter((b) => b.auctionId === a.id).sort((x, y) => y.amount - x.amount || Date.parse(y.createdAt) - Date.parse(x.createdAt)), mine: mineFor(db, a.id) }
+}
+
+/** Watchlist reminders: an hour before the start, and an hour before the end. */
+function remind(db: DB) {
   let changed = false
+  const t = now()
+  for (const w of db.watches ?? []) {
+    const a = db.auctions.find((x) => x.id === w.auctionId)
+    if (!a) continue
+    const start = Date.parse(a.startsAt), end = Date.parse(a.endsAt)
+    if (!w.notifiedStart && t < start && start - t <= H) {
+      notify(db, w.userId, 'reminder', `مزاد «${a.name}» يبدأ خلال ساعة`, 'جهّز مزايدتك، أو فعّل المزايدة التلقائية.', `/auctions/${a.id}`); w.notifiedStart = true; changed = true
+    }
+    if (!w.notifiedEnd && t >= start && t < end && end - t <= H) {
+      notify(db, w.userId, 'reminder', `مزاد «${a.name}» ينتهي خلال ساعة`, `أعلى مزايدة الآن ${a.currentPrice} ريال.`, `/auctions/${a.id}`); w.notifiedEnd = true; changed = true
+    }
+  }
+  return changed
+}
+
+function sweep(db: DB) {
+  let changed = remind(db)
+  for (const a of db.auctions) if (!a.settled && phaseOf(a) === 'live' && db.autobids?.some((x) => x.auctionId === a.id)) {
+    const before = a.bidCount; resolveAuto(db, a); if (a.bidCount !== before) changed = true
+  }
   for (const a of db.auctions) {
     if (a.settled || phaseOf(a) !== 'ended') continue
     const r = db.requests.find((x) => x.id === a.requestId)!
@@ -596,9 +668,15 @@ export const demoApi: SammhaApi = {
   getAuction: (id) => tx((db) => {
     const auction = db.auctions.find((a) => a.id === id)
     if (!auction) throw new ApiError('المزاد غير موجود')
-    const bids = db.bids.filter((b) => b.auctionId === id).sort((a, b) => b.amount - a.amount)
-    return { auction, bids }
+    return view(db, auction)
   }),
+
+  subscribeAuction: (_id, onChange) => {
+    if (!live) return () => {}
+    const h = () => onChange()
+    live.addEventListener('message', h)
+    return () => live.removeEventListener('message', h)
+  },
 
   listReservedNames: (q, type) => tx((db) => {
     const n = q ? normalizeName(q) : ''
@@ -876,17 +954,50 @@ export const demoApi: SammhaApi = {
     const min = a.currentPrice + a.minIncrement
     if (!Number.isFinite(amount) || amount < min) throw new ApiError(`أقل مزايدة ${min} ريال`)
     if (a.leaderId === u.id) throw new ApiError('أنت صاحب أعلى مزايدة حاليًا')
-    if (a.leaderId) notify(db, a.leaderId, 'outbid', `تجاوز مزايد آخر مزايدتك على «${a.name}»`, `أعلى مزايدة الآن ${amount} ريال. زايد قبل انتهاء الوقت.`, `/auctions/${a.id}`)
-    const t = now()
-    db.bids.push({ id: uid(db, 'b'), auctionId, userId: u.id, bidderLabel: maskName(u.fullName), amount, createdAt: iso(t) })
-    a.currentPrice = amount
-    a.bidCount += 1
-    a.leaderId = u.id
-    a.leaderLabel = maskName(u.fullName)
-    const win = RULES.extendMinutes * 60_000
-    if (Date.parse(a.endsAt) - t < win) a.endsAt = iso(t + win)
-    return { auction: a, bids: db.bids.filter((b) => b.auctionId === auctionId).sort((x, y) => y.amount - x.amount) }
+    recordBid(db, a, u.id, amount)
+    resolveAuto(db, a)
+    return view(db, a)
   }),
+
+  setAutoBid: (auctionId, max) => tx((db) => {
+    const u = me(db)
+    const a = db.auctions.find((x) => x.id === auctionId)
+    if (!a) throw new ApiError('المزاد غير موجود')
+    if (phaseOf(a) === 'ended') throw new ApiError('انتهى المزاد')
+    const floor = a.leaderId === u.id ? a.currentPrice + a.minIncrement : a.currentPrice + a.minIncrement
+    if (!Number.isFinite(max) || max < floor) throw new ApiError(`الحد الأقصى ${floor} ريال على الأقل`)
+    if (max > 1_000_000) throw new ApiError('الحد الأقصى كبير جدًا')
+    db.autobids = (db.autobids ?? []).filter((x) => !(x.auctionId === a.id && x.userId === u.id))
+    db.autobids.push({ auctionId: a.id, userId: u.id, max: Math.floor(max), createdAt: iso(now()) })
+    if (!db.watches?.some((w) => w.auctionId === a.id && w.userId === u.id)) (db.watches ??= []).push({ auctionId: a.id, userId: u.id })
+    resolveAuto(db, a)
+    return view(db, a)
+  }),
+
+  cancelAutoBid: (auctionId) => tx((db) => {
+    const u = me(db)
+    const a = db.auctions.find((x) => x.id === auctionId)
+    if (!a) throw new ApiError('المزاد غير موجود')
+    db.autobids = (db.autobids ?? []).filter((x) => !(x.auctionId === a.id && x.userId === u.id))
+    return view(db, a)
+  }),
+
+  toggleWatch: (auctionId) => tx((db) => {
+    const u = me(db)
+    if (!db.auctions.some((x) => x.id === auctionId)) throw new ApiError('المزاد غير موجود')
+    const list = (db.watches ??= [])
+    const i = list.findIndex((w) => w.auctionId === auctionId && w.userId === u.id)
+    if (i >= 0) { list.splice(i, 1); return false }
+    list.push({ auctionId, userId: u.id })
+    return true
+  }),
+
+  myWatchlist: () => tx((db) => {
+    const u = me(db)
+    const ids = new Set((db.watches ?? []).filter((w) => w.userId === u.id).map((w) => w.auctionId))
+    return db.auctions.filter((a) => ids.has(a.id)).sort((x, y) => Date.parse(x.endsAt) - Date.parse(y.endsAt))
+  }),
+
 
   overview: () => tx((db) => {
     staff(db)

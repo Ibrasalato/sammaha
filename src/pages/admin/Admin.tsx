@@ -21,7 +21,7 @@ export function AdminHome() {
   return (
     <div className="space-y-6">
       <section className="relative overflow-hidden rounded-xl bg-pine text-paper">
-        <img src="./hero/mazayin.jpg" alt="" className="absolute inset-0 h-full w-full object-cover opacity-20" />
+        <img src="./hero/mazayin.webp" alt="" className="absolute inset-0 h-full w-full object-cover opacity-20" />
         <div className="absolute inset-0 bg-gradient-to-l from-pine via-pine/85 to-pine/40" />
         <div className="relative flex flex-wrap items-end gap-6 p-6 sm:p-8">
           <div className="flex-1">

@@ -132,14 +132,16 @@ export function ChatWidget() {
 
   function submit(e: FormEvent) { e.preventDefault(); ask(text) }
   // inside dashboards the button shrinks to an icon so it never covers form controls
-  const compact = /^\/(admin|dashboard)/.test(loc.pathname)
+  const compact = /^\/(admin|dashboard)/.test(loc.pathname) || /^\/auctions\/[^/]+$/.test(loc.pathname)
+  // on phones, stay above the dashboard tab bar and the auction bid bar
+  const raised = compact || /^\/auctions\/[^/]+$/.test(loc.pathname)
   const closeOnMobile = () => { if (window.innerWidth < 640) setOpen(false) }
 
   return (
     <div className="print:hidden">
       {open && (
         <section role="dialog" aria-label={tr('مساعد سمّها', 'Sammha assistant')}
-          className="fixed inset-x-3 bottom-20 z-50 flex max-h-[min(640px,calc(100dvh-7rem))] flex-col overflow-hidden rounded-2xl border border-line bg-paper shadow-[0_20px_60px_-15px_rgba(15,59,36,.45)] sm:inset-x-auto sm:end-5 sm:w-[390px]">
+          className={`fixed inset-x-3 z-50 flex ${raised ? 'bottom-40 max-h-[min(640px,calc(100dvh-12rem))] lg:bottom-20 lg:max-h-[min(640px,calc(100dvh-7rem))]' : 'bottom-20 max-h-[min(640px,calc(100dvh-7rem))]'} flex-col overflow-hidden rounded-2xl border border-line bg-paper shadow-[0_20px_60px_-15px_rgba(15,59,36,.45)] sm:inset-x-auto sm:end-5 sm:w-[390px]`}>
           <header className="relative flex items-center gap-3 bg-pine px-4 py-3.5 text-paper">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-paper/10 ring-1 ring-gold/50">
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><path d="M12 3l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 15.4 7.2 17.9l.9-5.4L4.2 8.7l5.4-.8z" className="text-gold-light" stroke="#E2C27E" /></svg>
@@ -200,7 +202,7 @@ export function ChatWidget() {
       )}
 
       <button onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label={open ? tr('إغلاق المساعد', 'Close assistant') : tr('افتح مساعد سمّها', 'Open Sammha assistant')}
-        className={`group fixed bottom-5 end-5 z-50 flex h-14 items-center justify-center gap-2 rounded-full bg-pine text-paper ${compact ? 'w-14' : 'ps-4 pe-5'} shadow-[0_12px_30px_-8px_rgba(15,59,36,.6)] ring-2 ring-gold/70 transition hover:bg-pine-3`}>
+        className={`group fixed end-5 z-50 flex h-14 ${raised ? 'bottom-24 lg:bottom-5' : 'bottom-5'} items-center justify-center gap-2 rounded-full bg-pine text-paper ${compact ? 'w-14' : 'ps-4 pe-5'} shadow-[0_12px_30px_-8px_rgba(15,59,36,.6)] ring-2 ring-gold/70 transition hover:bg-pine-3`}>
         {open ? (
           <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
         ) : (

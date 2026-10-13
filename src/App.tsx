@@ -1,4 +1,7 @@
-import { useEffect } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
+import type { ComponentType } from 'react'
+import { PageSkeleton } from './components/Skeleton'
+import { usePageTitle } from './lib/usePageTitle'
 import type { ReactNode } from 'react'
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { PublicLayout, Shell } from './components/Layout'
@@ -13,18 +16,45 @@ import Auctions from './pages/Auctions'
 import { Login, Signup, StaffLogin } from './pages/Auth'
 import { Faq, Privacy, Refund, Terms } from './pages/Content'
 import { Contact, TrackTicket } from './pages/Support'
-import { AdminTicket, AdminTickets } from './pages/admin/Tickets'
-import { MyTickets } from './pages/owner/Tickets'
 import { ChatWidget } from './components/ChatWidget'
 import Events from './pages/Events'
 import Home from './pages/Home'
 import ReservedNames from './pages/ReservedNames'
 import Verify from './pages/Verify'
-import { AdminAuctions, AdminEvents, AdminHome, AdminInvoices, AdminRequests, AdminReview, AdminSchedule } from './pages/admin/Admin'
-import { AdminUsers, StaffAccount } from './pages/admin/Users'
 import { STAFF_LOGIN_PATH } from './lib/config'
-import { CertificatePage, DashHome, InvoicePage, MyBids, MyInvoices, MyNames, ProfilePage, WalletPage } from './pages/owner/Owner'
-import { MyRequests, NewRequest, RequestDetail } from './pages/owner/Requests'
+
+// Dashboards load on demand, so the public site stays light on phones.
+type Mod = Record<string, ComponentType>
+const pick = (load: () => Promise<unknown>, name: string) => lazy(() => load().then((m) => ({ default: (m as Mod)[name] })))
+const ownerMod = () => import('./pages/owner/Owner')
+const reqMod = () => import('./pages/owner/Requests')
+const adminMod = () => import('./pages/admin/Admin')
+const DashHome = pick(ownerMod, 'DashHome'), WalletPage = pick(ownerMod, 'WalletPage'), MyInvoices = pick(ownerMod, 'MyInvoices')
+const InvoicePage = pick(ownerMod, 'InvoicePage'), MyBids = pick(ownerMod, 'MyBids'), MyNames = pick(ownerMod, 'MyNames')
+const CertificatePage = pick(ownerMod, 'CertificatePage'), ProfilePage = pick(ownerMod, 'ProfilePage'), WatchlistPage = pick(ownerMod, 'WatchlistPage')
+const MyRequests = pick(reqMod, 'MyRequests'), NewRequest = pick(reqMod, 'NewRequest'), RequestDetail = pick(reqMod, 'RequestDetail')
+const MyTickets = pick(() => import('./pages/owner/Tickets'), 'MyTickets')
+const AdminHome = pick(adminMod, 'AdminHome'), AdminRequests = pick(adminMod, 'AdminRequests'), AdminReview = pick(adminMod, 'AdminReview')
+const AdminSchedule = pick(adminMod, 'AdminSchedule'), AdminAuctions = pick(adminMod, 'AdminAuctions'), AdminInvoices = pick(adminMod, 'AdminInvoices')
+const AdminEvents = pick(adminMod, 'AdminEvents')
+const AdminTickets = pick(() => import('./pages/admin/Tickets'), 'AdminTickets'), AdminTicket = pick(() => import('./pages/admin/Tickets'), 'AdminTicket')
+const AdminUsers = pick(() => import('./pages/admin/Users'), 'AdminUsers'), StaffAccount = pick(() => import('./pages/admin/Users'), 'StaffAccount')
+
+/** Tab titles per page (the auction page sets its own with the name). */
+const TITLES: [RegExp, string, string][] = [
+  [/^\/$/, '', ''], [/^\/auctions$/, 'المزادات', 'Auctions'], [/^\/names/, 'سجل الأسماء', 'Name registry'], [/^\/events/, 'المواعيد والمهرجانات', 'Events'],
+  [/^\/verify/, 'التحقق من شهادة', 'Verify a certificate'], [/^\/faq/, 'الأسئلة الشائعة', 'FAQ'], [/^\/terms/, 'الشروط والأحكام', 'Terms'],
+  [/^\/privacy/, 'سياسة الخصوصية', 'Privacy'], [/^\/refund/, 'سياسة الاسترداد', 'Refunds'], [/^\/contact\/track/, 'متابعة طلب', 'Track a request'],
+  [/^\/contact/, 'تواصل معنا', 'Contact'], [/^\/about/, 'عن المنصة', 'About'], [/^\/login/, 'تسجيل الدخول', 'Sign in'], [/^\/signup/, 'إنشاء حساب', 'Sign up'],
+  [/^\/dashboard/, 'لوحة التحكم', 'Dashboard'], [/^\/admin/, 'لجنة الاعتماد', 'Committee'], [/^\/ico-staff/, 'بوابة الموظفين', 'Staff'],
+]
+function RouteTitle() {
+  const { pathname } = useLocation()
+  const { lang } = useLang()
+  const hit = /^\/auctions\/[^/]+$/.test(pathname) ? null : TITLES.find(([re]) => re.test(pathname))
+  usePageTitle(hit === null ? undefined : hit ? (lang === 'ar' ? hit[1] : hit[2]) || undefined : undefined)
+  return null
+}
 
 function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
   const { user, ready, toast } = useApp()
@@ -43,8 +73,9 @@ function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
 
 const OWNER_NAV: NavItem[] = [
   { to: '/dashboard', label: 'الرئيسية', icon: 'home', end: true },
-  { to: '/dashboard/requests', label: 'طلبات الشعارات', icon: 'file' },
+  { to: '/dashboard/requests', label: 'طلبات الشعارات', short: 'طلباتي', icon: 'file' },
   { to: '/dashboard/bids', label: 'مزايداتي', icon: 'gavel' },
+  { to: '/dashboard/watchlist', label: 'قائمة المتابعة', short: 'المتابعة', icon: 'clock' },
   { to: '/dashboard/names', label: 'أسمائي', icon: 'tag' },
   { to: '/dashboard/wallet', label: 'المحفظة', icon: 'wallet' },
   { to: '/dashboard/invoices', label: 'الفواتير', icon: 'receipt' },
@@ -54,9 +85,9 @@ const OWNER_NAV: NavItem[] = [
 
 const ADMIN_NAV: NavItem[] = [
   { to: '/admin', label: 'نظرة عامة', icon: 'home', end: true },
-  { to: '/admin/requests', label: 'مراجعة الطلبات', icon: 'shield' },
-  { to: '/admin/schedule', label: 'فتح المزادات', icon: 'calendar' },
-  { to: '/admin/auctions', label: 'متابعة المزادات', icon: 'gavel' },
+  { to: '/admin/requests', label: 'مراجعة الطلبات', short: 'المراجعة', icon: 'shield' },
+  { to: '/admin/schedule', label: 'فتح المزادات', short: 'فتح مزاد', icon: 'calendar' },
+  { to: '/admin/auctions', label: 'متابعة المزادات', short: 'المزادات', icon: 'gavel' },
   { to: '/admin/invoices', label: 'الفواتير', icon: 'receipt' },
   { to: '/admin/tickets', label: 'الشكاوى والبلاغات', icon: 'alert' },
   { to: '/admin/events', label: 'المواعيد والفعاليات', icon: 'list' },
@@ -76,7 +107,10 @@ export default function App() {
     <LangProvider>
       <AppProvider>
         <HashRouter>
-          <AppRoutes />
+          <RouteTitle />
+          <Suspense fallback={<div className="wrap"><PageSkeleton /></div>}>
+            <AppRoutes />
+          </Suspense>
           <ChatWidget />
         </HashRouter>
       </AppProvider>
@@ -120,6 +154,7 @@ function AppRoutes() {
             <Route path="invoices/:id" element={<InvoicePage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="tickets" element={<MyTickets />} />
+            <Route path="watchlist" element={<WatchlistPage />} />
           </Route>
           <Route path={STAFF_LOGIN_PATH.slice(1)} element={<StaffLogin />} />
           <Route path="admin" element={<Guard roles={['committee', 'admin']}><AdminShell /></Guard>}>

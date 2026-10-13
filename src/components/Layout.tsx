@@ -159,7 +159,7 @@ function FooterCol({ title, links }: { title: string; links: [string, string][] 
   )
 }
 
-export interface NavItem { to: string; label: string; icon: IconName; end?: boolean }
+export interface NavItem { to: string; label: string; icon: IconName; end?: boolean; short?: string }
 
 export function Shell({ nav, title, children }: { nav: NavItem[]; title: string; children?: ReactNode }) {
   const { user, setUser } = useApp()
@@ -210,10 +210,27 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
             </ul>
           </nav>
         </aside>
-        <main className="min-w-0 flex-1 px-4 py-7 lg:px-8">
+        <main className="min-w-0 flex-1 px-4 pb-28 pt-7 lg:px-8 lg:pb-7">
           <div className="mx-auto max-w-6xl">{children ?? <Outlet />}</div>
         </main>
       </div>
+      {/* mobile: the main sections stay one tap away */}
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden" aria-label="التنقل السريع">
+        <ul className="grid grid-cols-5">
+          {nav.slice(0, 4).map(({ to, label, short, end, icon }) => (
+            <li key={to}>
+              <NavLink to={to} end={end} className={({ isActive }) => `flex flex-col items-center gap-1 px-1 py-2.5 text-[11.5px] font-bold ${isActive ? 'text-pine' : 'text-muted'}`}>
+                {({ isActive }) => <><span className={`grid h-7 w-12 place-items-center rounded-full ${isActive ? 'bg-pine-soft' : ''}`}><Icon name={icon} className="h-5 w-5" /></span><span className="max-w-full truncate">{short ?? label}</span></>}
+              </NavLink>
+            </li>
+          ))}
+          <li>
+            <button onClick={() => setOpen(true)} className="flex w-full flex-col items-center gap-1 px-1 py-2.5 text-[11.5px] font-bold text-muted">
+              <span className="grid h-7 w-12 place-items-center rounded-full"><Icon name="list" className="h-5 w-5" /></span>المزيد
+            </button>
+          </li>
+        </ul>
+      </nav>
     </div>
   )
 }

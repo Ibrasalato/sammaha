@@ -1,3 +1,4 @@
+import { AuctionGrid } from '../../components/AuctionCard'
 import { typeOptions } from '../../lib/config'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -34,7 +35,7 @@ export function DashHome() {
     <div className="space-y-6">
       {/* Welcome band */}
       <section className="relative overflow-hidden rounded-xl bg-pine text-paper">
-        <img src="./hero/camels-sky.jpg" alt="" className="absolute inset-0 h-full w-full object-cover opacity-25" />
+        <img src="./hero/camels-sky.webp" alt="" className="absolute inset-0 h-full w-full object-cover opacity-25" />
         <div className="absolute inset-0 bg-gradient-to-l from-pine via-pine/85 to-pine/40" />
         <div className="relative flex flex-wrap items-center gap-6 p-6 sm:p-8">
           <div className="min-w-0 flex-1">
@@ -514,6 +515,21 @@ export function ProfilePage() {
         </SectionCard>
         <AccountDetails />
       </div>
+    </>
+  )
+}
+
+export function WatchlistPage() {
+  const { data, loading } = useLoad(() => api.myWatchlist(), [], 15000)
+  return (
+    <>
+      <PageHead title="قائمة المتابعة" sub="المزادات اللي تتابعها. ننبهك قبل بدايتها بساعة، وقبل نهايتها بساعة." action={<Link to="/auctions" className="btn-ghost">تصفّح المزادات</Link>} />
+      {loading && !data ? <Loading /> : data?.length ? <AuctionGrid list={data} /> : (
+        <Empty title="لا تتابع أي مزاد بعد">
+          <p className="text-muted">اضغط «تابع المزاد» في صفحة أي مزاد ليظهر هنا، أو فعّل المزايدة التلقائية عليه.</p>
+          <Link to="/auctions" className="btn-primary">تصفّح المزادات</Link>
+        </Empty>
+      )}
     </>
   )
 }

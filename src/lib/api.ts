@@ -1,6 +1,6 @@
 import type {
   AppNotification, CamelEvent, AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
-  PublicStats, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
+  AuctionView, PublicStats, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
 } from './types'
 
 export interface SignUpInput {
@@ -38,7 +38,9 @@ export interface SammhaApi {
   // public
   stats(): Promise<PublicStats>
   listAuctions(filter?: AuctionFilter): Promise<Auction[]>
-  getAuction(id: string): Promise<{ auction: Auction; bids: Bid[] }>
+  getAuction(id: string): Promise<AuctionView>
+  /** calls back whenever this auction may have changed (other tabs in the demo, realtime in production) */
+  subscribeAuction(id: string, onChange: () => void): () => void
   listReservedNames(q?: string, type?: NameType | 'all'): Promise<ReservedName[]>
   checkNames(names: string[], type: NameType): Promise<NameCheck[]>
   listEvents(): Promise<CamelEvent[]>
@@ -76,7 +78,13 @@ export interface SammhaApi {
   myNotifications(): Promise<AppNotification[]>
   markNotificationsRead(): Promise<void>
   myTickets(): Promise<Ticket[]>
-  placeBid(auctionId: string, amount: number): Promise<{ auction: Auction; bids: Bid[] }>
+  placeBid(auctionId: string, amount: number): Promise<AuctionView>
+  /** automatic bidding: the platform raises for you by the minimum step up to `max` */
+  setAutoBid(auctionId: string, max: number): Promise<AuctionView>
+  cancelAutoBid(auctionId: string): Promise<AuctionView>
+  /** watchlist with reminders an hour before the start and before the end */
+  toggleWatch(auctionId: string): Promise<boolean>
+  myWatchlist(): Promise<Auction[]>
 
   // approval committee
   overview(): Promise<AdminOverview>

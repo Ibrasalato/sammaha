@@ -173,6 +173,17 @@ export const supabaseApi: SammhaApi = {
   async markNotificationsRead() { await rpc('mark_notifications_read') },
   myNames: () => rpc('my_names'),
   placeBid: (auctionId, amount) => rpc('place_bid', { p_auction: auctionId, p_amount: amount }),
+  setAutoBid: (auctionId, max) => rpc('set_autobid', { p_auction: auctionId, p_max: max }),
+  cancelAutoBid: (auctionId) => rpc('cancel_autobid', { p_auction: auctionId }),
+  toggleWatch: (auctionId) => rpc('toggle_watch', { p_auction: auctionId }),
+  myWatchlist: () => rpc('my_watchlist'),
+  // Supabase Realtime: the auctions table is in the supabase_realtime publication (migration 0012)
+  subscribeAuction(id, onChange) {
+    const ch = sb().channel(`auction-${id}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'auctions', filter: `id=eq.${id}` }, () => onChange())
+      .subscribe()
+    return () => { sb().removeChannel(ch) }
+  },
 
   overview: () => rpc('admin_overview'),
   listRequests: (status = 'all') => rpc('admin_list_requests', { p_status: status }),

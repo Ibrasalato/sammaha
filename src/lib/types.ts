@@ -105,6 +105,8 @@ export interface Auction {
   winnerName?: string
   finalPrice?: number
   wonByRequester?: boolean
+  /** times the end was pushed back by a last-minute bid */
+  extensions?: number
 }
 
 export interface Bid {
@@ -114,6 +116,21 @@ export interface Bid {
   bidderLabel: string
   amount: number
   createdAt: string
+  /** placed by the bidder's automatic bidding */
+  auto?: boolean
+}
+
+/** What the signed-in user has set on one auction */
+export interface AuctionMine {
+  watching: boolean
+  /** active automatic-bidding ceiling, if any */
+  autoMax?: number
+}
+
+export interface AuctionView {
+  auction: Auction
+  bids: Bid[]
+  mine?: AuctionMine
 }
 
 export interface ReservedName {
@@ -226,7 +243,7 @@ export interface CamelEvent {
 export interface AppNotification {
   id: string
   userId: string
-  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'refund' | 'ticket'
+  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'refund' | 'ticket' | 'reminder'
   title: string
   body: string
   link?: string

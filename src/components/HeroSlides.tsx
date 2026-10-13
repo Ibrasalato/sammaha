@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react'
 import { getLang, tr } from '../lib/i18n'
 
 export const SLIDES: { src: string; alt: string; pos?: string }[] = [
-  { src: './hero/camels-parade.jpg', alt: 'قطيع من الإبل البيضاء في ساحة المهرجان', pos: 'center 40%' },
-  { src: './hero/mazayin.jpg', alt: 'منقيات الإبل في مسابقة المزاين', pos: 'center 45%' },
-  { src: './hero/camels-sky.jpg', alt: 'إبل بيضاء تسير في الصحراء', pos: 'center 40%' },
-  { src: './hero/festival-white.jpg', alt: 'الإبل البيضاء في ميدان العرض', pos: 'center 35%' },
-  { src: './hero/sunset.jpg', alt: 'ناقة عند الغروب في الصحراء', pos: 'center 30%' },
+  { src: './hero/camels-parade.webp', alt: 'قطيع من الإبل البيضاء في ساحة المهرجان', pos: 'center 40%' },
+  { src: './hero/mazayin.webp', alt: 'منقيات الإبل في مسابقة المزاين', pos: 'center 45%' },
+  { src: './hero/camels-sky.webp', alt: 'إبل بيضاء تسير في الصحراء', pos: 'center 40%' },
+  { src: './hero/festival-white.webp', alt: 'الإبل البيضاء في ميدان العرض', pos: 'center 35%' },
+  { src: './hero/sunset.webp', alt: 'ناقة عند الغروب في الصحراء', pos: 'center 30%' },
 ]
 
 const INTERVAL = 6500

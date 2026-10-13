@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { PageSkeleton } from './Skeleton'
 import { tr } from '../lib/i18n'
 import type { ReactNode } from 'react'
 import { TYPE_LABEL, TYPE_CLS } from '../lib/config'
@@ -106,7 +107,7 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
 }
 
 export function Loading() {
-  return <div className="py-16 text-center text-muted">{tr('جارٍ التحميل…', 'Loading…')}</div>
+  return <PageSkeleton />
 }
 
 export function ErrorBox({ text }: { text: string }) {

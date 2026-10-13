@@ -6,7 +6,7 @@ import { api, useLoad } from '../lib/store'
 import type { AppNotification } from '../lib/types'
 
 const DOT: Record<AppNotification['kind'], string> = {
-  outbid: 'bg-bad', won: 'bg-ok', lost: 'bg-muted', reviewed: 'bg-qaadan', auction_opened: 'bg-gold', refund: 'bg-ok', ticket: 'bg-pine',
+  outbid: 'bg-bad', won: 'bg-ok', lost: 'bg-muted', reviewed: 'bg-qaadan', auction_opened: 'bg-gold', refund: 'bg-ok', ticket: 'bg-pine', reminder: 'bg-gold',
 }
 
 export function NotificationBell() {

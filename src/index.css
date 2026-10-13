@@ -96,6 +96,12 @@
 .lot-brand-bakkar { background-color: #9C7425; }
 .lot-brand-istithmar { background-color: #8B5A9F; }
 
+/* loading placeholders */
+.skeleton { position: relative; overflow: hidden; }
+.skeleton::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); animation: shimmer 1.4s infinite; }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+
 /* hero slideshow: slow zoom on the active photo */
 .slide { transform: scale(1.02); }
 .slide-on { animation: kenburns 9s ease-out forwards; }

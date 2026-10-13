@@ -6,7 +6,7 @@ export default function About() {
   return (
     <>
       <section className="relative overflow-hidden bg-pine text-paper">
-        <img src="./hero/festival-white.jpg" alt="" className="absolute inset-0 h-full w-full object-cover opacity-35" style={{ objectPosition: 'center 35%' }} />
+        <img src="./hero/festival-white.webp" alt="" className="absolute inset-0 h-full w-full object-cover opacity-35" style={{ objectPosition: 'center 35%' }} />
         <div className="absolute inset-0 bg-gradient-to-t from-pine via-pine/60 to-pine/20" />
         <div className="wrap relative py-16 sm:py-20">
           <p className="text-[15px] font-bold text-gold-light">{tr('عن المنصة', 'About')}</p>
