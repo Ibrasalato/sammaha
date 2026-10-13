@@ -3,7 +3,7 @@ import { SELLER, TYPE_LABEL } from '../lib/config'
 import { dateTime, num, sar } from '../lib/format'
 import { zatcaQrDataUrl } from '../lib/zatca'
 import type { Invoice } from '../lib/types'
-import { Logo } from './Layout'
+import { IcoLogo, Logo } from './Layout'
 
 /** Simplified tax invoice (فاتورة ضريبية مبسطة) — printable. */
 export function InvoiceDoc({ inv }: { inv: Invoice }) {
@@ -17,7 +17,7 @@ export function InvoiceDoc({ inv }: { inv: Invoice }) {
           <p className="num mt-1 text-muted">{inv.number}</p>
           <p className="text-sm text-muted">{dateTime(inv.issuedAt)}</p>
         </div>
-        <Logo className="h-16" />
+        <div className="flex items-center gap-3"><IcoLogo className="h-9" /><Logo className="h-14" /></div>
       </div>
       <section className="grid gap-4 border-b border-line py-5 text-sm sm:grid-cols-2">
         <div>
