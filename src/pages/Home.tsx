@@ -58,13 +58,13 @@ export default function Home() {
                   <span className="text-[14px] font-medium text-muted">{tr('الشعار صاحب أعلى مزايدة', 'Highest bid right now')}</span>
                   <span className="flex items-center gap-1.5 text-[13px] font-bold text-ok"><span className="h-2 w-2 animate-pulse rounded-full bg-ok" />{tr('مباشر', 'Live')}</span>
                 </div>
-                <div className="mt-4"><NameSeal name={spot.name} type={spot.type} size="xl" /></div>
+                <div className="mt-4"><NameSeal name={spot.name} type={spot.type} size="xl" palette={cardStyle === 'brand' ? 'brand' : 'standard'} /></div>
                 <dl className="mt-6 grid grid-cols-3 divide-x divide-line rtl:divide-x-reverse text-center">
                   <div><dt className="text-[12.5px] font-medium text-muted">{tr('أعلى مزايدة', 'Top bid')}</dt><dd className="num text-2xl font-extrabold">{num(spot.currentPrice)}</dd></div>
                   <div><dt className="text-[12.5px] font-medium text-muted">{tr('المزايدات', 'Bids')}</dt><dd className="num text-2xl font-extrabold">{num(spot.bidCount)}</dd></div>
                   <div><dt className="text-[12.5px] font-medium text-muted">{tr('يُغلق بعد', 'Closes in')}</dt><dd><Countdown to={spot.endsAt} className="text-lg font-extrabold" /></dd></div>
                 </dl>
-                <span className="btn-gold mt-6 w-full">{tr(`زايد على «${spot.name}»`, `Bid on “${spot.name}”`)}</span>
+                <span className={`${cardStyle === 'brand' && spot.type === 'bakkar' ? 'btn bg-[#1D5C2F] text-paper ring-1 ring-inset ring-[#E2C27E]/60 group-hover:bg-[#164A25]' : 'btn-gold'} mt-6 w-full`}>{tr(`زايد على «${spot.name}»`, `Bid on “${spot.name}”`)}</span>
               </Link>
             ) : (
               <div className="rounded-xl border border-paper/15 p-8 text-center text-paper/70">{tr('لا يوجد مزاد جارٍ الآن', 'No live auction right now')}</div>

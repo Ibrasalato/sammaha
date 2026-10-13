@@ -10,18 +10,19 @@ import type { AuctionPhase, NameType, RequestStatus } from '../lib/types'
  * Name tile — the one way a camel name is shown across the platform:
  * white name on the type colour (blue qaadan / maroon bakkar / purple investment) over the Sadu weave, as on auction cards.
  */
-export function NameSeal({ name, type, size = 'md' }: { name: string; type: NameType; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
+export function NameSeal({ name, type, size = 'md', palette = 'standard' }: { name: string; type: NameType; size?: 'sm' | 'md' | 'lg' | 'xl'; palette?: 'standard' | 'brand' }) {
   const dims = {
     sm: 'h-12 w-16 rounded-md text-[14px]',
     md: 'h-[72px] w-28 rounded-lg text-[19px]',
     lg: 'h-28 w-44 rounded-lg text-[30px]',
-    xl: 'h-40 w-full max-w-sm rounded-xl text-[44px] sm:h-44 sm:text-[52px]',
+    xl: 'mx-auto h-40 w-full max-w-sm rounded-xl text-[44px] sm:h-44 sm:text-[52px]',
   }[size]
   return (
-    <div className={`lot-field lot-${type} ${dims} relative flex shrink-0 flex-col items-center justify-center overflow-hidden text-center font-extrabold leading-none text-paper`}
+    <div className={`lot-field ${palette === 'brand' ? `lot-brand-${type}` : `lot-${type}`} ${dims} relative flex shrink-0 flex-col items-center justify-center overflow-hidden text-center font-extrabold leading-none text-paper`}
       aria-label={`${name}، ${TYPE_LABEL[type]}`}>
-      <span className="px-2 drop-shadow-sm">{name}</span>
-      {size !== 'sm' && <span className={`mt-2 font-medium opacity-80 ${size === 'xl' ? 'text-[14px]' : 'text-[11.5px]'}`}>{TYPE_LABEL[type]}</span>}
+      {palette === 'brand' && size !== 'sm' && <img src="./sammha-logo-light.png" alt="" aria-hidden className="pointer-events-none absolute -bottom-3 end-2 h-[70%] w-auto max-w-none opacity-[.14]" />}
+      <span className="relative px-2 drop-shadow-sm">{name}</span>
+      {size !== 'sm' && <span className={`relative mt-2 font-medium opacity-80 ${size === 'xl' ? 'text-[14px]' : 'text-[11.5px]'}`}>{TYPE_LABEL[type]}</span>}
     </div>
   )
 }

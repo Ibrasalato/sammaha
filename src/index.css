@@ -91,6 +91,10 @@
 .lot-qaadan { background-color: #1E5A8C; }
 .lot-bakkar { background-color: #A23B4F; }
 .lot-istithmar { background-color: #5E3D8F; }
+/* Sammha identity palette: logo green, logo gold, mauve */
+.lot-brand-qaadan { background-color: #1D5C2F; }
+.lot-brand-bakkar { background-color: #9C7425; }
+.lot-brand-istithmar { background-color: #8B5A9F; }
 
 /* hero slideshow: slow zoom on the active photo */
 .slide { transform: scale(1.02); }
