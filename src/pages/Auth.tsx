@@ -20,7 +20,7 @@ function AuthFrame({ title, children }: { title: string; children: React.ReactNo
     <div className="wrap py-12 lg:py-16">
       <div className="mx-auto grid max-w-5xl overflow-hidden rounded-xl border border-line bg-paper shadow-card lg:grid-cols-[1fr_1.1fr]">
         <div className="hero-field relative hidden flex-col justify-between p-10 text-paper lg:flex">
-          <Logo light className="h-16" />
+          <div><Logo light className="h-24" /></div>
           <div>
             <h2 className="text-[28px] font-extrabold leading-snug text-paper">{tr('السجل الدولي لأسماء الإبل وشعاراتها', 'The international registry of camel names and marks')}</h2>
             <p className="mt-3 text-paper/70">{tr('اطلب أسماء إبلك، وتابع مزاداتها، واحصل على فواتيرك الإلكترونية من مكان واحد.', 'Request names for your camels, follow their auctions and get your e-invoices in one place.')}</p>
