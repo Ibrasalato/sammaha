@@ -101,3 +101,12 @@
   body > div header, body > div aside, footer, .sadu, .print\:hidden { display: none !important; }
   .invoice { box-shadow: none; border: 0; max-width: none; }
 }
+
+/* Auction card visual: type-coloured field with a faint Sadu-diamond weave */
+.lot-field {
+  background-image:
+    linear-gradient(160deg, rgba(255,255,255,.10), rgba(0,0,0,.18)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 36 36'%3E%3Cpath d='M18 3l15 15-15 15L3 18z' fill='none' stroke='%23ffffff' stroke-opacity='.09'/%3E%3Cpath d='M18 13l5 5-5 5-5-5z' fill='%23ffffff' fill-opacity='.06'/%3E%3C/svg%3E");
+}
+.lot-qaadan { background-color: #1E5A8C; }
+.lot-bakkar { background-color: #A23B4F; }

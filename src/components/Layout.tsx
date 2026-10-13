@@ -68,11 +68,7 @@ export function PublicLayout() {
       <UtilityBar />
       <header className="sticky top-0 z-30 border-b border-line bg-paper/95 backdrop-blur">
         <div className="wrap flex h-[76px] items-center gap-6">
-          <Link to="/" aria-label="الرئيسية" className="flex shrink-0 items-center gap-4">
-            <Logo className="h-14" />
-            <span className="hidden h-10 w-px bg-line lg:block" aria-hidden />
-            <IcoLogo className="hidden h-10 lg:block" />
-          </Link>
+          <Link to="/" aria-label="الرئيسية" className="shrink-0"><Logo className="h-14" /></Link>
           <nav className="hidden h-full items-stretch gap-1 md:flex" aria-label="القائمة الرئيسية">
             {PUBLIC_NAV.map(([to, label]) => (
               <NavLink key={to} to={to} end={to === '/'}
@@ -158,7 +154,7 @@ export function Shell({ nav, title, children }: { nav: [string, string, boolean?
       <header className="bg-navy text-paper">
         <div className="flex h-16 items-center gap-4 px-4 lg:px-6">
           <button className="rounded-md border border-paper/25 px-2.5 py-1 text-sm font-bold lg:hidden" onClick={() => setOpen(!open)} aria-expanded={open}>القائمة</button>
-          <Link to="/" aria-label="الرئيسية" className="flex items-center gap-3"><Logo light className="h-10" /><IcoLogo light className="hidden h-7 xl:block" /></Link>
+          <Link to="/" aria-label="الرئيسية"><Logo light className="h-10" /></Link>
           <span className="hidden border-s border-paper/20 ps-4 text-[17px] font-extrabold sm:inline">{title}</span>
           {IS_DEMO && <span className="hidden rounded bg-gold/20 px-1.5 py-px text-[12px] font-bold text-gold-light md:inline">نسخة تجريبية</span>}
           <div className="ms-auto flex items-center gap-3">

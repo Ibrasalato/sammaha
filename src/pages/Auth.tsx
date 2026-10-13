@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { IcoLogo, Logo } from '../components/Layout'
+import { Logo } from '../components/Layout'
 import { ErrorBox } from '../components/ui'
 import { IS_DEMO } from '../lib/config'
 import { api, useApp } from '../lib/store'
@@ -19,7 +19,7 @@ function AuthFrame({ title, children }: { title: string; children: React.ReactNo
     <div className="wrap py-12 lg:py-16">
       <div className="mx-auto grid max-w-5xl overflow-hidden rounded-xl border border-line bg-paper shadow-card lg:grid-cols-[1fr_1.1fr]">
         <div className="hero-field relative hidden flex-col justify-between p-10 text-paper lg:flex">
-          <div className="flex items-center gap-5"><Logo light className="h-16" /><span className="h-12 w-px bg-paper/20" aria-hidden /><IcoLogo light className="h-10" /></div>
+          <Logo light className="h-16" />
           <div>
             <h2 className="text-[28px] font-extrabold leading-snug text-paper">السجل الدولي لأسماء الإبل وشعاراتها</h2>
             <p className="mt-3 text-paper/70">اطلب أسماء إبلك، وتابع مزاداتها، واحصل على فواتيرك الإلكترونية من مكان واحد.</p>
