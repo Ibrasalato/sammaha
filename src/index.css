@@ -100,6 +100,10 @@
   body { background: #fff; }
   body > div header, body > div aside, footer, .sadu, .print\:hidden { display: none !important; }
   .invoice { box-shadow: none; border: 0; max-width: none; }
+  body > div main { padding: 0 !important; }
+  .certificate { max-width: none; width: 100vw; height: 100vh; aspect-ratio: auto; }
+  .certificate .sadu { display: block !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
 /* Auction card visual: type-coloured field with a faint Sadu-diamond weave */
@@ -110,3 +114,8 @@
 }
 .lot-qaadan { background-color: #1E5A8C; }
 .lot-bakkar { background-color: #A23B4F; }
+
+/* hero slideshow: slow zoom on the active photo */
+.slide { transform: scale(1.02); }
+.slide-on { animation: kenburns 9s ease-out forwards; }
+@keyframes kenburns { from { transform: scale(1.02); } to { transform: scale(1.1); } }

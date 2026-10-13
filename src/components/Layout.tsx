@@ -1,37 +1,41 @@
 import { useState } from 'react'
+import { LangSwitch, tr } from '../lib/i18n'
 import type { ReactNode } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { IS_DEMO, SELLER } from '../lib/config'
 import { resetDemo } from '../lib/demoApi'
 import { api, useApp } from '../lib/store'
+import { NotificationBell } from './NotificationBell'
 
-const PUBLIC_NAV: [string, string][] = [
-  ['/', 'الرئيسية'],
-  ['/auctions', 'المزادات'],
-  ['/names', 'سجل الأسماء'],
-  ['/about', 'عن المنصة'],
+const PUBLIC_NAV = (): [string, string][] => [
+  ['/', tr('الرئيسية', 'Home')],
+  ['/auctions', tr('المزادات', 'Auctions')],
+  ['/events', tr('المواعيد', 'Calendar')],
+  ['/names', tr('سجل الأسماء', 'Registry')],
+  ['/about', tr('عن المنصة', 'About')],
 ]
 
 export function Logo({ light, className = 'h-12' }: { light?: boolean; className?: string }) {
-  return <img src={light ? './sammha-logo-light.png' : './sammha-logo.png'} alt="سمّها لأسماء الإبل الدولية" className={`${className} w-auto`} />
+  return <img src={light ? './sammha-logo-light.png' : './sammha-logo.png'} alt={tr('سمّها لأسماء الإبل الدولية', 'Sammha International Camel Names')} className={`${className} w-auto`} />
 }
 
 export function IcoLogo({ light, className = 'h-9' }: { light?: boolean; className?: string }) {
-  return <img src={light ? './ico-logo-light.png' : './ico-logo.png'} alt="المنظمة الدولية للإبل" className={`${className} w-auto`} />
+  return <img src={light ? './ico-logo-light.png' : './ico-logo.png'} alt={tr('المنظمة الدولية للإبل', 'International Camel Organization')} className={`${className} w-auto`} />
 }
 
 function UtilityBar() {
   return (
     <div className="bg-navy text-[13px] text-paper/75">
       <div className="wrap flex h-9 items-center gap-4">
-        <span className="hidden sm:inline">منصة تابعة للمنظمة الدولية للإبل</span>
+        <span className="hidden sm:inline">{tr('منصة تابعة للمنظمة الدولية للإبل', 'A platform of the International Camel Organization')}</span>
         {IS_DEMO && (
           <span className="flex items-center gap-2">
-            <span className="rounded bg-gold/20 px-1.5 py-px font-bold text-gold-light">نسخة تجريبية</span>
-            <button className="underline underline-offset-2 hover:text-paper" onClick={() => { resetDemo(); location.reload() }}>إعادة ضبط البيانات</button>
+            <span className="rounded bg-gold/20 px-1.5 py-px font-bold text-gold-light">{tr('نسخة تجريبية', 'Demo')}</span>
+            <button className="underline underline-offset-2 hover:text-paper" onClick={() => { resetDemo(); location.reload() }}>{tr('إعادة ضبط البيانات', 'Reset data')}</button>
           </span>
         )}
         <span className="ms-auto flex items-center gap-4">
+          <LangSwitch className="rounded border border-paper/25 px-2 py-px font-bold text-paper hover:bg-paper hover:text-navy" />
           <a className="hover:text-paper" href={`mailto:${SELLER.email}`}>{SELLER.email}</a>
           <a className="hidden hover:text-paper sm:inline" href={`https://wa.me/${SELLER.whatsapp}`} target="_blank" rel="noreferrer" dir="ltr">{SELLER.whatsapp.replace(/^966/, '0')}</a>
         </span>
@@ -47,16 +51,16 @@ function AuthButtons({ stacked }: { stacked?: boolean }) {
   if (!user) {
     return (
       <div className={cls}>
-        <Link to="/login" className="btn-ghost btn-sm">تسجيل الدخول</Link>
-        <Link to="/signup" className="btn-primary btn-sm">حساب جديد</Link>
+        <Link to="/login" className="btn-ghost btn-sm">{tr('تسجيل الدخول', 'Sign in')}</Link>
+        <Link to="/signup" className="btn-primary btn-sm">{tr('حساب جديد', 'Create account')}</Link>
       </div>
     )
   }
   const home = user.role === 'owner' ? '/dashboard' : '/admin'
   return (
     <div className={cls}>
-      <Link to={home} className="btn-primary btn-sm">{user.role === 'owner' ? 'لوحة التحكم' : 'لوحة اللجنة'}</Link>
-      <button className="btn-ghost btn-sm" onClick={async () => { await api.signOut(); setUser(null); nav('/') }}>خروج</button>
+      <Link to={home} className="btn-primary btn-sm">{user.role === 'owner' ? tr('لوحة التحكم', 'Dashboard') : tr('لوحة اللجنة', 'Committee panel')}</Link>
+      <button className="btn-ghost btn-sm" onClick={async () => { await api.signOut(); setUser(null); nav('/') }}>{tr('خروج', 'Sign out')}</button>
     </div>
   )
 }
@@ -68,9 +72,9 @@ export function PublicLayout() {
       <UtilityBar />
       <header className="sticky top-0 z-30 border-b border-line bg-paper/95 backdrop-blur">
         <div className="wrap flex h-[76px] items-center gap-6">
-          <Link to="/" aria-label="الرئيسية" className="shrink-0"><Logo className="h-14" /></Link>
-          <nav className="hidden h-full items-stretch gap-1 md:flex" aria-label="القائمة الرئيسية">
-            {PUBLIC_NAV.map(([to, label]) => (
+          <Link to="/" aria-label={tr('الرئيسية', 'Home')} className="shrink-0"><Logo className="h-14" /></Link>
+          <nav className="hidden h-full items-stretch gap-1 md:flex" aria-label={tr('القائمة الرئيسية', 'Main menu')}>
+            {PUBLIC_NAV().map(([to, label]) => (
               <NavLink key={to} to={to} end={to === '/'}
                 className={({ isActive }) => `relative flex items-center px-3.5 text-[15.5px] font-bold transition-colors ${isActive ? 'text-navy after:absolute after:inset-x-3.5 after:bottom-0 after:h-[3px] after:rounded-t after:bg-gold' : 'text-muted hover:text-navy'}`}>
                 {label}
@@ -78,12 +82,12 @@ export function PublicLayout() {
             ))}
           </nav>
           <div className="ms-auto hidden md:block"><AuthButtons /></div>
-          <button className="btn-ghost btn-sm ms-auto md:hidden" onClick={() => setOpen(!open)} aria-expanded={open}>القائمة</button>
+          <button className="btn-ghost btn-sm ms-auto md:hidden" onClick={() => setOpen(!open)} aria-expanded={open}>{tr('القائمة', 'Menu')}</button>
         </div>
         {open && (
           <div className="border-t border-line bg-paper px-4 py-4 md:hidden" onClick={() => setOpen(false)}>
             <nav className="mb-4 flex flex-col">
-              {PUBLIC_NAV.map(([to, label]) => (
+              {PUBLIC_NAV().map(([to, label]) => (
                 <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `border-b border-line/70 py-3 font-bold ${isActive ? 'text-navy' : 'text-muted'}`}>{label}</NavLink>
               ))}
             </nav>
@@ -101,7 +105,7 @@ export function Footer() {
   return (
     <footer className="mt-auto bg-navy text-paper/70">
       <div className="sadu" aria-hidden />
-      <div className="wrap grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+      <div className="wrap grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1.1fr]">
         <div>
           <div className="flex items-center gap-5">
             <Logo light className="h-20" />
@@ -109,24 +113,32 @@ export function Footer() {
             <IcoLogo light className="h-11" />
           </div>
           <p className="mt-5 max-w-sm text-[14.5px] leading-7">
-            منصة إلكترونية عالمية تابعة للمنظمة الدولية للإبل، تُعنى بتنظيم أسماء الشعارات لمنقيات وفرديات الإبل، وإقامة مزاداتها وتسجيلها لأصحابها محليًا ودوليًا.
+            {tr('منصة إلكترونية عالمية تابعة للمنظمة الدولية للإبل، تُعنى بتنظيم أسماء الشعارات لمنقيات وفرديات الإبل، وإقامة مزاداتها وتسجيلها لأصحابها محليًا ودوليًا.', 'A global platform of the International Camel Organization that organises camel names and brand marks, runs their public auctions and registers them to their owners locally and internationally.')}
           </p>
         </div>
-        <FooterCol title="المنصة" links={[['/auctions', 'المزادات'], ['/names', 'سجل الأسماء'], ['/about', 'عن المنصة']]} />
-        <FooterCol title="للملاك" links={[['/signup', 'إنشاء حساب'], ['/dashboard/requests/new', 'طلب اسم شعار'], ['/about', 'شروط المزاد وضوابط الربط']]} />
+        <FooterCol title={tr('المنصة', 'Platform')} links={[['/auctions', tr('المزادات', 'Auctions')], ['/events', tr('مواعيد الإبل', 'Camel calendar')], ['/names', tr('سجل الأسماء', 'Names registry')], ['/verify', tr('التحقق من شهادة', 'Verify a certificate')], ['/about', tr('عن المنصة', 'About')]]} />
+        <FooterCol title={tr('المساعدة', 'Help')} links={[['/faq', tr('الأسئلة الشائعة', 'FAQ')], ['/signup', tr('إنشاء حساب', 'Create account')], ['/dashboard/requests/new', tr('طلب اسم شعار', 'Request a name')], ['/contact', tr('تواصل معنا', 'Contact us')]]} />
         <div>
-          <h3 className="text-[15px] font-extrabold text-paper">تواصل معنا</h3>
+          <h3 className="text-[15px] font-extrabold text-paper">{tr('تواصل معنا', 'Contact')}</h3>
           <ul className="mt-4 space-y-2.5 text-[14.5px]">
             <li><a className="hover:text-paper" href={`mailto:${SELLER.email}`}>{SELLER.email}</a></li>
-            <li><a className="hover:text-paper" href={`https://wa.me/${SELLER.whatsapp}`} target="_blank" rel="noreferrer">واتساب <span dir="ltr">{SELLER.whatsapp.replace(/^966/, '0')}</span></a></li>
-            <li><a className="hover:text-paper" href={SELLER.x} target="_blank" rel="noreferrer">منصة X: samha_ico@</a></li>
+            <li><a className="hover:text-paper" href={`https://wa.me/${SELLER.whatsapp}`} target="_blank" rel="noreferrer">{tr('واتساب', 'WhatsApp')} <span dir="ltr">{SELLER.whatsapp.replace(/^966/, '0')}</span></a></li>
+            <li><a className="hover:text-paper" href={SELLER.x} target="_blank" rel="noreferrer">X: @samha_ico</a></li>
           </ul>
+          <h3 className="mt-6 text-[13px] font-bold text-paper/60">{tr('وسائل الدفع', 'Payment methods')}</h3>
+          <div className="mt-2 flex flex-wrap gap-1.5" aria-label="وسائل الدفع المقبولة">
+            {[tr('مدى', 'mada'), 'Visa', 'Mastercard', 'Apple Pay'].map((m) => <span key={m} className="rounded border border-paper/20 bg-paper/5 px-2 py-0.5 text-[12px] font-bold text-paper/85">{m}</span>)}
+          </div>
         </div>
       </div>
       <div className="border-t border-paper/10">
         <div className="wrap flex flex-wrap items-center justify-between gap-2 py-5 text-[13px] text-paper/50">
-          <span>© {new Date().getFullYear()} المنظمة الدولية للإبل. جميع الحقوق محفوظة.</span>
-          <span>الرياض، المملكة العربية السعودية</span>
+          <span>© {new Date().getFullYear()} {tr('المنظمة الدولية للإبل. جميع الحقوق محفوظة. الرقم الضريبي', 'International Camel Organization. All rights reserved. VAT No.')} <span className="num">{SELLER.vatNumber}</span></span>
+          <nav className="flex flex-wrap gap-4" aria-label={tr('روابط قانونية', 'Legal')}>
+            <Link to="/terms" className="hover:text-paper">{tr('الشروط والأحكام', 'Terms')}</Link>
+            <Link to="/privacy" className="hover:text-paper">{tr('سياسة الخصوصية', 'Privacy')}</Link>
+            <Link to="/refund" className="hover:text-paper">{tr('سياسة الاسترداد', 'Refunds')}</Link>
+          </nav>
         </div>
       </div>
     </footer>
@@ -162,6 +174,7 @@ export function Shell({ nav, title, children }: { nav: [string, string, boolean?
               <div className="text-[14px] font-bold">{user?.fullName}</div>
               <div className="text-[12px] text-paper/60">{roleLabel}</div>
             </div>
+            <NotificationBell />
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gold text-[15px] font-extrabold text-paper">{user?.fullName.trim()[0]}</span>
             <button className="btn-on-dark btn-sm" onClick={async () => { await api.signOut(); setUser(null); navigate('/') }}>خروج</button>
           </div>

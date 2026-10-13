@@ -17,7 +17,7 @@ export function InvoiceDoc({ inv }: { inv: Invoice }) {
           <p className="num mt-1 text-muted">{inv.number}</p>
           <p className="text-sm text-muted">{dateTime(inv.issuedAt)}</p>
         </div>
-        <div className="flex items-center gap-3"><IcoLogo className="h-9" /><Logo className="h-14" /></div>
+        <Logo className="h-14" />
       </div>
       <section className="grid gap-4 border-b border-line py-5 text-sm sm:grid-cols-2">
         <div>
@@ -49,6 +49,7 @@ export function InvoiceDoc({ inv }: { inv: Invoice }) {
           <div className="pt-1 text-end"><span className={`pill ${inv.status === 'paid' ? 'bg-ok/10 text-ok' : 'bg-gold-soft text-gold-deep'}`}>{inv.status === 'paid' ? 'مدفوعة' : 'غير مدفوعة'}</span></div>
         </dl>
       </div>
+      <div className="mt-6 flex justify-center border-t border-line pt-4"><IcoLogo className="h-8" /></div>
     </article>
   )
 }

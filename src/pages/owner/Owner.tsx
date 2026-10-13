@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { CertificateDoc } from '../../components/CertificateDoc'
 import { InvoiceDoc } from '../../components/InvoiceDoc'
 import { PayModal } from '../../components/PayModal'
 import { Countdown, Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, PhasePill, RequestStatusPill, TypeBadge } from '../../components/ui'
@@ -228,6 +229,8 @@ export function MyBids() {
 
 export function MyNames() {
   const { data, loading } = useLoad(() => api.myNames(), [])
+  const invoices = useLoad(() => api.myInvoices(), [])
+  const unpaidFor = (name: string) => invoices.data?.find((i) => i.name === name && i.status === 'unpaid')
   return (
     <>
       <PageHead title="أسمائي" sub="الأسماء المسجلة باسمك. اربط كل اسم بشريحة إلكترونية قبل المشاركة في المهرجانات." />
@@ -238,10 +241,31 @@ export function MyNames() {
               <NameSeal name={n.name} type={n.type} size="md" />
               <TypeBadge type={n.type} />
               <p className="text-sm text-muted">منذ {dateTime(n.acquiredAt)}، بسعر {sar(n.price)}</p>
+              {unpaidFor(n.name)
+                ? <Link to={`/dashboard/invoices/${unpaidFor(n.name)!.id}`} className="btn-gold btn-sm">سدّد الفاتورة لإصدار الشهادة</Link>
+                : <Link to={`/dashboard/names/${n.id}/certificate`} className="btn-ghost btn-sm">شهادة التسجيل</Link>}
             </li>
           ))}
         </ul>
       ) : <Empty title="لا تملك أسماء بعد"><p className="text-muted">تظهر هنا الأسماء التي ترسو عليك في المزادات.</p></Empty>}
+    </>
+  )
+}
+
+export function CertificatePage() {
+  const { id = '' } = useParams()
+  const { data, loading } = useLoad(() => api.myNames().then((l) => l.find((n) => n.id === id) ?? null), [id])
+  if (loading && !data) return <Loading />
+  if (!data) return <ErrorBox text="الاسم غير موجود في أسمائك" />
+  return (
+    <>
+      <style>{'@page { size: A4 landscape; margin: 0 }'}</style>
+      <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
+        <Link to="/dashboard/names" className="text-sm font-bold text-muted hover:text-navy">أسمائي</Link>
+        <span className="ms-auto" />
+        <button className="btn-primary" onClick={() => window.print()}>طباعة أو حفظ PDF</button>
+      </div>
+      <CertificateDoc r={data} />
     </>
   )
 }

@@ -1,18 +1,15 @@
 import { RULES } from './config'
+import { getLang, locale } from './i18n'
 
-const nf = new Intl.NumberFormat('ar-SA-u-nu-latn', { maximumFractionDigits: 2 })
+const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
 export const num = (n: number) => nf.format(n)
-export const sar = (n: number) => `${nf.format(n)} ر.س`
+export const sar = (n: number) => (getLang() === 'ar' ? `${nf.format(n)} ر.س` : `SAR ${nf.format(n)}`)
+export const cur = () => (getLang() === 'ar' ? 'ر.س' : 'SAR')
 
-const dtf = new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', {
-  timeZone: RULES.timeZone, day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit',
-})
-const df = new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { timeZone: RULES.timeZone, day: 'numeric', month: 'long', year: 'numeric' })
-const tf = new Intl.DateTimeFormat('ar-SA-u-nu-latn', { timeZone: RULES.timeZone, hour: 'numeric', minute: '2-digit' })
-
-export const dateTime = (s?: string) => (s ? dtf.format(new Date(s)) : '—')
-export const date = (s?: string) => (s ? df.format(new Date(s)) : '—')
-export const time = (s?: string) => (s ? tf.format(new Date(s)) : '—')
+const fmt = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(locale(), { timeZone: RULES.timeZone, ...o })
+export const dateTime = (s?: string) => (s ? fmt({ day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(s)) : '—')
+export const date = (s?: string) => (s ? fmt({ day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(s)) : '—')
+export const time = (s?: string) => (s ? fmt({ hour: 'numeric', minute: '2-digit' }).format(new Date(s)) : '—')
 
 export function remaining(ms: number) {
   if (ms <= 0) return { d: 0, h: 0, m: 0, s: 0, done: true }
@@ -22,9 +19,10 @@ export function remaining(ms: number) {
 
 export function remainingText(ms: number) {
   const r = remaining(ms)
-  if (r.done) return 'انتهى'
+  const ar = getLang() === 'ar'
+  if (r.done) return ar ? 'انتهى' : 'Ended'
   const pad = (n: number) => String(n).padStart(2, '0')
-  if (r.d > 0) return `${r.d} يوم ${pad(r.h)}:${pad(r.m)}`
+  if (r.d > 0) return ar ? `${r.d} يوم ${pad(r.h)}:${pad(r.m)}` : `${r.d}d ${pad(r.h)}:${pad(r.m)}`
   return `${pad(r.h)}:${pad(r.m)}:${pad(r.s)}`
 }
 

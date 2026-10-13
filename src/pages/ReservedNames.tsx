@@ -1,3 +1,4 @@
+import { tr } from '../lib/i18n'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Empty, Loading, NameSeal, PageHead, Segmented, TypeBadge } from '../components/ui'
@@ -12,13 +13,13 @@ export default function ReservedNames() {
   const { data, loading } = useLoad(() => api.listReservedNames(q, type), [q, type])
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
-      <PageHead title="الأسماء المحجوزة" sub="الأسماء المسجلة لأصحابها. لا يمكن طلب اسم مطابق لأي اسم في هذا السجل." />
+    <div className="wrap py-10">
+      <PageHead title={tr('الأسماء المحجوزة', 'Names registry')} sub={tr('الأسماء المسجلة لأصحابها. لا يمكن طلب اسم مطابق لأي اسم في هذا السجل.', 'Names registered to their owners. A name identical to any name here cannot be requested.')} />
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <input className="field max-w-sm" placeholder="ابحث باسم أو مالك" value={q} aria-label="ابحث باسم أو مالك"
+        <input className="field max-w-sm" placeholder={tr('ابحث باسم أو مالك', 'Search a name or owner')} value={q} aria-label={tr('ابحث باسم أو مالك', 'Search a name or owner')}
           onChange={(e) => { setQ(e.target.value); setSp(e.target.value ? { q: e.target.value } : {}, { replace: true }) }} />
-        <Segmented value={type} onChange={setType} options={[['all', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']]} />
-        {data && <span className="text-sm text-muted">{data.length} اسم</span>}
+        <Segmented value={type} onChange={setType} options={[['all', tr('الكل', 'All')], ['qaadan', tr('قعدان', 'Qaadan')], ['bakkar', tr('بكار', 'Bakkar')]]} />
+        {data && <span className="text-sm text-muted">{data.length} {tr('اسم', 'names')}</span>}
       </div>
       {loading && !data ? <Loading /> : data?.length ? (
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -28,12 +29,12 @@ export default function ReservedNames() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2"><span className="font-extrabold text-lg">{r.name}</span><TypeBadge type={r.type} /></div>
                 <p className="truncate text-sm text-muted">{r.ownerName}</p>
-                <p className="text-[13px] text-muted">منذ {date(r.acquiredAt)}</p>
+                <p className="text-[13px] text-muted">{tr('منذ', 'Since')} {date(r.acquiredAt)}</p>
               </div>
             </li>
           ))}
         </ul>
-      ) : <Empty title="لا يوجد اسم محجوز بهذا البحث">{q && <p className="text-muted">قد يكون «{q}» متاحًا للطلب.</p>}</Empty>}
+      ) : <Empty title={tr('لا يوجد اسم محجوز بهذا البحث', 'No registered name matches this search')}>{q && <p className="text-muted">{tr(`قد يكون «${q}» متاحًا للطلب.`, `“${q}” may be available to request.`)}</p>}</Empty>}
     </div>
   )
 }

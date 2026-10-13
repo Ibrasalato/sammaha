@@ -1,3 +1,4 @@
+import { getLang } from './i18n'
 import type { NameType } from './types'
 
 /** Business rules — change here, they're mirrored in supabase/migrations (app_settings). */
@@ -28,14 +29,15 @@ export const SELLER = {
   x: 'https://x.com/samha_ico',
 }
 
+const ar = () => getLang() === 'ar'
 export const TYPE_LABEL: Record<NameType, string> = {
-  qaadan: 'قعدان',
-  bakkar: 'بكار',
+  get qaadan() { return ar() ? 'قعدان' : 'Qaadan' },
+  get bakkar() { return ar() ? 'بكار' : 'Bakkar' },
 }
 
 export const TYPE_HINT: Record<NameType, string> = {
-  qaadan: 'أسماء الذكور من الإبل',
-  bakkar: 'أسماء الإناث من الإبل',
+  get qaadan() { return ar() ? 'أسماء الذكور من الإبل' : 'Names for male camels' },
+  get bakkar() { return ar() ? 'أسماء الإناث من الإبل' : 'Names for female camels' },
 }
 
 export const IS_DEMO = !import.meta.env.VITE_SUPABASE_URL

@@ -7,10 +7,12 @@ import { ApiError } from './api'
 import type { PayMethod, SammhaApi, SignUpInput } from './api'
 import { RULES } from './config'
 import { namesCount } from './format'
+import { SEED_EVENTS } from './events'
+import { certNo } from './cert'
 import { findMatches, normalizeName, validateName } from './names'
 import type { MatchSource } from './names'
 import type {
-  Auction, AuctionPhase, Bid, Candidate, Invoice, LogoRequest, NameCheck, NameType, ReservedName,
+  AppNotification, CamelEvent, Auction, AuctionPhase, Bid, Candidate, Invoice, LogoRequest, NameCheck, NameType, ReservedName,
   User, WalletTx,
 } from './types'
 
@@ -25,11 +27,13 @@ interface DB {
   reserved: ReservedName[]
   txs: WalletTx[]
   invoices: Invoice[]
+  events: CamelEvent[]
+  notes: AppNotification[]
 }
 
 const KEY = 'sammha-demo-db'
 const SESSION = 'sammha-demo-session'
-const VERSION = 3
+const VERSION = 4
 
 const now = () => Date.now()
 const iso = (t: number) => new Date(t).toISOString()
@@ -51,7 +55,7 @@ export function phaseOf(a: Pick<Auction, 'startsAt' | 'endsAt'>, t = now()): Auc
 // ───────────────────────── seed ─────────────────────────
 function seed(): DB {
   const t = now()
-  const db: DB = { v: VERSION, seq: 100, users: [], requests: [], auctions: [], bids: [], reserved: [], txs: [], invoices: [] }
+  const db: DB = { v: VERSION, seq: 100, users: [], requests: [], auctions: [], bids: [], reserved: [], txs: [], invoices: [], events: structuredClone(SEED_EVENTS), notes: [] }
   const mkUser = (id: string, fullName: string, phone: string, role: User['role'], email: string): DemoUser =>
     ({ id, fullName, phone, email, role, password: '123456', createdAt: iso(t - 90 * D) })
 
@@ -183,6 +187,10 @@ export function maskName(full: string) {
   return `${parts[0]} ${parts[parts.length - 1].slice(0, 2)}…`
 }
 
+function notify(db: DB, userId: string, kind: AppNotification['kind'], title: string, body: string, link?: string) {
+  db.notes.push({ id: uid(db, 'n'), userId, kind, title, body, link, createdAt: iso(now()), read: false })
+}
+
 // ───────────────────────── persistence ─────────────────────────
 function load(): DB {
   try {
@@ -258,6 +266,7 @@ function refundDeposit(db: DB, r: LogoRequest, why: string) {
   if (r.depositState !== 'held') return
   r.depositState = 'refunded'
   db.txs.push({ id: uid(db, 't'), userId: r.userId, amount: r.depositAmount, kind: 'refund', note: `استرداد ضمان الطلب ${r.number} (${why})`, createdAt: iso(now()) })
+  notify(db, r.userId, 'refund', 'أُعيد ضمان المزاد إلى محفظتك', `${r.depositAmount} ريال من الطلب ${r.number} (${why}).`, '/dashboard/wallet')
 }
 
 let invSeq = 0
@@ -293,6 +302,10 @@ function sweep(db: DB) {
     issueInvoice(db, a, winner, price, depositApplied)
     db.reserved.push({ id: uid(db, 'r'), name: a.name, normalized: normalizeName(a.name), type: a.type, ownerId: winner.id, ownerName: winner.fullName, price, acquiredAt: a.endsAt, source: 'auction' })
     Object.assign(a, { settled: true, winnerId, winnerName: winner.fullName, finalPrice: price, wonByRequester: winnerId === r.userId })
+    notify(db, winnerId, 'won', `رسا عليك اسم «${a.name}»`, `بسعر ${price} ريال. فاتورتك الإلكترونية جاهزة.`, '/dashboard/invoices')
+    for (const uidLost of new Set(db.bids.filter((b) => b.auctionId === a.id && b.userId !== winnerId).map((b) => b.userId))) {
+      notify(db, uidLost, 'lost', `انتهى مزاد «${a.name}»`, `رسا الاسم بسعر ${price} ريال.`, `/auctions/${a.id}`)
+    }
     changed = true
     // all of the request's auctions settled and the requester won none → refund the guarantee
     const reqAuctions = db.auctions.filter((x) => x.requestId === r.id)
@@ -395,6 +408,23 @@ export const demoApi: SammhaApi = {
   }),
 
   checkNames: (names, _type) => tx((db) => checkNamesIn(db, names)),
+
+  listEvents: () => tx((db) => [...db.events].sort((a, b) => a.startsOn.localeCompare(b.startsOn))),
+
+  verifyCertificate: (code) => tx((db) => {
+    const c = code.trim().toUpperCase()
+    return db.reserved.find((r) => certNo(r) === c) ?? null
+  }),
+
+  myNotifications: () => tx((db) => {
+    const u = me(db)
+    return db.notes.filter((n) => n.userId === u.id).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, 30)
+  }),
+
+  markNotificationsRead: () => tx((db) => {
+    const u = me(db)
+    db.notes.forEach((n) => { if (n.userId === u.id) n.read = true })
+  }),
 
   myRequests: () => tx((db) => {
     const u = me(db)
@@ -502,6 +532,7 @@ export const demoApi: SammhaApi = {
     const min = a.currentPrice + a.minIncrement
     if (!Number.isFinite(amount) || amount < min) throw new ApiError(`أقل مزايدة ${min} ريال`)
     if (a.leaderId === u.id) throw new ApiError('أنت صاحب أعلى مزايدة حاليًا')
+    if (a.leaderId) notify(db, a.leaderId, 'outbid', `تجاوز مزايد آخر مزايدتك على «${a.name}»`, `أعلى مزايدة الآن ${amount} ريال. زايد قبل انتهاء الوقت.`, `/auctions/${a.id}`)
     const t = now()
     db.bids.push({ id: uid(db, 'b'), auctionId, userId: u.id, bidderLabel: maskName(u.fullName), amount, createdAt: iso(t) })
     a.currentPrice = amount
@@ -557,6 +588,9 @@ export const demoApi: SammhaApi = {
     if (r.candidates.some((c) => c.status === 'pending')) throw new ApiError('حدد قرارًا لكل اسم')
     const anyAccepted = r.candidates.some((c) => c.status === 'accepted')
     Object.assign(r, { status: anyAccepted ? 'accepted' : 'rejected', reviewedAt: iso(now()), reviewerName: u.fullName, reviewNote: note })
+    const acc = r.candidates.filter((c) => c.status === 'accepted').map((c) => c.name)
+    notify(db, r.userId, 'reviewed', anyAccepted ? `قُبل طلبك ${r.number}` : `لم يُقبل طلبك ${r.number}`,
+      anyAccepted ? `الأسماء المقبولة: ${acc.join('، ')}. سيُحدَّد موعد المزاد قريبًا.` : 'أُعيد ضمان المزاد إلى محفظتك.', `/dashboard/requests/${r.id}`)
     if (!anyAccepted) refundDeposit(db, r, 'مرفوض')
     return r
   }),
@@ -567,6 +601,7 @@ export const demoApi: SammhaApi = {
     if (!r || r.status !== 'under_review') throw new ApiError('لا يمكن رفض هذا الطلب')
     r.candidates.forEach((c) => { c.status = 'rejected'; c.rejectReason = reason })
     Object.assign(r, { status: 'rejected', reviewedAt: iso(now()), reviewerName: u.fullName, reviewNote: reason })
+    notify(db, r.userId, 'reviewed', `لم يُقبل طلبك ${r.number}`, reason, `/dashboard/requests/${r.id}`)
     refundDeposit(db, r, 'مرفوض')
     return r
   }),
@@ -607,6 +642,7 @@ export const demoApi: SammhaApi = {
       c.auctionId = a.id
       db.auctions.push(a)
       out.push(a)
+      notify(db, r.userId, 'auction_opened', `حُدّد موعد مزاد «${c.name}»`, `يبدأ ${new Date(s).toLocaleString('ar-SA-u-nu-latn-ca-gregory', { timeZone: RULES.timeZone, dateStyle: 'medium', timeStyle: 'short' })}.`, `/auctions/${a.id}`)
     }
     return out
   }),
@@ -628,5 +664,20 @@ export const demoApi: SammhaApi = {
   listUsers: () => tx((db) => {
     staff(db)
     return db.users.map(publicUser)
+  }),
+
+  saveEvent: (e) => tx((db) => {
+    staff(db)
+    if (!e.title.trim() || !e.startsOn || !e.endsOn) throw new ApiError('أكمل اسم الفعالية والتواريخ')
+    if (e.endsOn < e.startsOn) throw new ApiError('تاريخ النهاية قبل البداية')
+    const ev = { ...e, id: e.id || uid(db, 'ev') }
+    const i = db.events.findIndex((x) => x.id === ev.id)
+    if (i >= 0) db.events[i] = ev; else db.events.push(ev)
+    return ev
+  }),
+
+  deleteEvent: (id) => tx((db) => {
+    staff(db)
+    db.events = db.events.filter((e) => e.id !== id)
   }),
 }

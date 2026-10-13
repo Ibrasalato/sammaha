@@ -6,7 +6,8 @@ import { RULES, TYPE_LABEL } from '../../lib/config'
 import { phaseOf } from '../../lib/demoApi'
 import { date, dateTime, fromLocalInput, namesCount, num, sar, toLocalInput } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
-import type { AuctionPhase, Invoice, NameType, RequestStatus, ReviewDecision } from '../../lib/types'
+import type { AuctionPhase, CamelEvent, EventKind, Invoice, NameType, RequestStatus, ReviewDecision } from '../../lib/types'
+import { EVENT_KIND } from '../../lib/events'
 
 export function AdminHome() {
   const { data } = useLoad(() => api.overview(), [], 15000)
@@ -363,6 +364,72 @@ export function AdminUsers() {
           </table>
         </div>
       )}
+    </>
+  )
+}
+
+const EMPTY_EVENT: CamelEvent = { id: '', title: '', titleEn: '', kind: 'mazayin', startsOn: '', endsOn: '', approx: true, city: '', country: 'السعودية', description: '', url: '' }
+
+export function AdminEvents() {
+  const { toast } = useApp()
+  const { data, loading, reload } = useLoad(() => api.listEvents(), [])
+  const [edit, setEdit] = useState<CamelEvent | null>(null)
+  const set = (k: keyof CamelEvent, v: string | boolean) => setEdit((e) => (e ? { ...e, [k]: v } : e))
+  return (
+    <>
+      <PageHead title="المواعيد والفعاليات" sub="تظهر في تقويم المنصة وصفحتها الرئيسية. ألغِ علامة «موعد متوقع» عند الإعلان الرسمي."
+        action={<button className="btn-gold" onClick={() => setEdit({ ...EMPTY_EVENT })}>إضافة فعالية</button>} />
+      {loading && !data ? <Loading /> : data?.length ? (
+        <div className="panel overflow-x-auto">
+          <table className="tbl">
+            <thead><tr><th>الفعالية</th><th>النوع</th><th>من</th><th>إلى</th><th>المكان</th><th>الحالة</th><th></th></tr></thead>
+            <tbody>
+              {data.map((e) => (
+                <tr key={e.id}>
+                  <td className="font-bold">{e.title}</td>
+                  <td><span className={`pill ${EVENT_KIND[e.kind].cls}`}>{EVENT_KIND[e.kind].label}</span></td>
+                  <td className="num whitespace-nowrap">{e.startsOn}</td>
+                  <td className="num whitespace-nowrap">{e.endsOn}</td>
+                  <td className="text-muted">{e.city}، {e.country}</td>
+                  <td>{e.approx ? <span className="pill border border-dashed border-gold text-gold-deep">متوقع</span> : <span className="pill bg-[#E2F0E8] text-ok">معلن رسميًا</span>}</td>
+                  <td className="whitespace-nowrap">
+                    <button className="btn-ghost btn-sm" onClick={() => setEdit({ ...e, url: e.url ?? '' })}>تعديل</button>
+                    <button className="btn-ghost btn-sm ms-1 text-bad" onClick={async () => {
+                      if (!confirm(`حذف «${e.title}» من التقويم؟`)) return
+                      try { await api.deleteEvent(e.id); toast('حُذفت الفعالية'); reload() } catch (x) { toast((x as Error).message, 'bad') }
+                    }}>حذف</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : <Empty title="لا توجد فعاليات"><button className="btn-gold btn-sm" onClick={() => setEdit({ ...EMPTY_EVENT })}>إضافة فعالية</button></Empty>}
+
+      <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? 'تعديل فعالية' : 'إضافة فعالية'} wide>
+        {edit && (
+          <form className="grid gap-4 sm:grid-cols-2" onSubmit={async (ev) => {
+            ev.preventDefault()
+            try { await api.saveEvent({ ...edit, url: edit.url || undefined }); toast('حُفظت الفعالية'); setEdit(null); reload() } catch (x) { toast((x as Error).message, 'bad') }
+          }}>
+            <div className="sm:col-span-2"><label className="label" htmlFor="et">اسم الفعالية</label><input id="et" className="field" value={edit.title} onChange={(e) => set('title', e.target.value)} required /></div>
+            <div><label className="label" htmlFor="ete">الاسم بالإنجليزية</label><input id="ete" className="field" dir="ltr" value={edit.titleEn} onChange={(e) => set('titleEn', e.target.value)} /></div>
+            <div><label className="label" htmlFor="ek">النوع</label>
+              <select id="ek" className="field" value={edit.kind} onChange={(e) => set('kind', e.target.value)}>
+                {(Object.keys(EVENT_KIND) as EventKind[]).map((k) => <option key={k} value={k}>{EVENT_KIND[k].label}</option>)}
+              </select>
+            </div>
+            <div><label className="label" htmlFor="es">من</label><input id="es" type="date" className="field num" value={edit.startsOn} onChange={(e) => set('startsOn', e.target.value)} required /></div>
+            <div><label className="label" htmlFor="ee">إلى</label><input id="ee" type="date" className="field num" value={edit.endsOn} onChange={(e) => set('endsOn', e.target.value)} required /></div>
+            <div><label className="label" htmlFor="ec">المدينة أو الموقع</label><input id="ec" className="field" value={edit.city} onChange={(e) => set('city', e.target.value)} /></div>
+            <div><label className="label" htmlFor="eco">الدولة</label><input id="eco" className="field" value={edit.country} onChange={(e) => set('country', e.target.value)} /></div>
+            <div className="sm:col-span-2"><label className="label" htmlFor="ed">الوصف</label><textarea id="ed" className="field" rows={3} value={edit.description} onChange={(e) => set('description', e.target.value)} /></div>
+            <div className="sm:col-span-2"><label className="label" htmlFor="eu">رابط رسمي (اختياري)</label><input id="eu" className="field" dir="ltr" value={edit.url ?? ''} onChange={(e) => set('url', e.target.value)} /></div>
+            <label className="flex items-center gap-2 text-[15px] font-bold sm:col-span-2"><input type="checkbox" checked={edit.approx} onChange={(e) => set('approx', e.target.checked)} />موعد متوقع (لم يُعلن رسميًا بعد)</label>
+            <button className="btn-primary sm:col-span-2">حفظ</button>
+          </form>
+        )}
+      </Modal>
     </>
   )
 }

@@ -65,6 +65,8 @@ export const supabaseApi: SammhaApi = {
   getAuction: (id) => rpc('get_auction', { p_id: id }),
   listReservedNames: (q = '', type = 'all') => rpc('list_reserved', { p_q: q, p_type: type }),
   checkNames: (names, type) => rpc('check_names', { p_names: names, p_type: type }),
+  listEvents: () => rpc('list_events'),
+  verifyCertificate: (code) => rpc('verify_certificate', { p_code: code }),
 
   myRequests: () => rpc('my_requests'),
   createRequest: (type, names) => rpc('create_request', { p_type: type, p_names: names }),
@@ -84,6 +86,8 @@ export const supabaseApi: SammhaApi = {
     return rpc('pay_invoice', { p_invoice: id })
   },
   myBids: () => rpc('my_bids'),
+  myNotifications: () => rpc('my_notifications'),
+  async markNotificationsRead() { await rpc('mark_notifications_read') },
   myNames: () => rpc('my_names'),
   placeBid: (auctionId, amount) => rpc('place_bid', { p_auction: auctionId, p_amount: amount }),
 
@@ -98,4 +102,6 @@ export const supabaseApi: SammhaApi = {
   allInvoices: () => rpc('admin_invoices'),
   markInvoicePaid: (id) => rpc('admin_mark_invoice_paid', { p_invoice: id }),
   listUsers: () => rpc('admin_users'),
+  saveEvent: (e) => rpc('admin_save_event', { p_event: e }),
+  async deleteEvent(id) { await rpc('admin_delete_event', { p_id: id }) },
 }

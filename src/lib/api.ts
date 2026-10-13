@@ -1,5 +1,5 @@
 import type {
-  AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
+  AppNotification, CamelEvent, AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
   PublicStats, RequestStatus, ReservedName, ReviewDecision, User, Wallet,
 } from './types'
 
@@ -27,6 +27,8 @@ export interface SammhaApi {
   getAuction(id: string): Promise<{ auction: Auction; bids: Bid[] }>
   listReservedNames(q?: string, type?: NameType | 'all'): Promise<ReservedName[]>
   checkNames(names: string[], type: NameType): Promise<NameCheck[]>
+  listEvents(): Promise<CamelEvent[]>
+  verifyCertificate(code: string): Promise<ReservedName | null>
 
   // owner
   myRequests(): Promise<LogoRequest[]>
@@ -39,6 +41,8 @@ export interface SammhaApi {
   payInvoice(id: string, method: PayMethod): Promise<Invoice>
   myBids(): Promise<(Bid & { auction: Auction })[]>
   myNames(): Promise<ReservedName[]>
+  myNotifications(): Promise<AppNotification[]>
+  markNotificationsRead(): Promise<void>
   placeBid(auctionId: string, amount: number): Promise<{ auction: Auction; bids: Bid[] }>
 
   // approval committee
@@ -53,6 +57,8 @@ export interface SammhaApi {
   allInvoices(): Promise<Invoice[]>
   markInvoicePaid(id: string): Promise<Invoice>
   listUsers(): Promise<User[]>
+  saveEvent(e: CamelEvent): Promise<CamelEvent>
+  deleteEvent(id: string): Promise<void>
 }
 
 export class ApiError extends Error {}

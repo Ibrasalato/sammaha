@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { tr } from '../lib/i18n'
 import type { ReactNode } from 'react'
 import { TYPE_LABEL } from '../lib/config'
 import { remaining, remainingText } from '../lib/format'
@@ -32,9 +33,9 @@ export function TypeBadge({ type }: { type: NameType }) {
 
 export function PhasePill({ phase }: { phase: AuctionPhase }) {
   const m = {
-    live: ['bg-[#E2F0E8] text-ok', 'جارٍ الآن'],
-    scheduled: ['bg-gold-soft text-gold-deep', 'قادم'],
-    ended: ['bg-stone-deep text-muted', 'منتهٍ'],
+    live: ['bg-[#E2F0E8] text-ok', tr('جارٍ الآن', 'Live')],
+    scheduled: ['bg-gold-soft text-gold-deep', tr('قادم', 'Upcoming')],
+    ended: ['bg-stone-deep text-muted', tr('منتهٍ', 'Ended')],
   }[phase]
   return (
     <span className={`pill ${m[0]}`}>
@@ -82,7 +83,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
       <div className={`max-h-[92vh] w-full overflow-auto rounded-t-2xl bg-paper p-5 sm:rounded-2xl sm:p-6 ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'}`} onClick={(e) => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between gap-4 border-b border-line pb-4">
           <h2 className="text-xl">{title}</h2>
-          <button className="rounded-md px-2 text-2xl leading-none text-muted hover:text-ink" onClick={onClose} aria-label="إغلاق">×</button>
+          <button className="rounded-md px-2 text-2xl leading-none text-muted hover:text-ink" onClick={onClose} aria-label={tr('إغلاق', 'Close')}>×</button>
         </div>
         {children}
       </div>
@@ -100,7 +101,7 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
 }
 
 export function Loading() {
-  return <div className="py-16 text-center text-muted">جارٍ التحميل…</div>
+  return <div className="py-16 text-center text-muted">{tr('جارٍ التحميل…', 'Loading…')}</div>
 }
 
 export function ErrorBox({ text }: { text: string }) {

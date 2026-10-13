@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
+import { tr } from '../lib/i18n'
 import { TYPE_LABEL } from '../lib/config'
 import { phaseOf } from '../lib/demoApi'
-import { date, num, remaining, time } from '../lib/format'
+import { cur, date, num, remaining, time } from '../lib/format'
 import { useNow } from '../lib/store'
 import type { Auction } from '../lib/types'
 
@@ -11,13 +12,13 @@ const pad = (n: number) => String(n).padStart(2, '0')
 export function CountdownBoxes({ to, tone = 'ink' }: { to: string; tone?: 'ink' | 'urgent' }) {
   const now = useNow(1000)
   const r = remaining(Date.parse(to) - now)
-  const cells: [number, string][] = [[r.d, 'يوم'], [r.h, 'ساعة'], [r.m, 'دقيقة'], [r.s, 'ثانية']]
+  const cells: [number, string][] = [[r.d, tr('يوم', 'Days')], [r.h, tr('ساعة', 'Hrs')], [r.m, tr('دقيقة', 'Min')], [r.s, tr('ثانية', 'Sec')]]
   return (
-    <div className="grid grid-cols-4 gap-1.5" role="timer" aria-label={`متبقٍ ${r.d} يوم ${r.h} ساعة ${r.m} دقيقة`}>
+    <div className="grid grid-cols-4 gap-1.5" role="timer" aria-label={tr(`متبقٍ ${r.d} يوم ${r.h} ساعة ${r.m} دقيقة`, `${r.d} days ${r.h} hours ${r.m} minutes left`)}>
       {cells.map(([v, l]) => (
-        <div key={l} className={`rounded-md py-1.5 text-center ${tone === 'urgent' ? 'bg-bad/10 text-bad' : 'bg-stone text-ink'}`}>
-          <div className="num text-[19px] font-extrabold leading-tight">{pad(v)}</div>
-          <div className="text-[11px] font-bold opacity-70">{l}</div>
+        <div key={l} className={`rounded-md py-1 text-center ${tone === 'urgent' ? 'bg-bad/10 text-bad' : 'bg-stone text-ink'}`}>
+          <div className="num text-[16px] font-extrabold leading-tight">{pad(v)}</div>
+          <div className="text-[10.5px] font-bold opacity-70">{l}</div>
         </div>
       ))}
     </div>
@@ -48,62 +49,61 @@ export function AuctionCard({ a }: { a: Auction }) {
     <Link to={`/auctions/${a.id}`}
       className="group flex flex-col overflow-hidden rounded-xl border border-line bg-paper shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift">
       {/* Lot visual */}
-      <div className={`lot-field lot-${a.type} relative flex h-40 flex-col items-center justify-center text-paper`}>
+      <div className={`lot-field lot-${a.type} relative flex h-28 flex-col items-center justify-center text-paper`}>
         <span className="absolute start-3 top-3 rounded bg-paper/95 px-2 py-0.5 text-[12px] font-extrabold" style={{ color: q ? '#143F63' : '#742838' }}>{TYPE_LABEL[a.type]}</span>
         <span className="absolute end-3 top-3">
-          {phase === 'live' && <span className="flex items-center gap-1.5 rounded bg-ink/35 px-2 py-0.5 text-[12px] font-bold backdrop-blur-sm"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#5BE39B]" />مباشر</span>}
-          {phase === 'scheduled' && <span className="rounded bg-ink/35 px-2 py-0.5 text-[12px] font-bold backdrop-blur-sm">قريبًا</span>}
-          {phase === 'ended' && <span className="rounded bg-ink/45 px-2 py-0.5 text-[12px] font-bold backdrop-blur-sm">منتهٍ</span>}
+          {phase === 'live' && <span className="flex items-center gap-1.5 rounded bg-ink/35 px-2 py-0.5 text-[12px] font-bold backdrop-blur-sm"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#5BE39B]" />{tr('مباشر', 'Live')}</span>}
+          {phase === 'scheduled' && <span className="rounded bg-ink/35 px-2 py-0.5 text-[12px] font-bold backdrop-blur-sm">{tr('قريبًا', 'Soon')}</span>}
+          {phase === 'ended' && <span className="rounded bg-ink/45 px-2 py-0.5 text-[12px] font-bold backdrop-blur-sm">{tr('منتهٍ', 'Ended')}</span>}
         </span>
-        <span className="text-[42px] font-extrabold leading-none drop-shadow-sm">{a.name}</span>
-        <span className="mt-3 h-px w-10 bg-paper/50" aria-hidden />
+        <span className="text-[30px] font-extrabold leading-none drop-shadow-sm">{a.name}</span>
         {phase === 'ended' && a.settled && (
-          <span className="absolute bottom-3 flex items-center gap-1 rounded-full bg-paper px-3 py-0.5 text-[12.5px] font-extrabold text-ok">
-            <Icon d={ICON.check} className="h-3.5 w-3.5" />تمت الترسية
+          <span className="absolute bottom-2 flex items-center gap-1 rounded-full bg-paper px-2.5 py-px text-[11.5px] font-extrabold text-ok">
+            <Icon d={ICON.check} className="h-3.5 w-3.5" />{tr('تمت الترسية', 'Awarded')}
           </span>
         )}
       </div>
       {/* time progress */}
       <div className="h-1 bg-stone-deep"><div className={`h-full ${urgent ? 'bg-bad' : 'bg-gold'}`} style={{ width: `${elapsed}%` }} /></div>
 
-      <div className="flex flex-1 flex-col gap-4 p-5">
+      <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <div className="text-[12.5px] font-bold text-muted">{phase === 'ended' ? 'سعر الترسية' : a.bidCount ? 'أعلى مزايدة' : 'السعر الافتتاحي'}</div>
+            <div className="text-[12.5px] font-bold text-muted">{phase === 'ended' ? tr('سعر الترسية', 'Hammer price') : a.bidCount ? tr('أعلى مزايدة', 'Top bid') : tr('السعر الافتتاحي', 'Opening price')}</div>
             <div className="mt-0.5 flex items-baseline gap-1.5">
-              <span className="num text-[30px] font-extrabold leading-none text-ink">{num(price)}</span>
-              <span className="text-[14px] font-bold text-muted">ر.س</span>
+              <span className="num text-[24px] font-extrabold leading-none text-ink">{num(price)}</span>
+              <span className="text-[13px] font-bold text-muted">{cur()}</span>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-1 text-[13px] font-bold text-muted">
-            <span className="flex items-center gap-1.5"><Icon d={ICON.gavel} />{a.bidCount ? `${num(a.bidCount)} مزايدة` : 'لا مزايدات'}</span>
+          <div className="flex flex-col items-end gap-1 text-[12px] font-bold text-muted">
+            <span className="flex items-center gap-1.5"><Icon d={ICON.gavel} />{a.bidCount ? tr(`${num(a.bidCount)} مزايدة`, `${num(a.bidCount)} bids`) : tr('لا مزايدات', 'No bids')}</span>
             {a.leaderLabel && phase === 'live' && <span className="flex items-center gap-1.5"><Icon d={ICON.users} />{a.leaderLabel}</span>}
           </div>
         </div>
 
         {phase === 'live' && (
           <div>
-            <div className="mb-1.5 flex items-center gap-1.5 text-[12.5px] font-bold text-muted"><Icon d={ICON.clock} className="h-3.5 w-3.5" />ينتهي خلال</div>
+            <div className="mb-1.5 flex items-center gap-1.5 text-[12.5px] font-bold text-muted"><Icon d={ICON.clock} className="h-3.5 w-3.5" />{tr('ينتهي خلال', 'Ends in')}</div>
             <CountdownBoxes to={a.endsAt} tone={urgent ? 'urgent' : 'ink'} />
           </div>
         )}
         {phase === 'scheduled' && (
           <div>
-            <div className="mb-1.5 flex items-center gap-1.5 text-[12.5px] font-bold text-muted"><Icon d={ICON.clock} className="h-3.5 w-3.5" />يبدأ خلال</div>
+            <div className="mb-1.5 flex items-center gap-1.5 text-[12.5px] font-bold text-muted"><Icon d={ICON.clock} className="h-3.5 w-3.5" />{tr('يبدأ خلال', 'Starts in')}</div>
             <CountdownBoxes to={a.startsAt} />
           </div>
         )}
         {phase === 'ended' && (
-          <div className="rounded-md bg-stone px-3 py-2.5 text-[14px]">
-            <span className="font-bold">{a.settled ? (a.wonByRequester ? 'رسا على مقدم الطلب' : 'رسا على أعلى مزايد') : 'جارٍ الترسية'}</span>
-            <span className="text-muted">، انتهى {date(a.endsAt)} {time(a.endsAt)}</span>
+          <div className="rounded-md bg-stone px-3 py-2 text-[13px]">
+            <span className="font-bold">{a.settled ? (a.wonByRequester ? tr('رسا على مقدم الطلب', 'Awarded to the applicant') : tr('رسا على أعلى مزايد', 'Awarded to top bidder')) : tr('جارٍ الترسية', 'Awarding')}</span>
+            <span className="text-muted">{tr('، انتهى', ', ended')} {date(a.endsAt)} {time(a.endsAt)}</span>
           </div>
         )}
 
         <div className="mt-auto">
           {phase === 'live'
-            ? <span className="btn-gold w-full">زايد الآن</span>
-            : <span className="btn-ghost w-full group-hover:border-navy">{phase === 'scheduled' ? 'تفاصيل المزاد' : 'عرض النتيجة'}</span>}
+            ? <span className="btn-gold btn-sm w-full py-2">{tr('زايد الآن', 'Bid now')}</span>
+            : <span className="btn-ghost btn-sm w-full py-2 group-hover:border-navy">{phase === 'scheduled' ? tr('تفاصيل المزاد', 'View auction') : tr('عرض النتيجة', 'View result')}</span>}
         </div>
       </div>
     </Link>

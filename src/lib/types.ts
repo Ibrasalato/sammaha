@@ -171,3 +171,33 @@ export interface ReviewDecision {
   status: 'accepted' | 'rejected'
   reason?: string
 }
+
+export type EventKind = 'mazayin' | 'race' | 'conference' | 'world_day' | 'heritage'
+
+export interface CamelEvent {
+  id: string
+  title: string
+  titleEn: string
+  kind: EventKind
+  startsOn: string // YYYY-MM-DD
+  endsOn: string // YYYY-MM-DD
+  approx: boolean // expected date, not yet officially announced
+  city: string
+  country: string
+  description: string
+  url?: string
+  cityEn?: string
+  countryEn?: string
+  descriptionEn?: string
+}
+
+export interface AppNotification {
+  id: string
+  userId: string
+  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'refund'
+  title: string
+  body: string
+  link?: string
+  createdAt: string
+  read: boolean
+}
