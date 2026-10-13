@@ -32,9 +32,9 @@ export function HeroSlides() {
           className={`slide absolute inset-0 h-full w-full object-cover transition-opacity duration-[1600ms] ease-in-out ${k === i ? 'slide-on opacity-100' : 'opacity-0'}`}
           style={{ objectPosition: s.pos }} />
       ))}
-      {/* legibility: dark navy wash, stronger behind the text (start side) */}
-      <div className={`absolute inset-0 ${getLang() === 'ar' ? 'bg-gradient-to-l' : 'bg-gradient-to-r'} from-navy/90 via-navy/45 to-transparent`} />
-      <div className="absolute inset-0 bg-gradient-to-t from-navy/70 via-transparent to-navy/30" />
+      {/* legibility: dark pine wash, stronger behind the text (start side) */}
+      <div className={`absolute inset-0 ${getLang() === 'ar' ? 'bg-gradient-to-l' : 'bg-gradient-to-r'} from-pine/90 via-pine/45 to-transparent`} />
+      <div className="absolute inset-0 bg-gradient-to-t from-pine/70 via-transparent to-pine/30" />
       <div className="absolute end-6 top-5 z-10 flex items-center gap-2">
         {SLIDES.map((s, k) => (
           <button key={s.src} onClick={() => setI(k)} aria-label={tr(`الصورة ${k + 1}`, `Slide ${k + 1}`)} aria-current={k === i}

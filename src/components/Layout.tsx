@@ -28,7 +28,7 @@ export function IcoLogo({ light, className = 'h-9' }: { light?: boolean; classNa
 
 function UtilityBar() {
   return (
-    <div className="bg-navy text-[13px] text-paper/75">
+    <div className="bg-pine text-[13px] text-paper/75">
       <div className="wrap flex h-9 items-center gap-4">
         <span className="hidden sm:inline">{tr('منصة تابعة للمنظمة الدولية للإبل', 'A platform of the International Camel Organization')}</span>
         {IS_DEMO && (
@@ -38,7 +38,7 @@ function UtilityBar() {
           </span>
         )}
         <span className="ms-auto flex items-center gap-4">
-          <LangSwitch className="rounded border border-paper/25 px-2 py-px font-bold text-paper hover:bg-paper hover:text-navy" />
+          <LangSwitch className="rounded border border-paper/25 px-2 py-px font-bold text-paper hover:bg-paper hover:text-pine" />
           <a className="hover:text-paper" href={`mailto:${SELLER.email}`}>{SELLER.email}</a>
           <a className="hidden hover:text-paper sm:inline" href={`https://wa.me/${SELLER.whatsapp}`} target="_blank" rel="noreferrer" dir="ltr">{SELLER.whatsapp.replace(/^966/, '0')}</a>
         </span>
@@ -79,7 +79,7 @@ export function PublicLayout() {
           <nav className="hidden h-full items-stretch gap-1 md:flex" aria-label={tr('القائمة الرئيسية', 'Main menu')}>
             {PUBLIC_NAV().map(([to, label]) => (
               <NavLink key={to} to={to} end={to === '/'}
-                className={({ isActive }) => `relative flex items-center px-3.5 text-[15.5px] font-bold transition-colors ${isActive ? 'text-navy after:absolute after:inset-x-3.5 after:bottom-0 after:h-[3px] after:rounded-t after:bg-gold' : 'text-muted hover:text-navy'}`}>
+                className={({ isActive }) => `relative flex items-center px-3.5 text-[15.5px] font-bold transition-colors ${isActive ? 'text-pine after:absolute after:inset-x-3.5 after:bottom-0 after:h-[3px] after:rounded-t after:bg-gold' : 'text-muted hover:text-pine'}`}>
                 {label}
               </NavLink>
             ))}
@@ -91,7 +91,7 @@ export function PublicLayout() {
           <div className="border-t border-line bg-paper px-4 py-4 md:hidden" onClick={() => setOpen(false)}>
             <nav className="mb-4 flex flex-col">
               {PUBLIC_NAV().map(([to, label]) => (
-                <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `border-b border-line/70 py-3 font-bold ${isActive ? 'text-navy' : 'text-muted'}`}>{label}</NavLink>
+                <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `border-b border-line/70 py-3 font-bold ${isActive ? 'text-pine' : 'text-muted'}`}>{label}</NavLink>
               ))}
             </nav>
             <AuthButtons stacked />
@@ -106,7 +106,7 @@ export function PublicLayout() {
 
 export function Footer() {
   return (
-    <footer className="mt-auto bg-navy text-paper/70">
+    <footer className="mt-auto bg-pine text-paper/70">
       <div className="sadu" aria-hidden />
       <div className="wrap grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1.1fr]">
         <div>
@@ -168,7 +168,7 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
   const roleLabel = user?.role === 'owner' ? 'مالك إبل' : user?.role === 'committee' ? 'لجنة الاعتماد' : 'مدير المنصة'
   return (
     <div className="flex min-h-screen flex-col bg-stone">
-      <header className="bg-navy text-paper">
+      <header className="bg-pine text-paper">
         <div className="flex h-16 items-center gap-4 px-4 lg:px-6">
           <button className="rounded-md border border-paper/25 px-2.5 py-1 text-sm font-bold lg:hidden" onClick={() => setOpen(!open)} aria-expanded={open}>القائمة</button>
           <Link to="/" aria-label="الرئيسية"><Logo light className="h-10" /></Link>
@@ -189,14 +189,14 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
         <div className="h-[3px] bg-gold" aria-hidden />
       </header>
       <div className="flex flex-1">
-        <aside className={`${open ? 'fixed inset-0 z-30 block bg-navy/40' : 'hidden'} lg:static lg:block lg:bg-transparent`} onClick={() => setOpen(false)}>
+        <aside className={`${open ? 'fixed inset-0 z-30 block bg-pine/40' : 'hidden'} lg:static lg:block lg:bg-transparent`} onClick={() => setOpen(false)}>
           <nav className="h-full w-64 shrink-0 border-e border-line bg-paper px-3 py-5" onClick={(e) => e.stopPropagation()} aria-label={title}>
             <p className="mb-2 px-3 text-[12.5px] font-medium text-muted">{title}</p>
             <ul className="flex flex-col gap-0.5">
               {nav.map(({ to, label, end, icon }) => (
                 <li key={to}>
                   <NavLink to={to} end={end} onClick={() => setOpen(false)}
-                    className={({ isActive }) => `relative flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium transition-colors ${isActive ? 'bg-navy text-paper' : 'text-ink/75 hover:bg-stone hover:text-navy'}`}>
+                    className={({ isActive }) => `relative flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium transition-colors ${isActive ? 'bg-pine text-paper' : 'text-ink/75 hover:bg-stone hover:text-pine'}`}>
                     {({ isActive }) => <><Icon name={icon} className={`h-[18px] w-[18px] ${isActive ? 'text-gold-light' : 'text-muted'}`} />{label}</>}
                   </NavLink>
                 </li>
@@ -204,9 +204,9 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
             </ul>
             <p className="mb-2 mt-6 px-3 text-[12.5px] font-medium text-muted">المنصة</p>
             <ul className="flex flex-col gap-0.5">
-              <li><Link to="/auctions" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium text-ink/75 hover:bg-stone hover:text-navy"><Icon name="gavel" className="h-[18px] w-[18px] text-muted" />المزادات المفتوحة</Link></li>
-              <li><Link to="/names" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium text-ink/75 hover:bg-stone hover:text-navy"><Icon name="tag" className="h-[18px] w-[18px] text-muted" />سجل الأسماء</Link></li>
-              <li><Link to="/" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium text-ink/75 hover:bg-stone hover:text-navy"><Icon name="home" className="h-[18px] w-[18px] text-muted" />الصفحة الرئيسية</Link></li>
+              <li><Link to="/auctions" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium text-ink/75 hover:bg-stone hover:text-pine"><Icon name="gavel" className="h-[18px] w-[18px] text-muted" />المزادات المفتوحة</Link></li>
+              <li><Link to="/names" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium text-ink/75 hover:bg-stone hover:text-pine"><Icon name="tag" className="h-[18px] w-[18px] text-muted" />سجل الأسماء</Link></li>
+              <li><Link to="/" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium text-ink/75 hover:bg-stone hover:text-pine"><Icon name="home" className="h-[18px] w-[18px] text-muted" />الصفحة الرئيسية</Link></li>
             </ul>
           </nav>
         </aside>

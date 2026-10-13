@@ -109,7 +109,7 @@ export function NewRequest() {
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {(['qaadan', 'bakkar'] as NameType[]).map((t) => (
             <button key={t} type="button" onClick={() => setType(t)} aria-pressed={type === t}
-              className={`flex items-center gap-4 rounded-xl border-2 p-4 text-start transition-colors ${type === t ? (t === 'qaadan' ? 'border-qaadan bg-qaadan-soft' : 'border-bakkar bg-bakkar-soft') : 'border-line bg-paper hover:border-navy'}`}>
+              className={`flex items-center gap-4 rounded-xl border-2 p-4 text-start transition-colors ${type === t ? (t === 'qaadan' ? 'border-qaadan bg-qaadan-soft' : 'border-bakkar bg-bakkar-soft') : 'border-line bg-paper hover:border-pine'}`}>
               <NameSeal name={TYPE_LABEL[t]} type={t} size="sm" />
               <span><span className="block font-extrabold text-xl">{TYPE_LABEL[t]}</span><span className="text-sm text-muted">{TYPE_HINT[t]}</span></span>
             </button>

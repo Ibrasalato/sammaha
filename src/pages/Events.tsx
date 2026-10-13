@@ -28,10 +28,10 @@ export function useCalendar() {
   return { items, loading: events.loading || auctions.loading }
 }
 
-function DateBlock({ iso, tone = 'navy' }: { iso: string; tone?: 'navy' | 'gold' }) {
+function DateBlock({ iso, tone = 'pine' }: { iso: string; tone?: 'pine' | 'gold' }) {
   const d = asDate(iso)
   return (
-    <div className={`flex w-[68px] shrink-0 flex-col items-center justify-center rounded-lg py-2 text-paper ${tone === 'gold' ? 'bg-gold' : 'bg-navy'}`}>
+    <div className={`flex w-[68px] shrink-0 flex-col items-center justify-center rounded-lg py-2 text-paper ${tone === 'gold' ? 'bg-gold' : 'bg-pine'}`}>
       <span className="num text-[26px] font-extrabold leading-none">{d.toLocaleDateString('en', { day: 'numeric', timeZone: 'Asia/Riyadh' })}</span>
       <span className="mt-1 text-[12px] font-bold opacity-80">{monthFmt().format(d)}</span>
     </div>

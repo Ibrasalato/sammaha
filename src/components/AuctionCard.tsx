@@ -111,7 +111,7 @@ export function AuctionCard({ a }: { a: Auction }) {
         <div className="mt-auto">
           {phase === 'live'
             ? <span className="btn-gold btn-sm w-full py-2">{tr('زايد الآن', 'Bid now')}</span>
-            : <span className="btn-ghost btn-sm w-full py-2 group-hover:border-navy">{phase === 'scheduled' ? tr('تفاصيل المزاد', 'View auction') : tr('عرض النتيجة', 'View result')}</span>}
+            : <span className="btn-ghost btn-sm w-full py-2 group-hover:border-pine">{phase === 'scheduled' ? tr('تفاصيل المزاد', 'View auction') : tr('عرض النتيجة', 'View result')}</span>}
         </div>
       </div>
     </Link>

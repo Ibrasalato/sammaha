@@ -5,9 +5,9 @@ import { tr } from '../lib/i18n'
 export default function About() {
   return (
     <>
-      <section className="relative overflow-hidden bg-navy text-paper">
+      <section className="relative overflow-hidden bg-pine text-paper">
         <img src="./hero/festival-white.jpg" alt="" className="absolute inset-0 h-full w-full object-cover opacity-35" style={{ objectPosition: 'center 35%' }} />
-        <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/60 to-navy/20" />
+        <div className="absolute inset-0 bg-gradient-to-t from-pine via-pine/60 to-pine/20" />
         <div className="wrap relative py-16 sm:py-20">
           <p className="text-[15px] font-bold text-gold-light">{tr('عن المنصة', 'About')}</p>
           <h1 className="mt-2 max-w-2xl text-[38px] font-extrabold leading-tight text-paper sm:text-[48px]">{tr('سمّها لأسماء الإبل الدولية', 'Sammha, the international camel names registry')}</h1>

@@ -192,7 +192,7 @@ export function Contact() {
           ] as [string, string, string][]).map(([l, v, href]) => (
             <div key={l} className="panel p-5">
               <div className="text-[13px] font-medium text-muted">{l}</div>
-              {href ? <a href={href} target="_blank" rel="noreferrer" className="text-[18px] font-extrabold text-navy hover:text-gold-deep" dir="auto">{v}</a> : <div className="text-[18px] font-extrabold">{v}</div>}
+              {href ? <a href={href} target="_blank" rel="noreferrer" className="text-[18px] font-extrabold text-pine hover:text-gold-deep" dir="auto">{v}</a> : <div className="text-[18px] font-extrabold">{v}</div>}
             </div>
           ))}
         </div>

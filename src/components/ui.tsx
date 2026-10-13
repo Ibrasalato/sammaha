@@ -83,7 +83,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
   }, [open, onClose])
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-navy/50 p-0 sm:items-center sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-pine/50 p-0 sm:items-center sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
       <div className={`max-h-[92vh] w-full overflow-auto rounded-t-2xl bg-paper p-5 sm:rounded-2xl sm:p-6 ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'}`} onClick={(e) => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between gap-4 border-b border-line pb-4">
           <h2 className="text-xl">{title}</h2>
@@ -129,7 +129,7 @@ export function Segmented<T extends string>({ value, onChange, options }: { valu
     <div className="inline-flex rounded-md border border-line bg-paper p-1" role="tablist">
       {options.map(([v, label]) => (
         <button key={v} role="tab" aria-selected={value === v} onClick={() => onChange(v)}
-          className={`rounded px-3.5 py-1.5 text-sm font-bold transition-colors ${value === v ? 'bg-navy text-paper' : 'text-muted hover:text-navy'}`}>
+          className={`rounded px-3.5 py-1.5 text-sm font-bold transition-colors ${value === v ? 'bg-pine text-paper' : 'text-muted hover:text-pine'}`}>
           {label}
         </button>
       ))}

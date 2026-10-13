@@ -37,7 +37,7 @@ export default function Home() {
   return (
     <>
       {/* ─── Hero ─── */}
-      <section className="relative overflow-hidden bg-navy text-paper">
+      <section className="relative overflow-hidden bg-pine text-paper">
         <HeroSlides />
         <div className="wrap relative z-10 grid items-center gap-12 py-16 lg:grid-cols-[1.15fr_1fr] lg:py-24">
           <div>
@@ -71,7 +71,7 @@ export default function Home() {
         </div>
 
         {stats.data && (
-          <div className="relative z-10 border-t border-paper/15 bg-navy/60 backdrop-blur-sm">
+          <div className="relative z-10 border-t border-paper/15 bg-pine/60 backdrop-blur-sm">
             <dl className="wrap grid grid-cols-2 gap-y-6 py-7 sm:grid-cols-4">
               {([[tr('مزاد جارٍ', 'Live auctions'), stats.data.live], [tr('مزاد قادم', 'Upcoming auctions'), stats.data.upcoming], [tr('اسم مسجّل', 'Registered names'), stats.data.reserved], [tr('مالك', 'Owners'), stats.data.owners]] as [string, number][]).map(([l, v], i) => (
                 <div key={l} className={`px-4 ${i ? 'sm:border-s sm:border-paper/15' : ''}`}>
@@ -191,7 +191,7 @@ function NameChecker({ ctaTo }: { ctaTo: string }) {
           <input id="chk" className="min-w-0 flex-1 rounded-md px-3.5 py-3 text-[17px] font-bold text-ink outline-none placeholder:font-normal placeholder:text-muted/70"
             placeholder={tr('اكتب الاسم للتحقق من توفّره', 'Type a name (in Arabic) to check availability')} value={name} maxLength={30} onChange={(e) => { setName(e.target.value); setRes(null) }} />
           <div className="flex gap-2">
-            <select aria-label={tr('النوع', 'Type')} className="rounded-md border border-line bg-stone px-3 text-[15px] font-bold text-navy" value={t} onChange={(e) => { setT(e.target.value as NameType); setRes(null) }}>
+            <select aria-label={tr('النوع', 'Type')} className="rounded-md border border-line bg-stone px-3 text-[15px] font-bold text-pine" value={t} onChange={(e) => { setT(e.target.value as NameType); setRes(null) }}>
               <option value="qaadan">{TYPE_LABEL.qaadan}</option>
               <option value="bakkar">{TYPE_LABEL.bakkar}</option>
             </select>
@@ -245,7 +245,7 @@ function Leaderboard({ title, rows }: { title: string; rows: Row[] }) {
         {rows.map((r, i) => (
           <li key={r.key} className="border-b border-line/70 last:border-0">
             <Link to={r.to} className="flex items-center gap-4 px-6 py-3.5 hover:bg-stone">
-              <span className={`num flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[14px] font-extrabold ${i === 0 ? 'bg-gold text-paper' : 'bg-navy-soft text-navy'}`}>{i + 1}</span>
+              <span className={`num flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[14px] font-extrabold ${i === 0 ? 'bg-gold text-paper' : 'bg-pine-soft text-pine'}`}>{i + 1}</span>
               {r.avatar && <Avatar name={r.main} src={r.avatar.src} size={46} ring={i === 0} />}
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2 text-[16px] font-bold">

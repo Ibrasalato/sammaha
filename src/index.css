@@ -24,14 +24,14 @@
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
   }
-  .btn-primary { @apply btn bg-navy text-paper hover:bg-navy-3; }
+  .btn-primary { @apply btn bg-pine text-paper hover:bg-pine-3; }
   .btn-gold { @apply btn bg-gold text-paper hover:bg-gold-deep; }
-  .btn-ghost { @apply btn border border-line bg-paper text-navy hover:border-navy; }
-  .btn-on-dark { @apply btn border border-paper/30 text-paper hover:bg-paper hover:text-navy; }
+  .btn-ghost { @apply btn border border-line bg-paper text-pine hover:border-pine; }
+  .btn-on-dark { @apply btn border border-paper/30 text-paper hover:bg-paper hover:text-pine; }
   .btn-danger { @apply btn border border-bad/40 bg-paper text-bad hover:bg-bad hover:text-paper; }
   .btn-sm { @apply px-3.5 py-1.5 text-sm; }
 
-  .field { @apply block w-full rounded-md border border-line bg-paper px-3.5 py-2.5 text-[16px] outline-none transition-colors placeholder:text-muted/70 focus:border-navy focus:ring-2 focus:ring-navy/10; }
+  .field { @apply block w-full rounded-md border border-line bg-paper px-3.5 py-2.5 text-[16px] outline-none transition-colors placeholder:text-muted/70 focus:border-pine focus:ring-2 focus:ring-pine/10; }
   .label { @apply mb-1.5 block text-sm font-medium text-ink; }
   .hint { @apply mt-1.5 text-[13.5px] text-muted; }
 
@@ -51,8 +51,8 @@
 /* Sadu (السدو) — Bedouin weave band, the platform's signature */
 .sadu {
   height: 24px;
-  background-color: #0D2137;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='24' viewBox='0 0 48 24'%3E%3Crect width='48' height='24' fill='%230D2137'/%3E%3Cpath d='M0 0l12 7L24 0l12 7L48 0z' fill='%23AE832C'/%3E%3Cpath d='M0 24l12-7 12 7 12-7 12 7z' fill='%23AE832C'/%3E%3Cpath d='M24 5l7 7-7 7-7-7z' fill='%23A23B4F'/%3E%3Cpath d='M24 9.5l2.5 2.5-2.5 2.5-2.5-2.5z' fill='%23F4F5F7'/%3E%3Cpath d='M0 9l3 3-3 3zM48 9l-3 3 3 3z' fill='%23F4F5F7'/%3E%3C/svg%3E");
+  background-color: #0F3B24;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='24' viewBox='0 0 48 24'%3E%3Crect width='48' height='24' fill='%230F3B24'/%3E%3Cpath d='M0 0l12 7L24 0l12 7L48 0z' fill='%23AE832C'/%3E%3Cpath d='M0 24l12-7 12 7 12-7 12 7z' fill='%23AE832C'/%3E%3Cpath d='M24 5l7 7-7 7-7-7z' fill='%23A23B4F'/%3E%3Cpath d='M24 9.5l2.5 2.5-2.5 2.5-2.5-2.5z' fill='%23F4F5F7'/%3E%3Cpath d='M0 9l3 3-3 3zM48 9l-3 3 3 3z' fill='%23F4F5F7'/%3E%3C/svg%3E");
   background-repeat: repeat-x;
   background-size: 48px 24px;
 }
@@ -60,7 +60,7 @@
 
 /* faint geometric field for dark hero areas */
 .hero-field {
-  background-color: #0D2137;
+  background-color: #0F3B24;
   background-image:
     radial-gradient(ellipse 80% 60% at 15% 0%, rgba(174,131,44,.16), transparent 60%),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cpath d='M28 4l24 24-24 24L4 28z' fill='none' stroke='%23ffffff' stroke-opacity='.045'/%3E%3C/svg%3E");

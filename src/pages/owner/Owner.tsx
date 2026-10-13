@@ -28,9 +28,9 @@ export function DashHome() {
   return (
     <div className="space-y-6">
       {/* Welcome band */}
-      <section className="relative overflow-hidden rounded-xl bg-navy text-paper">
+      <section className="relative overflow-hidden rounded-xl bg-pine text-paper">
         <img src="./hero/camels-sky.jpg" alt="" className="absolute inset-0 h-full w-full object-cover opacity-25" />
-        <div className="absolute inset-0 bg-gradient-to-l from-navy via-navy/85 to-navy/40" />
+        <div className="absolute inset-0 bg-gradient-to-l from-pine via-pine/85 to-pine/40" />
         <div className="relative flex flex-wrap items-center gap-6 p-6 sm:p-8">
           <div className="min-w-0 flex-1">
             <p className="text-[14px] font-medium text-gold-light">لوحة التحكم</p>
@@ -292,7 +292,7 @@ export function CertificatePage() {
     <>
       <style>{'@page { size: A4 landscape; margin: 0 }'}</style>
       <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
-        <Link to="/dashboard/names" className="text-sm font-medium text-muted hover:text-navy">أسمائي</Link>
+        <Link to="/dashboard/names" className="text-sm font-medium text-muted hover:text-pine">أسمائي</Link>
         <span className="ms-auto" />
         <button className="btn-primary" onClick={() => window.print()}>طباعة أو حفظ PDF</button>
       </div>

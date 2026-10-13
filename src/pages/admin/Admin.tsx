@@ -19,9 +19,9 @@ export function AdminHome() {
 
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-xl bg-navy text-paper">
+      <section className="relative overflow-hidden rounded-xl bg-pine text-paper">
         <img src="./hero/mazayin.jpg" alt="" className="absolute inset-0 h-full w-full object-cover opacity-20" />
-        <div className="absolute inset-0 bg-gradient-to-l from-navy via-navy/85 to-navy/40" />
+        <div className="absolute inset-0 bg-gradient-to-l from-pine via-pine/85 to-pine/40" />
         <div className="relative flex flex-wrap items-end gap-6 p-6 sm:p-8">
           <div className="flex-1">
             <p className="text-[14px] font-medium text-gold-light">{today}</p>
@@ -41,7 +41,7 @@ export function AdminHome() {
           <StatTile icon="calendar" tone="gold" label="بانتظار فتح المزاد" value={num(data.awaitingSchedule)} hint="أسماء مقبولة بلا موعد" to="/admin/schedule" highlight={data.awaitingSchedule > 0} />
           <StatTile icon="gavel" tone="green" label="مزادات جارية" value={num(data.live)} hint={`${num(data.scheduled)} مزاد قادم`} to="/admin/auctions" />
           <StatTile icon="receipt" tone="red" label="فواتير غير مدفوعة" value={num(data.unpaidInvoices)} to="/admin/invoices" />
-          <StatTile icon="coins" tone="navy" label="إيرادات محصّلة" value={sar(data.revenue)} hint="شاملة الضريبة" to="/admin/invoices" />
+          <StatTile icon="coins" tone="pine" label="إيرادات محصّلة" value={sar(data.revenue)} hint="شاملة الضريبة" to="/admin/invoices" />
           <StatTile icon="list" tone="gold" label="المواعيد والفعاليات" value="التقويم" hint="تعديل مواعيد المهرجانات" to="/admin/events" />
         </div>
       )}

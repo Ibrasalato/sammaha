@@ -27,11 +27,11 @@ export function PayModal({ open, onClose, title, amount, onPay }: {
       </div>
       <fieldset className="space-y-2">
         <legend className="label">طريقة الدفع</legend>
-        <label className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${m === 'wallet' ? 'border-navy' : 'border-line'} ${!enough ? 'opacity-50' : ''}`}>
+        <label className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${m === 'wallet' ? 'border-pine' : 'border-line'} ${!enough ? 'opacity-50' : ''}`}>
           <input type="radio" name="pm" checked={m === 'wallet'} disabled={!enough} onChange={() => setMethod('wallet')} />
           <span className="flex-1"><span className="block font-semibold">رصيد المحفظة</span><span className="num text-sm text-muted">الرصيد {sar(balance)}{!enough && '، غير كافٍ'}</span></span>
         </label>
-        <label className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${m === 'card' ? 'border-navy' : 'border-line'}`}>
+        <label className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${m === 'card' ? 'border-pine' : 'border-line'}`}>
           <input type="radio" name="pm" checked={m === 'card'} onChange={() => setMethod('card')} />
           <span className="flex-1"><span className="block font-semibold">بطاقة مدى أو ائتمانية أو Apple Pay</span><span className="text-sm text-muted">{IS_DEMO ? 'محاكاة دفع في النسخة التجريبية' : 'دفع آمن عبر ميسّر'}</span></span>
         </label>

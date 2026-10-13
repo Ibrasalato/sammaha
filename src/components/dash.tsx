@@ -31,14 +31,14 @@ export function Icon({ name, className = 'h-5 w-5' }: { name: IconName; classNam
 }
 
 const TONES = {
-  navy: 'bg-navy-soft text-navy',
+  pine: 'bg-pine-soft text-pine',
   gold: 'bg-gold-soft text-gold-deep',
   green: 'bg-[#E2F0E8] text-ok',
   blue: 'bg-qaadan-soft text-qaadan-deep',
   red: 'bg-bakkar-soft text-bakkar-deep',
 } as const
 
-export function StatTile({ icon, label, value, hint, tone = 'navy', to, highlight }: {
+export function StatTile({ icon, label, value, hint, tone = 'pine', to, highlight }: {
   icon: IconName; label: string; value: ReactNode; hint?: string; tone?: keyof typeof TONES; to?: string; highlight?: boolean
 }) {
   const body = (
