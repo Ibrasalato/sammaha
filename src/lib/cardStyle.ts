@@ -1,10 +1,11 @@
 import { useSyncExternalStore } from 'react'
 
 /** Auction card designs the visitor can choose from. The choice is remembered in this browser only. */
-export type CardStyle = 'modern' | 'classic' | 'minimal' | 'heritage' | 'luxury'
-export const CARD_STYLES: CardStyle[] = ['modern', 'classic', 'heritage', 'luxury', 'minimal']
+export type CardStyle = 'modern' | 'brand' | 'classic' | 'minimal' | 'heritage' | 'luxury'
+export const CARD_STYLES: CardStyle[] = ['modern', 'brand', 'classic', 'heritage', 'luxury', 'minimal']
 export const CARD_STYLE_LABEL: Record<CardStyle, [string, string]> = {
   modern: ['عصري', 'Modern'],
+  brand: ['نموذج هوية سمّها', 'Sammha identity'],
   classic: ['كلاسيكي', 'Classic'],
   heritage: ['تراثي', 'Heritage'],
   luxury: ['فاخر', 'Luxury'],
