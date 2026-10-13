@@ -12,7 +12,7 @@ function PageBand({ title, sub }: { title: string; sub?: string }) {
         <h1 className="text-[34px] font-extrabold text-paper sm:text-[42px]">{title}</h1>
         {sub && <p className="mt-2 max-w-2xl text-[17px] text-paper/75">{sub}</p>}
       </div>
-      <div className="sadu sadu-thin" aria-hidden />
+      <div className="h-1 bg-gold" aria-hidden />
     </section>
   )
 }
@@ -191,7 +191,7 @@ export function Contact() {
             [tr('العنوان', 'Address'), tr(SELLER.address, 'Riyadh, Saudi Arabia'), ''],
           ] as [string, string, string][]).map(([l, v, href]) => (
             <div key={l} className="panel p-5">
-              <div className="text-[13px] font-bold text-muted">{l}</div>
+              <div className="text-[13px] font-medium text-muted">{l}</div>
               {href ? <a href={href} target="_blank" rel="noreferrer" className="text-[18px] font-extrabold text-navy hover:text-gold-deep" dir="auto">{v}</a> : <div className="text-[18px] font-extrabold">{v}</div>}
             </div>
           ))}

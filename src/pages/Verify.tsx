@@ -24,7 +24,7 @@ export default function Verify() {
             <button className="btn-gold px-6">{tr('تحقق', 'Verify')}</button>
           </form>
         </div>
-        <div className="sadu sadu-thin" aria-hidden />
+        <div className="h-1 bg-gold" aria-hidden />
       </section>
       <div className="wrap py-10">
         {!code ? null : loading ? <Loading /> : data ? (
@@ -36,11 +36,11 @@ export default function Verify() {
             <div className="flex flex-col items-center gap-6 p-6 sm:flex-row">
               <NameSeal name={data.name} type={data.type} size="lg" />
               <dl className="grid flex-1 grid-cols-2 gap-4 text-[15px]">
-                <div><dt className="text-[13px] font-bold text-muted">{tr('الاسم', 'Name')}</dt><dd className="text-xl font-extrabold">{data.name}</dd></div>
-                <div><dt className="text-[13px] font-bold text-muted">{tr('النوع', 'Type')}</dt><dd><TypeBadge type={data.type} /></dd></div>
-                <div><dt className="text-[13px] font-bold text-muted">{tr('المالك', 'Owner')}</dt><dd className="font-bold">{data.ownerName}</dd></div>
-                <div><dt className="text-[13px] font-bold text-muted">{tr('تاريخ التسجيل', 'Registered on')}</dt><dd className="num font-bold">{date(data.acquiredAt)}</dd></div>
-                <div className="col-span-2"><dt className="text-[13px] font-bold text-muted">{tr('رقم الشهادة', 'Certificate no.')}</dt><dd className="num font-bold" dir="ltr" style={{ textAlign: 'start' }}>{certNo(data)}</dd></div>
+                <div><dt className="text-[13px] font-medium text-muted">{tr('الاسم', 'Name')}</dt><dd className="text-xl font-extrabold">{data.name}</dd></div>
+                <div><dt className="text-[13px] font-medium text-muted">{tr('النوع', 'Type')}</dt><dd><TypeBadge type={data.type} /></dd></div>
+                <div><dt className="text-[13px] font-medium text-muted">{tr('المالك', 'Owner')}</dt><dd className="font-bold">{data.ownerName}</dd></div>
+                <div><dt className="text-[13px] font-medium text-muted">{tr('تاريخ التسجيل', 'Registered on')}</dt><dd className="num font-bold">{date(data.acquiredAt)}</dd></div>
+                <div className="col-span-2"><dt className="text-[13px] font-medium text-muted">{tr('رقم الشهادة', 'Certificate no.')}</dt><dd className="num font-bold" dir="ltr" style={{ textAlign: 'start' }}>{certNo(data)}</dd></div>
               </dl>
             </div>
           </div>

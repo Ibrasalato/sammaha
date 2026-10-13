@@ -6,14 +6,11 @@ import { HeroSlides } from '../components/HeroSlides'
 import { CalendarRow, useCalendar } from './Events'
 import { Countdown, Loading, NameSeal, Segmented } from '../components/ui'
 import { RULES, TYPE_LABEL } from '../lib/config'
-import { num } from '../lib/format'
+import { num, sar } from '../lib/format'
 import { getLang, tr } from '../lib/i18n'
 import { api, useApp, useLoad } from '../lib/store'
 import type { NameCheck, NameType } from '../lib/types'
 
-/** Leaderboards as published on the current platform (sammha.ico.org.sa). Replace with live queries once data is migrated. */
-const TOP_VALUE = ['دبوس مبارك عبدالله الدبوس', 'هيف محمد عبود القحطاني', 'الأمير سلطان بن محمد بن سعود الكبير آل سعود']
-const TOP_OWNERS = ['تركي بن أحمد بن راجس الشرافي', 'فهد بن فلاح بن سلطان بن حثلين', 'احمد فهد عبدالله الشريع']
 
 const STEPS = (): [string, string][] => [
   [tr('إنشاء الحساب', 'Create an account'), tr('بالجوال والبريد الإلكتروني.', 'With your mobile number and email.')],
@@ -54,14 +51,14 @@ export default function Home() {
             {spot ? (
               <Link to={`/auctions/${spot.id}`} className="block rounded-xl bg-paper/95 p-6 text-ink shadow-lift backdrop-blur">
                 <div className="flex items-center justify-between">
-                  <span className="text-[14px] font-bold text-muted">{tr('أقرب مزاد على الإغلاق', 'Closing soonest')}</span>
+                  <span className="text-[14px] font-medium text-muted">{tr('أقرب مزاد على الإغلاق', 'Closing soonest')}</span>
                   <span className="flex items-center gap-1.5 text-[13px] font-bold text-ok"><span className="h-2 w-2 animate-pulse rounded-full bg-ok" />{tr('مباشر', 'Live')}</span>
                 </div>
-                <div className="mt-5 flex justify-center"><NameSeal name={spot.name} type={spot.type} size="lg" /></div>
+                <div className="mt-4"><NameSeal name={spot.name} type={spot.type} size="xl" /></div>
                 <dl className="mt-6 grid grid-cols-3 divide-x divide-line rtl:divide-x-reverse text-center">
-                  <div><dt className="text-[12.5px] font-bold text-muted">{tr('أعلى مزايدة', 'Top bid')}</dt><dd className="num text-2xl font-extrabold">{num(spot.currentPrice)}</dd></div>
-                  <div><dt className="text-[12.5px] font-bold text-muted">{tr('المزايدات', 'Bids')}</dt><dd className="num text-2xl font-extrabold">{num(spot.bidCount)}</dd></div>
-                  <div><dt className="text-[12.5px] font-bold text-muted">{tr('يُغلق بعد', 'Closes in')}</dt><dd><Countdown to={spot.endsAt} className="text-lg font-extrabold" /></dd></div>
+                  <div><dt className="text-[12.5px] font-medium text-muted">{tr('أعلى مزايدة', 'Top bid')}</dt><dd className="num text-2xl font-extrabold">{num(spot.currentPrice)}</dd></div>
+                  <div><dt className="text-[12.5px] font-medium text-muted">{tr('المزايدات', 'Bids')}</dt><dd className="num text-2xl font-extrabold">{num(spot.bidCount)}</dd></div>
+                  <div><dt className="text-[12.5px] font-medium text-muted">{tr('يُغلق بعد', 'Closes in')}</dt><dd><Countdown to={spot.endsAt} className="text-lg font-extrabold" /></dd></div>
                 </dl>
                 <span className="btn-gold mt-6 w-full">{tr(`زايد على «${spot.name}»`, `Bid on “${spot.name}”`)}</span>
               </Link>
@@ -143,10 +140,7 @@ export default function Home() {
       )}
 
       {/* ─── Leaderboards ─── */}
-      <section className="wrap grid gap-6 py-16 lg:grid-cols-2">
-        <Leaderboard title={tr('أعلى قيمة للمزادات', 'Highest auction values')} names={TOP_VALUE} />
-        <Leaderboard title={tr('أكثر ملكية للأسماء', 'Most names owned')} names={TOP_OWNERS} />
-      </section>
+      <Leaderboards />
     </>
   )
 }
@@ -216,7 +210,26 @@ function NameChecker({ ctaTo }: { ctaTo: string }) {
   )
 }
 
-function Leaderboard({ title, names }: { title: string; names: string[] }) {
+function Leaderboards() {
+  const { data } = useLoad(() => api.listReservedNames('', 'all'), [])
+  if (!data?.length) return null
+  const topValue = [...data].sort((a, b) => b.price - a.price).slice(0, 5)
+  const byOwner = new Map<string, number>()
+  for (const r of data) byOwner.set(r.ownerName, (byOwner.get(r.ownerName) ?? 0) + 1)
+  const topOwners = [...byOwner.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
+  return (
+    <section className="wrap grid gap-6 py-16 lg:grid-cols-2">
+      <Leaderboard title={tr('أعلى قيمة للمزادات', 'Highest auction values')}
+        rows={topValue.map((r) => ({ key: r.id, to: `/names?q=${encodeURIComponent(r.name)}`, main: r.name, type: r.type, sub: r.ownerName, value: sar(r.price) }))} />
+      <Leaderboard title={tr('أكثر ملكية للأسماء', 'Most names owned')}
+        rows={topOwners.map(([o, n]) => ({ key: o, to: `/names?q=${encodeURIComponent(o)}`, main: o, value: tr(n === 1 ? 'اسم واحد' : n === 2 ? 'اسمان' : n <= 10 ? `${n} أسماء` : `${n} اسمًا`, `${n} name${n > 1 ? 's' : ''}`) }))} />
+    </section>
+  )
+}
+
+interface Row { key: string; to: string; main: string; sub?: string; value: string; type?: NameType }
+
+function Leaderboard({ title, rows }: { title: string; rows: Row[] }) {
   return (
     <div className="panel overflow-hidden">
       <div className="flex items-center justify-between border-b border-line px-6 py-4">
@@ -224,11 +237,18 @@ function Leaderboard({ title, names }: { title: string; names: string[] }) {
         <Link to="/names" className="text-[14px] font-bold text-gold-deep hover:underline">{tr('سجل الأسماء', 'Registry')}</Link>
       </div>
       <ol>
-        {names.map((n, i) => (
-          <li key={n} className="border-b border-line/70 last:border-0">
-            <Link to={`/names?q=${encodeURIComponent(n)}`} className="flex items-center gap-4 px-6 py-4 hover:bg-stone">
-              <span className={`num flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[15px] font-extrabold ${i === 0 ? 'bg-gold text-paper' : 'bg-navy-soft text-navy'}`}>{i + 1}</span>
-              <span className="text-[16px] font-bold">{n}</span>
+        {rows.map((r, i) => (
+          <li key={r.key} className="border-b border-line/70 last:border-0">
+            <Link to={r.to} className="flex items-center gap-4 px-6 py-3.5 hover:bg-stone">
+              <span className={`num flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[14px] font-extrabold ${i === 0 ? 'bg-gold text-paper' : 'bg-navy-soft text-navy'}`}>{i + 1}</span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2 text-[16px] font-bold">
+                  {r.type && <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${r.type === 'qaadan' ? 'bg-qaadan' : 'bg-bakkar'}`} />}
+                  <span className="truncate">{r.main}</span>
+                </span>
+                {r.sub && <span className="block truncate text-[13.5px] text-muted">{r.sub}</span>}
+              </span>
+              <span className="num shrink-0 text-[15px] font-extrabold text-ink">{r.value}</span>
             </Link>
           </li>
         ))}

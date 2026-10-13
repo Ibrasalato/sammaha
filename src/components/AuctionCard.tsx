@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { tr } from '../lib/i18n'
 import { TYPE_LABEL } from '../lib/config'
 import { phaseOf } from '../lib/demoApi'
-import { cur, date, num, remaining, time } from '../lib/format'
+import { cur, date, dateTime, humanLeft, num, remaining, time } from '../lib/format'
 import { useNow } from '../lib/store'
 import type { Auction } from '../lib/types'
 
@@ -35,6 +35,16 @@ const ICON = {
   check: 'M20 6L9 17l-5-5',
 }
 
+/** Quiet single-line time for anything more than a day away */
+function TimeLine({ label, ms, at }: { label: string; ms: number; at: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-md bg-stone px-3 py-2.5 text-[13.5px]">
+      <span className="flex items-center gap-1.5 text-muted"><Icon d={ICON.clock} className="h-3.5 w-3.5" />{label}</span>
+      <span className="font-bold" title={dateTime(at)}>{humanLeft(ms)}</span>
+    </div>
+  )
+}
+
 export function AuctionCard({ a }: { a: Auction }) {
   const now = useNow(1000)
   const phase = phaseOf(a, now)
@@ -44,6 +54,7 @@ export function AuctionCard({ a }: { a: Auction }) {
   const end = Date.parse(a.endsAt)
   const elapsed = phase === 'live' ? Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100)) : phase === 'ended' ? 100 : 0
   const urgent = phase === 'live' && end - now < 3600_000
+  const lastDay = phase === 'live' && end - now < 86_400_000
 
   return (
     <Link to={`/auctions/${a.id}`}
@@ -69,30 +80,27 @@ export function AuctionCard({ a }: { a: Auction }) {
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <div className="text-[12.5px] font-bold text-muted">{phase === 'ended' ? tr('سعر الترسية', 'Hammer price') : a.bidCount ? tr('أعلى مزايدة', 'Top bid') : tr('السعر الافتتاحي', 'Opening price')}</div>
+            <div className="text-[12.5px] font-medium text-muted">{phase === 'ended' ? tr('سعر الترسية', 'Hammer price') : a.bidCount ? tr('أعلى مزايدة', 'Top bid') : tr('السعر الافتتاحي', 'Opening price')}</div>
             <div className="mt-0.5 flex items-baseline gap-1.5">
               <span className="num text-[24px] font-extrabold leading-none text-ink">{num(price)}</span>
-              <span className="text-[13px] font-bold text-muted">{cur()}</span>
+              <span className="text-[13px] font-medium text-muted">{cur()}</span>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-1 text-[12px] font-bold text-muted">
+          <div className="flex flex-col items-end gap-1 text-[12px] font-medium text-muted">
             <span className="flex items-center gap-1.5"><Icon d={ICON.gavel} />{a.bidCount ? tr(`${num(a.bidCount)} مزايدة`, `${num(a.bidCount)} bids`) : tr('لا مزايدات', 'No bids')}</span>
             {a.leaderLabel && phase === 'live' && <span className="flex items-center gap-1.5"><Icon d={ICON.users} />{a.leaderLabel}</span>}
           </div>
         </div>
 
-        {phase === 'live' && (
+        {phase === 'live' && (lastDay ? (
           <div>
-            <div className="mb-1.5 flex items-center gap-1.5 text-[12.5px] font-bold text-muted"><Icon d={ICON.clock} className="h-3.5 w-3.5" />{tr('ينتهي خلال', 'Ends in')}</div>
+            <div className="mb-1.5 flex items-center gap-1.5 text-[12.5px] font-medium text-muted"><Icon d={ICON.clock} className="h-3.5 w-3.5" />{tr('ينتهي خلال', 'Ends in')}</div>
             <CountdownBoxes to={a.endsAt} tone={urgent ? 'urgent' : 'ink'} />
           </div>
-        )}
-        {phase === 'scheduled' && (
-          <div>
-            <div className="mb-1.5 flex items-center gap-1.5 text-[12.5px] font-bold text-muted"><Icon d={ICON.clock} className="h-3.5 w-3.5" />{tr('يبدأ خلال', 'Starts in')}</div>
-            <CountdownBoxes to={a.startsAt} />
-          </div>
-        )}
+        ) : (
+          <TimeLine label={tr('ينتهي خلال', 'Ends in')} ms={end - now} at={a.endsAt} />
+        ))}
+        {phase === 'scheduled' && <TimeLine label={tr('يبدأ خلال', 'Starts in')} ms={start - now} at={a.startsAt} />}
         {phase === 'ended' && (
           <div className="rounded-md bg-stone px-3 py-2 text-[13px]">
             <span className="font-bold">{a.settled ? (a.wonByRequester ? tr('رسا على مقدم الطلب', 'Awarded to the applicant') : tr('رسا على أعلى مزايد', 'Awarded to top bidder')) : tr('جارٍ الترسية', 'Awarding')}</span>

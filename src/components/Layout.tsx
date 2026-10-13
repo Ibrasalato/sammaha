@@ -6,6 +6,8 @@ import { IS_DEMO, SELLER } from '../lib/config'
 import { resetDemo } from '../lib/demoApi'
 import { api, useApp } from '../lib/store'
 import { NotificationBell } from './NotificationBell'
+import { Icon } from './dash'
+import type { IconName } from './dash'
 
 const PUBLIC_NAV = (): [string, string][] => [
   ['/', tr('الرئيسية', 'Home')],
@@ -156,7 +158,9 @@ function FooterCol({ title, links }: { title: string; links: [string, string][] 
   )
 }
 
-export function Shell({ nav, title, children }: { nav: [string, string, boolean?][]; title: string; children?: ReactNode }) {
+export interface NavItem { to: string; label: string; icon: IconName; end?: boolean }
+
+export function Shell({ nav, title, children }: { nav: NavItem[]; title: string; children?: ReactNode }) {
   const { user, setUser } = useApp()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -179,27 +183,27 @@ export function Shell({ nav, title, children }: { nav: [string, string, boolean?
             <button className="btn-on-dark btn-sm" onClick={async () => { await api.signOut(); setUser(null); navigate('/') }}>خروج</button>
           </div>
         </div>
-        <div className="sadu sadu-thin" aria-hidden />
+        <div className="h-[3px] bg-gold" aria-hidden />
       </header>
       <div className="flex flex-1">
         <aside className={`${open ? 'fixed inset-0 z-30 block bg-navy/40' : 'hidden'} lg:static lg:block lg:bg-transparent`} onClick={() => setOpen(false)}>
           <nav className="h-full w-64 shrink-0 border-e border-line bg-paper px-3 py-5" onClick={(e) => e.stopPropagation()} aria-label={title}>
-            <p className="mb-2 px-3 text-[12.5px] font-bold text-muted">{title}</p>
+            <p className="mb-2 px-3 text-[12.5px] font-medium text-muted">{title}</p>
             <ul className="flex flex-col gap-0.5">
-              {nav.map(([to, label, end]) => (
+              {nav.map(({ to, label, end, icon }) => (
                 <li key={to}>
                   <NavLink to={to} end={end} onClick={() => setOpen(false)}
-                    className={({ isActive }) => `relative block rounded-md px-3 py-2.5 text-[15px] font-bold transition-colors ${isActive ? 'bg-navy-soft text-navy before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-gold' : 'text-muted hover:bg-stone hover:text-navy'}`}>
-                    {label}
+                    className={({ isActive }) => `relative flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium transition-colors ${isActive ? 'bg-navy text-paper' : 'text-ink/75 hover:bg-stone hover:text-navy'}`}>
+                    {({ isActive }) => <><Icon name={icon} className={`h-[18px] w-[18px] ${isActive ? 'text-gold-light' : 'text-muted'}`} />{label}</>}
                   </NavLink>
                 </li>
               ))}
             </ul>
-            <p className="mb-2 mt-6 px-3 text-[12.5px] font-bold text-muted">المنصة</p>
+            <p className="mb-2 mt-6 px-3 text-[12.5px] font-medium text-muted">المنصة</p>
             <ul className="flex flex-col gap-0.5">
-              <li><Link to="/auctions" className="block rounded-md px-3 py-2.5 text-[15px] font-bold text-muted hover:bg-stone hover:text-navy">المزادات المفتوحة</Link></li>
-              <li><Link to="/names" className="block rounded-md px-3 py-2.5 text-[15px] font-bold text-muted hover:bg-stone hover:text-navy">سجل الأسماء</Link></li>
-              <li><Link to="/" className="block rounded-md px-3 py-2.5 text-[15px] font-bold text-muted hover:bg-stone hover:text-navy">الصفحة الرئيسية</Link></li>
+              <li><Link to="/auctions" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium text-ink/75 hover:bg-stone hover:text-navy"><Icon name="gavel" className="h-[18px] w-[18px] text-muted" />المزادات المفتوحة</Link></li>
+              <li><Link to="/names" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium text-ink/75 hover:bg-stone hover:text-navy"><Icon name="tag" className="h-[18px] w-[18px] text-muted" />سجل الأسماء</Link></li>
+              <li><Link to="/" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium text-ink/75 hover:bg-stone hover:text-navy"><Icon name="home" className="h-[18px] w-[18px] text-muted" />الصفحة الرئيسية</Link></li>
             </ul>
           </nav>
         </aside>

@@ -75,7 +75,7 @@ export function CalendarRow({ item }: { item: CalItem }) {
           {e.approx && <span className="pill border border-dashed border-gold text-gold-deep" title={tr('الموعد متوقع بناءً على النسخ السابقة، ويُحدَّث عند الإعلان الرسمي', 'Expected date based on previous editions; updated when officially announced')}>{tr('موعد متوقع', 'Expected date')}</span>}
         </div>
         <h3 className="mt-1.5 text-[18px]">{tr(e.title, e.titleEn || e.title)}</h3>
-        <p className="text-[14px] font-bold text-muted">
+        <p className="text-[14px] font-medium text-muted">
           {sameDay ? dayFmt().format(asDate(e.startsOn)) : `${dayFmt().format(asDate(e.startsOn))} ${tr('إلى', 'to')} ${dayFmt().format(asDate(e.endsOn))}`}{tr('، ', ', ')}{tr(e.city, e.cityEn || e.city)}{tr('، ', ', ')}{tr(e.country, e.countryEn || e.country)}
         </p>
         <p className="mt-1.5 text-[14.5px] leading-7 text-ink/80">{tr(e.description, e.descriptionEn || e.description)}</p>
@@ -107,7 +107,7 @@ export default function Events() {
             {tr('مهرجانات المزاين وسباقات الهجن والمناسبات الدولية للإبل، ومواعيد مزادات سمّها القادمة، في تقويم واحد.', 'Camel beauty festivals, racing, international camel occasions and upcoming Sammha auctions, in one calendar.')}
           </p>
         </div>
-        <div className="sadu sadu-thin" aria-hidden />
+        <div className="h-1 bg-gold" aria-hidden />
       </section>
 
       <div className="wrap py-10">

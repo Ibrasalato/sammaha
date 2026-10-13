@@ -6,18 +6,22 @@ import { remaining, remainingText } from '../lib/format'
 import { useNow } from '../lib/store'
 import type { AuctionPhase, NameType, RequestStatus } from '../lib/types'
 
-/** The wasm seal — every camel name is shown as a brand-mark stamp in its type colour. */
+/**
+ * Name tile — the one way a camel name is shown across the platform:
+ * white name on the type colour (blue qaadan / maroon bakkar) over the Sadu weave, as on auction cards.
+ */
 export function NameSeal({ name, type, size = 'md' }: { name: string; type: NameType; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
   const dims = {
-    sm: 'h-14 w-16 text-[15px]',
-    md: 'h-20 w-28 text-xl',
-    lg: 'h-32 w-44 text-[32px]',
-    xl: 'h-44 w-full max-w-sm text-5xl sm:h-52 sm:text-6xl',
+    sm: 'h-12 w-16 rounded-md text-[14px]',
+    md: 'h-[72px] w-28 rounded-lg text-[19px]',
+    lg: 'h-28 w-44 rounded-lg text-[30px]',
+    xl: 'h-40 w-full max-w-sm rounded-xl text-[44px] sm:h-44 sm:text-[52px]',
   }[size]
   return (
-    <div className={`plate plate-${type} ${dims} shrink-0`} aria-label={`${name}، ${TYPE_LABEL[type]}`}>
-      <span className="px-2">{name}</span>
-      {size !== 'sm' && <span className="mt-1 text-[11px] font-bold opacity-70" style={{ fontSize: size === 'xl' ? 14 : undefined }}>{TYPE_LABEL[type]}</span>}
+    <div className={`lot-field lot-${type} ${dims} relative flex shrink-0 flex-col items-center justify-center overflow-hidden text-center font-extrabold leading-none text-paper`}
+      aria-label={`${name}، ${TYPE_LABEL[type]}`}>
+      <span className="px-2 drop-shadow-sm">{name}</span>
+      {size !== 'sm' && <span className={`mt-2 font-medium opacity-80 ${size === 'xl' ? 'text-[14px]' : 'text-[11.5px]'}`}>{TYPE_LABEL[type]}</span>}
     </div>
   )
 }

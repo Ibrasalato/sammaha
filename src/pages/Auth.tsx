@@ -25,7 +25,6 @@ function AuthFrame({ title, children }: { title: string; children: React.ReactNo
             <h2 className="text-[28px] font-extrabold leading-snug text-paper">{tr('السجل الدولي لأسماء الإبل وشعاراتها', 'The international registry of camel names and marks')}</h2>
             <p className="mt-3 text-paper/70">{tr('اطلب أسماء إبلك، وتابع مزاداتها، واحصل على فواتيرك الإلكترونية من مكان واحد.', 'Request names for your camels, follow their auctions and get your e-invoices in one place.')}</p>
           </div>
-          <div className="sadu sadu-thin absolute inset-x-0 bottom-0" aria-hidden />
         </div>
         <div className="p-6 sm:p-10">
           <div className="mb-6 lg:hidden"><Logo className="h-14" /></div>

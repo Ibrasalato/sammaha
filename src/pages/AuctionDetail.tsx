@@ -57,7 +57,7 @@ export default function AuctionDetail() {
           </div>
         </div>
       </div>
-      <div className="sadu sadu-thin" aria-hidden />
+      <div className="h-1 bg-gold" aria-hidden />
     </div>
     <div className="wrap py-10">
       <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
@@ -73,7 +73,7 @@ export default function AuctionDetail() {
               [tr('التوقيت', 'Time zone'), tr('توقيت الرياض', 'Riyadh time')],
             ] as [string, string][]).map(([l, v]) => (
               <div key={l} className="border-b border-e border-line/70 px-6 py-4">
-                <dt className="text-[13px] font-bold text-muted">{l}</dt>
+                <dt className="text-[13px] font-medium text-muted">{l}</dt>
                 <dd className="num mt-0.5 font-bold">{v}</dd>
               </div>
             ))}

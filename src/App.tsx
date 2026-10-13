@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { PublicLayout, Shell } from './components/Layout'
+import type { NavItem } from './components/Layout'
 import { Loading } from './components/ui'
 import { LangProvider, useLang } from './lib/i18n'
 import { AppProvider, useApp } from './lib/store'
@@ -33,23 +34,23 @@ function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
   return <>{children}</>
 }
 
-const OWNER_NAV: [string, string, boolean?][] = [
-  ['/dashboard', 'الرئيسية', true],
-  ['/dashboard/requests', 'طلبات الشعارات'],
-  ['/dashboard/bids', 'مزايداتي'],
-  ['/dashboard/names', 'أسمائي'],
-  ['/dashboard/wallet', 'المحفظة'],
-  ['/dashboard/invoices', 'الفواتير'],
+const OWNER_NAV: NavItem[] = [
+  { to: '/dashboard', label: 'الرئيسية', icon: 'home', end: true },
+  { to: '/dashboard/requests', label: 'طلبات الشعارات', icon: 'file' },
+  { to: '/dashboard/bids', label: 'مزايداتي', icon: 'gavel' },
+  { to: '/dashboard/names', label: 'أسمائي', icon: 'tag' },
+  { to: '/dashboard/wallet', label: 'المحفظة', icon: 'wallet' },
+  { to: '/dashboard/invoices', label: 'الفواتير', icon: 'receipt' },
 ]
 
-const ADMIN_NAV: [string, string, boolean?][] = [
-  ['/admin', 'نظرة عامة', true],
-  ['/admin/requests', 'مراجعة الطلبات'],
-  ['/admin/schedule', 'فتح المزادات'],
-  ['/admin/auctions', 'متابعة المزادات'],
-  ['/admin/invoices', 'الفواتير'],
-  ['/admin/events', 'المواعيد والفعاليات'],
-  ['/admin/users', 'المستخدمون'],
+const ADMIN_NAV: NavItem[] = [
+  { to: '/admin', label: 'نظرة عامة', icon: 'home', end: true },
+  { to: '/admin/requests', label: 'مراجعة الطلبات', icon: 'shield' },
+  { to: '/admin/schedule', label: 'فتح المزادات', icon: 'calendar' },
+  { to: '/admin/auctions', label: 'متابعة المزادات', icon: 'gavel' },
+  { to: '/admin/invoices', label: 'الفواتير', icon: 'receipt' },
+  { to: '/admin/events', label: 'المواعيد والفعاليات', icon: 'list' },
+  { to: '/admin/users', label: 'المستخدمون', icon: 'users' },
 ]
 
 export default function App() {

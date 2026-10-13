@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Icon, SectionCard, StatTile } from '../../components/dash'
 import { InvoiceDoc } from '../../components/InvoiceDoc'
 import { Countdown, Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, PhasePill, RequestStatusPill, Segmented, TypeBadge } from '../../components/ui'
 import { RULES, TYPE_LABEL } from '../../lib/config'
@@ -10,40 +11,86 @@ import type { AuctionPhase, CamelEvent, EventKind, Invoice, NameType, RequestSta
 import { EVENT_KIND } from '../../lib/events'
 
 export function AdminHome() {
+  const { user } = useApp()
   const { data } = useLoad(() => api.overview(), [], 15000)
   const queue = useLoad(() => api.listRequests('under_review'), [])
-  const tiles: [string, string, string][] = data ? [
-    ['طلبات تحت المراجعة', num(data.underReview), '/admin/requests'],
-    ['أسماء بانتظار فتح المزاد', num(data.awaitingSchedule), '/admin/schedule'],
-    ['مزادات جارية', num(data.live), '/admin/auctions'],
-    ['مزادات قادمة', num(data.scheduled), '/admin/auctions'],
-    ['فواتير غير مدفوعة', num(data.unpaidInvoices), '/admin/invoices'],
-    ['إيرادات محصلة', sar(data.revenue), '/admin/invoices'],
-  ] : []
+  const live = useLoad(() => api.listAuctions({ phase: 'live' }), [], 15000)
+  const today = new Date().toLocaleDateString('ar-SA-u-nu-latn-ca-gregory', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Riyadh' })
+
   return (
-    <>
-      <PageHead title="لوحة لجنة الاعتماد" />
-      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        {tiles.map(([l, v, to]) => (
-          <Link key={l} to={to} className="panel block p-4 hover:border-navy"><dt className="text-sm text-muted">{l}</dt><dd className="num mt-1 font-extrabold text-2xl font-semibold">{v}</dd></Link>
-        ))}
-      </dl>
-      <h2 className="mb-3 mt-8 text-xl">أقدم الطلبات في قائمة المراجعة</h2>
-      {queue.data?.length ? (
-        <ul className="panel divide-y divide-line/70">
-          {[...queue.data].reverse().slice(0, 6).map((r) => (
-            <li key={r.id}>
-              <Link to={`/admin/requests/${r.id}`} className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-stone">
-                <span className="num font-semibold">{r.number}</span><TypeBadge type={r.type} />
-                <span className="font-extrabold">{r.candidates.map((c) => c.name).join('، ')}</span>
-                {r.candidates.some((c) => c.similar.length) && <span className="pill bg-gold-soft text-gold-deep">أسماء شبيهة</span>}
-                <span className="ms-auto text-sm text-muted">{dateTime(r.submittedAt)}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : <Empty title="لا توجد طلبات بانتظار المراجعة" />}
-    </>
+    <div className="space-y-6">
+      <section className="relative overflow-hidden rounded-xl bg-navy text-paper">
+        <img src="./hero/mazayin.jpg" alt="" className="absolute inset-0 h-full w-full object-cover opacity-20" />
+        <div className="absolute inset-0 bg-gradient-to-l from-navy via-navy/85 to-navy/40" />
+        <div className="relative flex flex-wrap items-end gap-6 p-6 sm:p-8">
+          <div className="flex-1">
+            <p className="text-[14px] font-medium text-gold-light">{today}</p>
+            <h1 className="mt-1 text-[28px] font-extrabold text-paper sm:text-[32px]">لوحة لجنة الاعتماد</h1>
+            <p className="mt-1 text-paper/75">مرحبًا {user?.fullName.split(' ')[0]}. {data?.underReview ? `${data.underReview === 1 ? 'طلب واحد' : data.underReview === 2 ? 'طلبان' : `${data.underReview} طلبات`} بانتظار المراجعة.` : 'لا توجد طلبات بانتظار المراجعة.'}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/admin/requests" className="btn-gold"><Icon name="shield" className="h-4 w-4" />مراجعة الطلبات</Link>
+            <Link to="/admin/schedule" className="btn-on-dark">فتح المزادات</Link>
+          </div>
+        </div>
+      </section>
+
+      {data && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <StatTile icon="shield" tone="blue" label="تحت المراجعة" value={num(data.underReview)} hint="طلبات تنتظر قرار اللجنة" to="/admin/requests" highlight={data.underReview > 0} />
+          <StatTile icon="calendar" tone="gold" label="بانتظار فتح المزاد" value={num(data.awaitingSchedule)} hint="أسماء مقبولة بلا موعد" to="/admin/schedule" highlight={data.awaitingSchedule > 0} />
+          <StatTile icon="gavel" tone="green" label="مزادات جارية" value={num(data.live)} hint={`${num(data.scheduled)} مزاد قادم`} to="/admin/auctions" />
+          <StatTile icon="receipt" tone="red" label="فواتير غير مدفوعة" value={num(data.unpaidInvoices)} to="/admin/invoices" />
+          <StatTile icon="coins" tone="navy" label="إيرادات محصّلة" value={sar(data.revenue)} hint="شاملة الضريبة" to="/admin/invoices" />
+          <StatTile icon="list" tone="gold" label="المواعيد والفعاليات" value="التقويم" hint="تعديل مواعيد المهرجانات" to="/admin/events" />
+        </div>
+      )}
+
+      <div className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
+        <SectionCard title="قائمة المراجعة" icon="shield" action={<Link to="/admin/requests" className="text-[14px] font-bold text-gold-deep hover:underline">الكل</Link>}>
+          {queue.data?.length ? (
+            <ul className="divide-y divide-line/70">
+              {[...queue.data].reverse().slice(0, 6).map((r) => {
+                const flagged = r.candidates.filter((c) => c.similar.length).length
+                return (
+                  <li key={r.id}>
+                    <Link to={`/admin/requests/${r.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5 hover:bg-stone">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2"><span className="num font-bold">{r.number}</span><TypeBadge type={r.type} /><span className="truncate text-[14px] text-muted">{r.ownerName}</span></div>
+                        <div className="mt-1 flex flex-wrap gap-1.5">{r.candidates.map((c) => <span key={c.id} className={`rounded px-2 py-0.5 text-[13px] font-bold ${c.similar.length ? 'bg-gold-soft text-gold-deep' : 'bg-stone-deep'}`}>{c.name}</span>)}</div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        {flagged ? <span className="pill bg-gold-soft text-gold-deep"><Icon name="alert" className="h-3.5 w-3.5" />{flagged === 1 ? 'اسم شبيه' : `${flagged} أسماء شبيهة`}</span> : <span className="pill bg-[#E2F0E8] text-ok">بلا تشابه</span>}
+                        <span className="text-[12.5px] text-muted">{dateTime(r.submittedAt)}</span>
+                      </div>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          ) : <div className="p-8 text-center text-muted">لا توجد طلبات بانتظار المراجعة.</div>}
+        </SectionCard>
+
+        <SectionCard title="مزادات جارية" icon="gavel" action={<Link to="/admin/auctions" className="text-[14px] font-bold text-gold-deep hover:underline">متابعة</Link>}>
+          {live.data?.length ? (
+            <ul className="divide-y divide-line/70">
+              {live.data.slice(0, 6).map((a) => (
+                <li key={a.id}>
+                  <Link to={`/auctions/${a.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-stone">
+                    <NameSeal name={a.name} type={a.type} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14px] font-bold">{a.bidCount ? `${num(a.bidCount)} مزايدة` : 'بلا مزايدات'}</p>
+                      <Countdown to={a.endsAt} prefix="ينتهي خلال" className="text-[13px]" />
+                    </div>
+                    <span className="num text-[18px] font-extrabold">{num(a.currentPrice)}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : <div className="p-8 text-center text-muted">لا توجد مزادات جارية.</div>}
+        </SectionCard>
+      </div>
+    </div>
   )
 }
 
@@ -120,7 +167,7 @@ export function AdminReview() {
 
   return (
     <>
-      <Link to="/admin/requests" className="text-sm font-semibold text-muted hover:text-ink">الطلبات</Link>
+      <Link to="/admin/requests" className="text-sm font-medium text-muted hover:text-ink">الطلبات</Link>
       <PageHead title={`مراجعة الطلب ${r.number}`} sub={<span className="flex flex-wrap items-center gap-2"><TypeBadge type={r.type} /><RequestStatusPill status={r.status} /><span>{r.ownerName}، قُدّم {dateTime(r.submittedAt)}</span></span>} />
 
       <div className="space-y-4">

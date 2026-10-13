@@ -16,7 +16,7 @@ export default function About() {
               'A global platform of the International Camel Organization that organises the names and brand marks of camels, runs their auctions, and registers and certifies them to their owners locally and internationally.')}
           </p>
         </div>
-        <div className="sadu relative" aria-hidden />
+        <div className="relative h-1 bg-gold" aria-hidden />
       </section>
 
       <div className="wrap grid gap-6 py-14 lg:grid-cols-3">

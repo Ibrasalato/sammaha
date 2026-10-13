@@ -3,9 +3,10 @@ import { Link, useParams } from 'react-router-dom'
 import { CertificateDoc } from '../../components/CertificateDoc'
 import { InvoiceDoc } from '../../components/InvoiceDoc'
 import { PayModal } from '../../components/PayModal'
-import { Countdown, Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, PhasePill, RequestStatusPill, TypeBadge } from '../../components/ui'
+import { Alert, Icon, SectionCard, StatTile, StepDots } from '../../components/dash'
+import { Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, PhasePill, RequestStatusPill, TypeBadge } from '../../components/ui'
 import { phaseOf } from '../../lib/demoApi'
-import { date, dateTime, num, sar } from '../../lib/format'
+import { date, dateTime, humanLeft, num, sar } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
 
 export function DashHome() {
@@ -19,85 +20,114 @@ export function DashHome() {
   const unpaid = invoices.data?.filter((i) => i.status === 'unpaid') ?? []
   const liveBids = bids.data?.filter((b) => phaseOf(b.auction) === 'live') ?? []
   const pendingPay = reqs.data?.filter((r) => r.status === 'pending_payment') ?? []
+  const underReview = reqs.data?.filter((r) => r.status === 'under_review').length ?? 0
+  const outbid = liveBids.filter((b) => b.auction.leaderId !== b.userId).length
+  const todo = unpaid.length + pendingPay.length + outbid
 
   return (
-    <>
-      <PageHead title={`مرحبًا ${user?.fullName.split(' ')[0] ?? ''}`} action={<Link to="/dashboard/requests/new" className="btn-gold">طلب شعار جديد</Link>} />
+    <div className="space-y-6">
+      {/* Welcome band */}
+      <section className="relative overflow-hidden rounded-xl bg-navy text-paper">
+        <img src="./hero/camels-sky.jpg" alt="" className="absolute inset-0 h-full w-full object-cover opacity-25" />
+        <div className="absolute inset-0 bg-gradient-to-l from-navy via-navy/85 to-navy/40" />
+        <div className="relative flex flex-wrap items-center gap-6 p-6 sm:p-8">
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-medium text-gold-light">لوحة التحكم</p>
+            <h1 className="mt-1 text-[28px] font-extrabold text-paper sm:text-[32px]">مرحبًا {user?.fullName.split(' ')[0] ?? ''}</h1>
+            <p className="mt-1 text-paper/75">{todo ? `لديك ${todo === 1 ? 'إجراء واحد' : todo === 2 ? 'إجراءان' : `${todo} إجراءات`} بانتظارك.` : 'كل شيء على ما يرام، لا توجد إجراءات معلّقة.'}</p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Link to="/dashboard/requests/new" className="btn-gold"><Icon name="plus" className="h-4 w-4" />طلب شعار جديد</Link>
+              <Link to="/auctions" className="btn-on-dark">تصفّح المزادات</Link>
+            </div>
+          </div>
+          <Link to="/dashboard/wallet" className="w-full rounded-lg bg-paper/10 p-5 backdrop-blur-sm transition-colors hover:bg-paper/15 sm:w-60">
+            <span className="flex items-center gap-2 text-[13.5px] text-paper/70"><Icon name="wallet" className="h-4 w-4" />رصيد المحفظة</span>
+            <span className="num mt-1 block text-[30px] font-extrabold">{wallet.data ? sar(wallet.data.balance) : '…'}</span>
+            <span className="text-[13px] text-gold-light">شحن وكشف الحركات</span>
+          </Link>
+        </div>
+      </section>
 
-      {(unpaid.length > 0 || pendingPay.length > 0) && (
-        <div className="mb-5 space-y-2">
+      {todo > 0 && (
+        <div className="space-y-2">
           {unpaid.map((i) => (
-            <Link key={i.id} to={`/dashboard/invoices/${i.id}`} className="flex flex-wrap items-center gap-3 rounded-xl border border-gold bg-gold-soft p-4 hover:border-gold-deep">
-              <span className="flex-1 font-semibold">رسا عليك اسم «{i.name}». الفاتورة {i.number} بانتظار السداد.</span>
-              <span className="num font-extrabold text-lg">{sar(i.amountDue)}</span>
-            </Link>
+            <Alert key={i.id} icon="receipt" to={`/dashboard/invoices/${i.id}`} aside={<span className="num font-extrabold text-ink">{sar(i.amountDue)}</span>}>
+              رسا عليك اسم «{i.name}». سدّد الفاتورة {i.number} لإصدار شهادة التسجيل.
+            </Alert>
+          ))}
+          {liveBids.filter((b) => b.auction.leaderId !== b.userId).map((b) => (
+            <Alert key={b.id} icon="gavel" tone="red" to={`/auctions/${b.auctionId}`} aside={<span className="num font-extrabold text-ink">{sar(b.auction.currentPrice)}</span>}>
+              تجاوز مزايد آخر مزايدتك على «{b.auction.name}».
+            </Alert>
           ))}
           {pendingPay.map((r) => (
-            <Link key={r.id} to={`/dashboard/requests/${r.id}`} className="flex items-center gap-3 rounded-xl border border-gold bg-gold-soft p-4 hover:border-gold-deep">
-              <span className="flex-1 font-semibold">الطلب {r.number} لم يصل اللجنة بعد. سدّد الضمان لإكماله.</span>
-            </Link>
+            <Alert key={r.id} icon="file" to={`/dashboard/requests/${r.id}`}>الطلب {r.number} لم يصل اللجنة بعد. سدّد الضمان لإكماله.</Alert>
           ))}
         </div>
       )}
 
-      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="رصيد المحفظة" value={wallet.data ? sar(wallet.data.balance) : '…'} to="/dashboard/wallet" />
-        <Stat label="طلبات تحت المراجعة" value={num(reqs.data?.filter((r) => r.status === 'under_review').length ?? 0)} to="/dashboard/requests" />
-        <Stat label="مزايدات جارية" value={num(liveBids.length)} to="/dashboard/bids" />
-        <Stat label="أسمائي" value={num(names.data?.length ?? 0)} to="/dashboard/names" />
-      </dl>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile icon="file" tone="blue" label="تحت المراجعة" value={num(underReview)} hint="طلبات لدى اللجنة" to="/dashboard/requests" />
+        <StatTile icon="gavel" tone="gold" label="مزايدات جارية" value={num(liveBids.length)} hint={outbid ? `تم تجاوزك في ${outbid}` : 'أنت المتصدر'} to="/dashboard/bids" />
+        <StatTile icon="tag" tone="green" label="أسمائي" value={num(names.data?.length ?? 0)} hint="مسجلة باسمك" to="/dashboard/names" />
+        <StatTile icon="receipt" tone="red" label="فواتير مستحقة" value={num(unpaid.length)} hint={unpaid.length ? sar(unpaid.reduce((s, i) => s + i.amountDue, 0)) : 'لا مستحقات'} to="/dashboard/invoices" />
+      </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <section>
-          <h2 className="mb-3 text-xl">آخر الطلبات</h2>
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
+        <SectionCard title="آخر الطلبات" icon="file" action={<Link to="/dashboard/requests" className="text-[14px] font-bold text-gold-deep hover:underline">الكل</Link>}>
           {reqs.data?.length ? (
-            <ul className="panel divide-y divide-line/70">
-              {reqs.data.slice(0, 5).map((r) => (
-                <li key={r.id}>
-                  <Link to={`/dashboard/requests/${r.id}`} className="flex flex-wrap items-center gap-2 px-4 py-3 hover:bg-stone">
-                    <span className="num font-semibold">{r.number}</span>
-                    <TypeBadge type={r.type} />
-                    <span className="truncate font-extrabold text-muted">{r.candidates.map((c) => c.name).join('، ')}</span>
-                    <span className="ms-auto"><RequestStatusPill status={r.status} /></span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : <Empty title="لا توجد طلبات"><Link to="/dashboard/requests/new" className="btn-gold btn-sm">طلب شعار جديد</Link></Empty>}
-        </section>
-        <section>
-          <h2 className="mb-3 text-xl">مزايداتي الجارية</h2>
-          {liveBids.length ? (
-            <ul className="panel divide-y divide-line/70">
-              {liveBids.map((b) => {
-                const leading = b.auction.leaderId === b.userId
+            <ul className="divide-y divide-line/70">
+              {reqs.data.slice(0, 5).map((r) => {
+                const done = 1 + (r.depositPaid ? 1 : 0) + (r.reviewedAt ? 1 : 0) + (r.candidates.some((c) => c.auctionId) ? 1 : 0)
                 return (
-                  <li key={b.id}>
-                    <Link to={`/auctions/${b.auctionId}`} className="flex items-center gap-3 px-4 py-3 hover:bg-stone">
-                      <NameSeal name={b.auction.name} type={b.auction.type} size="sm" />
-                      <div className="flex-1">
-                        <p className={`text-sm font-semibold ${leading ? 'text-ok' : 'text-bad'}`}>{leading ? 'أنت المتصدر' : 'تجاوزك مزايد آخر'}</p>
-                        <Countdown to={b.auction.endsAt} prefix="ينتهي خلال" className="text-sm" />
+                  <li key={r.id}>
+                    <Link to={`/dashboard/requests/${r.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5 hover:bg-stone">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2"><span className="num font-bold">{r.number}</span><TypeBadge type={r.type} /></div>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {r.candidates.map((c) => (
+                            <span key={c.id} className={`rounded px-2 py-0.5 text-[13px] font-bold ${c.status === 'accepted' ? 'bg-[#E2F0E8] text-ok' : c.status === 'rejected' ? 'bg-bad/10 text-bad line-through' : 'bg-stone-deep text-ink'}`}>{c.name}</span>
+                          ))}
+                        </div>
                       </div>
-                      <span className="num font-extrabold text-lg">{num(b.auction.currentPrice)}</span>
+                      <div className="flex flex-col items-end gap-1.5"><RequestStatusPill status={r.status} /><StepDots done={r.status === 'rejected' || r.status === 'cancelled' ? 0 : done} /></div>
                     </Link>
                   </li>
                 )
               })}
             </ul>
-          ) : <Empty title="لا تزايد على أي اسم الآن"><Link to="/auctions" className="btn-ghost btn-sm">تصفّح المزادات</Link></Empty>}
-        </section>
-      </div>
-    </>
-  )
-}
+          ) : <div className="p-8 text-center text-muted">لا توجد طلبات بعد. <Link to="/dashboard/requests/new" className="font-bold text-gold-deep underline">قدّم أول طلب</Link></div>}
+        </SectionCard>
 
-function Stat({ label, value, to }: { label: string; value: string; to: string }) {
-  return (
-    <Link to={to} className="panel block p-4 hover:border-navy">
-      <dt className="text-sm text-muted">{label}</dt>
-      <dd className="num mt-1 font-extrabold text-2xl font-semibold">{value}</dd>
-    </Link>
+        <SectionCard title="مزايداتي الجارية" icon="gavel" action={<Link to="/dashboard/bids" className="text-[14px] font-bold text-gold-deep hover:underline">الكل</Link>}>
+          {liveBids.length ? (
+            <ul className="divide-y divide-line/70">
+              {liveBids.map((b) => {
+                const leading = b.auction.leaderId === b.userId
+                return (
+                  <li key={b.id}>
+                    <Link to={`/auctions/${b.auctionId}`} className="flex items-center gap-3 px-5 py-3 hover:bg-stone">
+                      <NameSeal name={b.auction.name} type={b.auction.type} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-[14px] font-bold ${leading ? 'text-ok' : 'text-bad'}`}>{leading ? 'أنت المتصدر' : 'تجاوزك مزايد آخر'}</p>
+                        <p className="text-[13px] text-muted">ينتهي خلال {humanLeft(Date.parse(b.auction.endsAt) - Date.now())}</p>
+                      </div>
+                      <span className="num text-[18px] font-extrabold">{num(b.auction.currentPrice)}</span>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          ) : <div className="p-8 text-center text-muted">لا تزايد على أي اسم الآن. <Link to="/auctions" className="font-bold text-gold-deep underline">تصفّح المزادات</Link></div>}
+        </SectionCard>
+      </div>
+
+      {!!names.data?.length && (
+        <SectionCard title="أسمائي المسجلة" icon="tag" action={<Link to="/dashboard/names" className="text-[14px] font-bold text-gold-deep hover:underline">الشهادات</Link>}>
+          <div className="flex flex-wrap gap-3 p-5">{names.data.map((n) => <NameSeal key={n.id} name={n.name} type={n.type} size="md" />)}</div>
+        </SectionCard>
+      )}
+    </div>
   )
 }
 
@@ -182,7 +212,7 @@ export function InvoicePage() {
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
-        <Link to="/dashboard/invoices" className="text-sm font-semibold text-muted hover:text-ink">الفواتير</Link>
+        <Link to="/dashboard/invoices" className="text-sm font-medium text-muted hover:text-ink">الفواتير</Link>
         <span className="ms-auto" />
         {data.status === 'unpaid' && <button className="btn-gold" onClick={() => setPaying(true)}>سداد {sar(data.amountDue)}</button>}
         <button className="btn-ghost" onClick={() => window.print()}>طباعة أو حفظ PDF</button>
@@ -261,7 +291,7 @@ export function CertificatePage() {
     <>
       <style>{'@page { size: A4 landscape; margin: 0 }'}</style>
       <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
-        <Link to="/dashboard/names" className="text-sm font-bold text-muted hover:text-navy">أسمائي</Link>
+        <Link to="/dashboard/names" className="text-sm font-medium text-muted hover:text-navy">أسمائي</Link>
         <span className="ms-auto" />
         <button className="btn-primary" onClick={() => window.print()}>طباعة أو حفظ PDF</button>
       </div>

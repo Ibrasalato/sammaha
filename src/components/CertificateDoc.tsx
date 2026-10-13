@@ -10,7 +10,6 @@ import { IcoLogo, Logo } from './Layout'
 export function CertificateDoc({ r }: { r: ReservedName }) {
   const [qr, setQr] = useState('')
   useEffect(() => { QRCode.toDataURL(verifyUrl(r), { margin: 1, width: 220, color: { dark: '#0D2137', light: '#FFFFFF' } }).then(setQr) }, [r])
-  const q = r.type === 'qaadan'
   return (
     <article className="certificate relative mx-auto aspect-[1.414] w-full max-w-4xl overflow-hidden rounded-lg border border-line bg-white text-ink shadow-card print:rounded-none print:border-0 print:shadow-none">
       <div className="sadu" aria-hidden />
@@ -19,7 +18,7 @@ export function CertificateDoc({ r }: { r: ReservedName }) {
         <Logo className="h-14 sm:h-20" />
         <h1 className="mt-2 text-[22px] font-extrabold text-navy sm:mt-4 sm:text-[34px]">شهادة تسجيل اسم شعار</h1>
         <p className="mt-1 text-[13px] text-muted sm:text-[16px]">تشهد منصة سمّها التابعة للمنظمة الدولية للإبل بأن الاسم الآتي مسجّل ومعتمد باسم مالكه</p>
-        <div className={`mt-4 rounded-lg border-2 px-10 py-3 sm:mt-6 sm:px-16 sm:py-5 ${q ? 'border-qaadan bg-qaadan-soft text-qaadan-deep' : 'border-bakkar bg-bakkar-soft text-bakkar-deep'}`}>
+        <div className={`lot-field lot-${r.type} mt-4 rounded-xl px-12 py-4 text-paper sm:mt-6 sm:px-20 sm:py-6`}>
           <div className="text-[34px] font-extrabold leading-none sm:text-[56px]">{r.name}</div>
           <div className="mt-2 text-[13px] font-bold sm:text-[15px]">{TYPE_LABEL[r.type]}، {TYPE_HINT[r.type]}</div>
         </div>
