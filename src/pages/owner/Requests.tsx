@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PayModal } from '../../components/PayModal'
-import { Empty, ErrorBox, Loading, NameSeal, PageHead, RequestStatusPill, TypeBadge } from '../../components/ui'
+import { Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, RequestStatusPill, TypeBadge } from '../../components/ui'
 import { RULES, TYPE_HINT, TYPE_LABEL } from '../../lib/config'
 import { dateTime, sar } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
@@ -23,10 +23,57 @@ function CandidateChip({ c, type }: { c: Candidate; type: NameType }) {
   )
 }
 
+const CANCEL_REASONS = ['لم أعد أحتاج الأسماء', 'أريد تغيير الأسماء المقترحة', 'طال وقت المراجعة', 'سبب آخر']
+
+/** Confirms a cancellation, says exactly what happens to the guarantee and any scheduled auctions. */
+function CancelRequest({ r, onClose, onDone }: { r: LogoRequest; onClose: () => void; onDone: () => void }) {
+  const { toast } = useApp()
+  const nav = useNavigate()
+  const [reason, setReason] = useState(CANCEL_REASONS[0])
+  const [other, setOther] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const held = r.depositState === 'held'
+  const scheduled = r.candidates.filter((c) => c.auctionId).length
+  async function confirm() {
+    setBusy(true); setErr('')
+    try {
+      const { refunded } = await api.cancelMyRequest(r.id, reason === 'سبب آخر' ? other : reason)
+      toast(refunded ? `أُلغي الطلب ${r.number} وأُعيد ${sar(refunded)} إلى محفظتك` : `أُلغي الطلب ${r.number}`)
+      onDone()
+      if (refunded) nav('/dashboard/wallet')
+    } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
+  }
+  return (
+    <Modal open onClose={onClose} title={`إلغاء الطلب ${r.number}`}>
+      <div className="space-y-4">
+        {err && <ErrorBox text={err} />}
+        <ul className="space-y-2 rounded-lg bg-stone p-4 text-[15px]">
+          {held
+            ? <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-ok" /><span>يُعاد ضمان المزاد <b>{sar(r.depositAmount)}</b> إلى محفظتك فورًا، وتستخدمه في طلب جديد.</span></li>
+            : <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-muted" />لم تسدّد الضمان بعد، فلا يوجد مبلغ للاسترداد.</li>}
+          {scheduled > 0 && <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" /><span>{scheduled === 1 ? 'يُلغى المزاد المجدول' : `تُلغى المزادات المجدولة (${scheduled})`} لأسماء هذا الطلب قبل أن يبدأ.</span></li>}
+          <li className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-bad" />تصبح الأسماء متاحة لغيرك، ولا يمكن التراجع عن الإلغاء.</li>
+        </ul>
+        <div>
+          <label className="label" htmlFor="cr">سبب الإلغاء</label>
+          <select id="cr" className="field" value={reason} onChange={(e) => setReason(e.target.value)}>{CANCEL_REASONS.map((x) => <option key={x}>{x}</option>)}</select>
+          {reason === 'سبب آخر' && <input className="field mt-2" maxLength={300} placeholder="اكتب السبب (اختياري)" value={other} onChange={(e) => setOther(e.target.value)} />}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn bg-bad text-paper hover:bg-bad/90" disabled={busy} onClick={confirm}>{busy ? 'جارٍ الإلغاء…' : held ? `إلغاء واسترداد ${sar(r.depositAmount)}` : 'تأكيد الإلغاء'}</button>
+          <button className="btn-ghost" disabled={busy} onClick={onClose}>تراجع</button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 export function MyRequests() {
   const { toast } = useApp()
   const { data, loading, reload } = useLoad(() => api.myRequests(), [])
   const [paying, setPaying] = useState<LogoRequest | null>(null)
+  const [cancelling, setCancelling] = useState<LogoRequest | null>(null)
 
   return (
     <>
@@ -45,6 +92,7 @@ export function MyRequests() {
               <div className="mt-3 flex flex-wrap gap-2">
                 {r.status === 'pending_payment' && <button className="btn-gold btn-sm" onClick={() => setPaying(r)}>سداد الضمان {sar(r.depositAmount)}</button>}
                 <Link to={`/dashboard/requests/${r.id}`} className="btn-ghost btn-sm">التفاصيل</Link>
+                {r.cancellable && <button className="btn-danger btn-sm" onClick={() => setCancelling(r)}>{r.depositState === 'held' ? 'إلغاء واسترداد الضمان' : 'إلغاء الطلب'}</button>}
               </div>
             </li>
           ))}
@@ -55,6 +103,7 @@ export function MyRequests() {
           <Link to="/dashboard/requests/new" className="btn-gold">طلب شعار جديد</Link>
         </Empty>
       )}
+      {cancelling && <CancelRequest r={cancelling} onClose={() => setCancelling(null)} onDone={() => { setCancelling(null); reload() }} />}
       {paying && (
         <PayModal open title={`سداد ضمان الطلب ${paying.number}`} amount={paying.depositAmount} onClose={() => setPaying(null)}
           onPay={async (m) => {
@@ -164,6 +213,7 @@ export function RequestDetail() {
   const { toast } = useApp()
   const { data: r, error, loading, reload } = useLoad(() => api.getRequest(id), [id])
   const [paying, setPaying] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   if (loading && !r) return <Loading />
   if (error || !r) return <ErrorBox text={error || 'الطلب غير موجود'} />
 
@@ -177,12 +227,20 @@ export function RequestDetail() {
   return (
     <>
       <PageHead title={`الطلب ${r.number}`} sub={<span className="flex flex-wrap items-center gap-2"><TypeBadge type={r.type} /><RequestStatusPill status={r.status} /></span>}
-        action={r.status === 'pending_payment' || r.status === 'under_review' ? (
-          <button className="btn-danger btn-sm" onClick={async () => {
-            if (!confirm('إلغاء الطلب؟ سيُعاد الضمان إلى محفظتك إن كان مسددًا.')) return
-            try { await api.cancelMyRequest(r.id); toast('أُلغي الطلب'); reload() } catch (e) { toast((e as Error).message, 'bad') }
-          }}>إلغاء الطلب</button>
+        action={r.cancellable ? (
+          <button className="btn-danger btn-sm" onClick={() => setCancelling(true)}>{r.depositState === 'held' ? 'إلغاء الطلب واسترداد الضمان' : 'إلغاء الطلب'}</button>
         ) : undefined} />
+
+      {r.status === 'cancelled' && (
+        <div className="mb-4 rounded-xl border border-line bg-stone p-4 text-[15px]">
+          <b>أُلغي هذا الطلب{r.cancelledBy === 'owner' ? ' بطلبك' : ''}{r.cancelledAt ? ` في ${dateTime(r.cancelledAt)}` : ''}.</b>
+          {r.cancelReason && <span className="text-muted"> السبب: {r.cancelReason}.</span>}
+          {r.depositState === 'refunded' && <> أُعيد الضمان {sar(r.depositAmount)} إلى <Link to="/dashboard/wallet" className="font-bold text-pine underline">محفظتك</Link>.</>}
+        </div>
+      )}
+      {r.status === 'accepted' && !r.cancellable && (
+        <p className="mb-4 text-[14px] text-muted">بدأ مزاد أحد أسماء هذا الطلب، لذلك لا يمكن إلغاؤه. يُعاد الضمان تلقائيًا إن رست كل الأسماء على غيرك.</p>
+      )}
 
       <ol className="panel mb-4 grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
         {steps.map(([label, done], i) => (
@@ -204,11 +262,11 @@ export function RequestDetail() {
         {r.candidates.map((c) => (
           <div key={c.id} className="panel flex flex-col items-center gap-3 p-5 text-center">
             <NameSeal name={c.name} type={r.type} size="md" />
-            <span className={`pill ${c.status === 'accepted' ? 'bg-ok/10 text-ok' : c.status === 'rejected' ? 'bg-bad/10 text-bad' : 'bg-stone-deep text-muted'}`}>
-              {c.status === 'accepted' ? 'مقبول' : c.status === 'rejected' ? 'مرفوض' : 'قيد المراجعة'}
+            <span className={`pill ${r.status === 'cancelled' ? 'bg-stone-deep text-muted' : c.status === 'accepted' ? 'bg-ok/10 text-ok' : c.status === 'rejected' ? 'bg-bad/10 text-bad' : 'bg-stone-deep text-muted'}`}>
+              {r.status === 'cancelled' ? 'ملغى' : c.status === 'accepted' ? 'مقبول' : c.status === 'rejected' ? 'مرفوض' : 'قيد المراجعة'}
             </span>
             {c.rejectReason && <p className="text-sm text-bad">{c.rejectReason}</p>}
-            {c.status === 'accepted' && (c.auctionId
+            {c.status === 'accepted' && r.status !== 'cancelled' && (c.auctionId
               ? <Link to={`/auctions/${c.auctionId}`} className="btn-ghost btn-sm">صفحة المزاد</Link>
               : <p className="text-sm text-muted">بانتظار تحديد موعد المزاد</p>)}
           </div>
@@ -222,6 +280,7 @@ export function RequestDetail() {
         {r.reviewNote && <div><dt className="text-muted">ملاحظة اللجنة</dt><dd className="font-semibold">{r.reviewNote}</dd></div>}
       </dl>
 
+      {cancelling && <CancelRequest r={r} onClose={() => setCancelling(false)} onDone={() => { setCancelling(false); reload() }} />}
       {paying && (
         <PayModal open title={`سداد ضمان الطلب ${r.number}`} amount={r.depositAmount} onClose={() => setPaying(false)}
           onPay={async (m) => { try { await api.payDeposit(r.id, m); toast('تم السداد، طلبك الآن تحت المراجعة'); reload() } catch (e) { toast((e as Error).message, 'bad'); throw e } }} />

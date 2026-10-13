@@ -68,6 +68,11 @@ export interface LogoRequest {
   reviewedAt?: string
   reviewerName?: string
   reviewNote?: string
+  /** the owner can still cancel (and get the guarantee back): before review, or accepted with no auction started */
+  cancellable?: boolean
+  cancelledAt?: string
+  cancelledBy?: 'owner' | 'committee'
+  cancelReason?: string
 }
 
 export type AuctionPhase = 'scheduled' | 'live' | 'ended'

@@ -293,6 +293,17 @@ function balanceOf(db: DB, userId: string) {
   return round2(db.txs.filter((t) => t.userId === userId).reduce((s, t) => s + t.amount, 0))
 }
 
+/** Owner may cancel before review, or after acceptance as long as none of its auctions has started. */
+function cancellable(db: DB, r: LogoRequest, t = now()) {
+  if (r.status === 'pending_payment' || r.status === 'under_review') return true
+  if (r.status !== 'accepted') return false
+  return r.candidates.every((c) => {
+    const a = c.auctionId ? db.auctions.find((x) => x.id === c.auctionId) : undefined
+    return !a || (t < Date.parse(a.startsAt) && a.bidCount === 0)
+  })
+}
+const withCancel = (db: DB, r: LogoRequest): LogoRequest => ({ ...r, cancellable: cancellable(db, r) })
+
 function refundDeposit(db: DB, r: LogoRequest, why: string) {
   if (r.depositState !== 'held') return
   r.depositState = 'refunded'
@@ -576,7 +587,7 @@ export const demoApi: SammhaApi = {
 
   myRequests: () => tx((db) => {
     const u = me(db)
-    return db.requests.filter((r) => r.userId === u.id).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    return db.requests.filter((r) => r.userId === u.id).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).map((r) => withCancel(db, r))
   }),
 
   createRequest: (type, names) => tx((db) => {
@@ -615,13 +626,20 @@ export const demoApi: SammhaApi = {
     return r
   }),
 
-  cancelMyRequest: (requestId) => tx((db) => {
+  cancelMyRequest: (requestId, reason) => tx((db) => {
     const u = me(db)
     const r = db.requests.find((x) => x.id === requestId && x.userId === u.id)
     if (!r) throw new ApiError('الطلب غير موجود')
-    if (r.status !== 'pending_payment' && r.status !== 'under_review') throw new ApiError('لا يمكن إلغاء الطلب بعد مراجعته')
-    r.status = 'cancelled'
+    if (r.status === 'cancelled') throw new ApiError('الطلب ملغى مسبقًا')
+    if (!cancellable(db, r)) throw new ApiError(r.status === 'accepted' ? 'بدأ مزاد أحد أسماء هذا الطلب، فلا يمكن إلغاؤه الآن' : 'لا يمكن إلغاء هذا الطلب')
+    // remove auctions that were scheduled but have not started
+    const ids = new Set(r.candidates.map((c) => c.auctionId).filter(Boolean))
+    db.auctions = db.auctions.filter((a) => !ids.has(a.id))
+    r.candidates.forEach((c) => { c.auctionId = undefined })
+    const held = r.depositState === 'held' ? r.depositAmount : 0
+    Object.assign(r, { status: 'cancelled', cancelledAt: iso(now()), cancelledBy: 'owner', cancelReason: reason?.trim().slice(0, 300) || undefined })
     refundDeposit(db, r, 'ألغاه المالك')
+    return { refunded: held }
   }),
 
   myWallet: () => tx((db) => {
@@ -716,7 +734,7 @@ export const demoApi: SammhaApi = {
     const r = db.requests.find((x) => x.id === id)
     if (!r || (u.role === 'owner' && r.userId !== u.id)) throw new ApiError('الطلب غير موجود')
     if (u.role !== 'owner' && r.status === 'under_review') r.candidates.forEach((c) => { c.similar = similarFor(db, c.normalized, r.id) })
-    return r
+    return withCancel(db, r)
   }),
 
   reviewRequest: (id, decisions, note) => tx((db) => {

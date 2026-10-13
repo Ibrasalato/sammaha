@@ -41,7 +41,8 @@ export interface SammhaApi {
   myRequests(): Promise<LogoRequest[]>
   createRequest(type: NameType, names: string[]): Promise<LogoRequest>
   payDeposit(requestId: string, method: PayMethod): Promise<LogoRequest>
-  cancelMyRequest(requestId: string): Promise<void>
+  /** returns the amount refunded to the wallet (0 if the guarantee was not paid yet) */
+  cancelMyRequest(requestId: string, reason?: string): Promise<{ refunded: number }>
   myWallet(): Promise<Wallet>
   topUp(amount: number): Promise<Wallet>
   myInvoices(): Promise<Invoice[]>

@@ -95,7 +95,7 @@ export const supabaseApi: SammhaApi = {
     if (method === 'card') await cardPayment('deposit', requestId, 50)
     return rpc('pay_deposit', { p_request: requestId })
   },
-  async cancelMyRequest(requestId) { await rpc('cancel_my_request', { p_request: requestId }) },
+  cancelMyRequest: (requestId, reason) => rpc('cancel_my_request', { p_request: requestId, p_reason: reason ?? null }),
   myWallet: () => rpc('my_wallet'),
   async topUp(amount) {
     await cardPayment('topup', '', amount)
