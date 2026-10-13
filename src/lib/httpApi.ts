@@ -7,14 +7,59 @@ import type { Auction, AuctionView, Invoice, LogoRequest, NameListing, User, Wal
  * Set VITE_API_URL to its address (e.g. https://api.sammha.ico.org.sa).
  */
 const BASE = (import.meta.env.VITE_API_URL as string | undefined ?? '').replace(/\/$/, '')
-const TOKEN_KEY = 'sammha-token'
+const SESSION_KEY = 'sammha-session'
 
-function getToken() { try { return localStorage.getItem(TOKEN_KEY) } catch { return null } }
-function setToken(t: string | null) { try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY) } catch { /* ignore */ } }
+/** JWT session: a 15-minute access token plus a rotating refresh token. */
+interface Session { token: string; expiresAt: number; refreshToken: string }
+interface AuthResult { user: User; token: string; expiresAt: string; refreshToken: string; refreshExpiresAt: string }
 
-async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
+let session: Session | null = (() => {
+  try {
+    localStorage.removeItem('sammha-token') // the old single-token format
+    const raw = localStorage.getItem(SESSION_KEY)
+    return raw ? (JSON.parse(raw) as Session) : null
+  } catch { return null }
+})()
+
+function saveSession(r: AuthResult | null) {
+  session = r ? { token: r.token, expiresAt: Date.parse(r.expiresAt), refreshToken: r.refreshToken } : null
+  try { if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session)); else localStorage.removeItem(SESSION_KEY) } catch { /* ignore */ }
+}
+
+// another tab rotated or ended the session
+if (typeof window !== 'undefined') window.addEventListener('storage', (e) => {
+  if (e.key !== SESSION_KEY) return
+  try { session = e.newValue ? (JSON.parse(e.newValue) as Session) : null } catch { session = null }
+})
+
+/** One refresh at a time; concurrent callers share it. A rejected refresh ends the session. */
+let refreshing: Promise<boolean> | null = null
+function refresh(): Promise<boolean> {
+  if (!session) return Promise.resolve(false)
+  const used = session.refreshToken
+  refreshing ??= (async () => {
+    try {
+      const res = await fetch(`${BASE}/api/auth/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ refreshToken: used }) })
+      if (res.ok) { saveSession(await res.json() as AuthResult); return true }
+      // another tab may have rotated it already
+      if (session && session.refreshToken !== used) return true
+      if (res.status === 401) saveSession(null)
+      return false
+    } catch { return false } finally { refreshing = null }
+  })()
+  return refreshing
+}
+
+/** A valid access token, renewed shortly before it expires. */
+async function accessToken(): Promise<string | null> {
+  if (!session) return null
+  if (session.expiresAt - Date.now() < 60_000) await refresh()
+  return session?.token ?? null
+}
+
+async function call<T>(method: string, path: string, body?: unknown, retried = false): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' }
-  const token = getToken()
+  const token = await accessToken()
   if (token) headers.Authorization = `Bearer ${token}`
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   let res: Response
@@ -23,7 +68,8 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   } catch {
     throw new ApiError('تعذّر الاتصال بالخادم، تحقق من الإنترنت وحاول مرة أخرى')
   }
-  if (res.status === 401 && token) setToken(null) // expired or suspended
+  // the access token was rejected early (clock skew, password changed elsewhere): renew once and retry
+  if (res.status === 401 && token && !retried && await refresh()) return call<T>(method, path, body, true)
   if (res.status === 204) return null as T
   const text = await res.text()
   const data = text ? JSON.parse(text) : null
@@ -46,21 +92,26 @@ async function card(purpose: 'topup' | 'deposit' | 'invoice' | 'bid_deposit' | '
 
 export const httpApi: SammhaApi = {
   // ───── auth ─────
-  currentUser: async () => (getToken() ? get<User | null>('/api/auth/me').catch(() => null) : null),
+  currentUser: async () => (session ? get<User | null>('/api/auth/me').catch(() => null) : null),
   async signUp(input) {
-    const r = await post<{ user: User; token: string }>('/api/auth/signup', input)
-    setToken(r.token)
+    const r = await post<AuthResult>('/api/auth/signup', input)
+    saveSession(r)
     return r.user
   },
   startSignIn: (login, password, portal) => post<OtpChallenge>('/api/auth/signin', { login, password, portal }),
   async completeSignIn(challenge, code) {
-    const r = await post<{ user: User; token: string }>('/api/auth/signin/complete', { challenge, code })
-    setToken(r.token)
+    const r = await post<AuthResult>('/api/auth/signin/complete', { challenge, code })
+    saveSession(r)
     return r.user
   },
   resendOtp: (challenge) => post('/api/auth/otp/resend', { challenge }),
-  changePassword: async (current, next) => { await post('/api/auth/password', { current, next }) },
-  signOut: async () => { setToken(null) },
+  // other devices are signed out; this one gets a fresh session
+  changePassword: async (current, next) => { saveSession(await post<AuthResult>('/api/auth/password', { current, next })) },
+  async signOut() {
+    const s = session
+    saveSession(null)
+    if (s) await fetch(`${BASE}/api/auth/signout`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.token}` }, body: JSON.stringify({ refreshToken: s.refreshToken }) }).catch(() => {})
+  },
 
   // ───── public ─────
   stats: () => get('/api/stats'),
@@ -71,7 +122,7 @@ export const httpApi: SammhaApi = {
     let closed = false
     import('@microsoft/signalr').then(({ HubConnectionBuilder, LogLevel }) => {
       if (closed) return
-      const conn = new HubConnectionBuilder().withUrl(`${BASE}/hubs/auctions`).withAutomaticReconnect().configureLogging(LogLevel.Warning).build()
+      const conn = new HubConnectionBuilder().withUrl(`${BASE}/hubs/auctions`, { accessTokenFactory: async () => (await accessToken()) ?? '' }).withAutomaticReconnect().configureLogging(LogLevel.Warning).build()
       conn.on('changed', () => onChange())
       conn.onreconnected(() => { conn.invoke('Join', id).catch(() => {}) })
       conn.start().then(() => conn.invoke('Join', id)).catch(() => { /* the page also polls */ })
