@@ -13,13 +13,23 @@ export interface SignUpInput {
 
 export type PayMethod = 'wallet' | 'card'
 
+export interface OtpChallenge {
+  challenge: string
+  /** e.g. 05•••••567 */
+  phoneMasked: string
+  expiresAt: string
+}
+
 /** Everything the UI needs. Implemented by demoApi (localStorage) and supabaseApi (Postgres RPC). */
 export interface SammhaApi {
   // auth
   currentUser(): Promise<User | null>
   signUp(input: SignUpInput): Promise<User>
-  /** portal 'owner' accepts camel owners only, 'staff' accepts committee and admins only */
-  signIn(login: string, password: string, portal: 'owner' | 'staff'): Promise<User>
+  /** step 1: password. portal 'owner' accepts camel owners only, 'staff' committee and admins only.
+   *  Returns a challenge; the session starts only after the one-time code (step 2). */
+  startSignIn(login: string, password: string, portal: 'owner' | 'staff'): Promise<OtpChallenge>
+  completeSignIn(challenge: string, code: string): Promise<User>
+  resendOtp(challenge: string): Promise<OtpChallenge>
   changePassword(current: string, next: string): Promise<void>
   signOut(): Promise<void>
 
@@ -40,6 +50,8 @@ export interface SammhaApi {
   // owner
   myRequests(): Promise<LogoRequest[]>
   createRequest(type: NameType, names: string[]): Promise<LogoRequest>
+  /** compound name for a name the owner holds; goes to the committee, registered directly on approval (no auction) */
+  createCompoundRequest(reservedId: string, fullName: string): Promise<LogoRequest>
   payDeposit(requestId: string, method: PayMethod): Promise<LogoRequest>
   /** returns the amount refunded to the wallet (0 if the guarantee was not paid yet) */
   cancelMyRequest(requestId: string, reason?: string): Promise<{ refunded: number }>
@@ -52,6 +64,10 @@ export interface SammhaApi {
   myBids(): Promise<(Bid & { auction: Auction })[]>
   myNames(): Promise<ReservedName[]>
   updateMyProfile(p: { avatarUrl?: string | null; showAvatar: boolean }): Promise<User>
+  updateMyAccount(p: { fullName: string; email: string; nationalId?: string }): Promise<User>
+  /** sends a one-time code to the new number */
+  requestPhoneChange(newPhone: string): Promise<OtpChallenge>
+  confirmPhoneChange(challenge: string, code: string): Promise<User>
   myNotifications(): Promise<AppNotification[]>
   markNotificationsRead(): Promise<void>
   myTickets(): Promise<Ticket[]>

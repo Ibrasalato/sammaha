@@ -45,4 +45,7 @@ export const SUPER_ADMIN_EMAIL = 'ibrasalato@gmail.com'
 /** Staff sign-in lives on its own unlisted address, not on the public login page. */
 export const STAFF_LOGIN_PATH = '/ico-staff'
 
+/** One-time code: fixed until an SMS provider is connected (then it's random and sent by SMS). */
+export const OTP = { fixedCode: '4321', length: 4, ttlMinutes: 5, maxAttempts: 5 }
+
 export const IS_DEMO = !import.meta.env.VITE_SUPABASE_URL

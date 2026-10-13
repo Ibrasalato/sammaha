@@ -4,8 +4,9 @@
  * The production backend (supabase/migrations) implements the same rules in SQL.
  */
 import { ApiError } from './api'
-import type { PayMethod, SammhaApi, SignUpInput } from './api'
-import { RULES, SUPER_ADMIN_EMAIL } from './config'
+import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'
+import { OTP, RULES, SUPER_ADMIN_EMAIL } from './config'
+import { maskPhone, otpDigits } from './otp'
 import { namesCount } from './format'
 import { SEED_EVENTS } from './events'
 import { certNo } from './cert'
@@ -217,6 +218,25 @@ function seedTickets(db: DB, t: number) {
   db.seq += 3
 }
 
+// ───────────────────────── one-time codes ─────────────────────────
+// Demo: the code is OTP.fixedCode until an SMS provider is connected.
+interface Challenge { userId: string; purpose: 'login' | 'phone'; phone: string; expires: number; attempts: number }
+const challenges = new Map<string, Challenge>()
+function issueOtp(userId: string, purpose: Challenge['purpose'], phone: string, id = `otp${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`): OtpChallenge {
+  const expires = now() + OTP.ttlMinutes * 60_000
+  challenges.set(id, { userId, purpose, phone, expires, attempts: 0 })
+  return { challenge: id, phoneMasked: maskPhone(phone), expiresAt: iso(expires) }
+}
+function consumeOtp(id: string, code: string, purpose: Challenge['purpose']): Challenge {
+  const c = challenges.get(id)
+  if (!c || c.purpose !== purpose || now() > c.expires) { challenges.delete(id); throw new ApiError('انتهت صلاحية الرمز، اطلب رمزًا جديدًا') }
+  if (c.attempts >= OTP.maxAttempts) { challenges.delete(id); throw new ApiError('تجاوزت عدد المحاولات، اطلب رمزًا جديدًا') }
+  c.attempts += 1
+  if (otpDigits(code) !== OTP.fixedCode) throw new ApiError(`الرمز غير صحيح، بقي ${OTP.maxAttempts - c.attempts} محاولات`)
+  challenges.delete(id)
+  return c
+}
+
 // ───────────────────────── persistence ─────────────────────────
 function load(): DB {
   try {
@@ -260,6 +280,7 @@ function matchPool(db: DB, excludeRequestId?: string): MatchSource[] {
     if (r.status !== 'under_review' && r.status !== 'accepted' && r.status !== 'pending_payment') continue
     for (const c of r.candidates) {
       if (c.status === 'rejected' || c.status === 'withdrawn') continue
+      if (r.kind === 'compound' && r.status === 'accepted') continue // already in the registry
       const a = c.auctionId ? db.auctions.find((x) => x.id === c.auctionId) : undefined
       if (a?.settled) continue // already in reserved
       pool.push({ name: c.name, normalized: c.normalized, type: r.type, source: a ? 'auction' : 'request' })
@@ -296,7 +317,7 @@ function balanceOf(db: DB, userId: string) {
 /** Owner may cancel before review, or after acceptance as long as none of its auctions has started. */
 function cancellable(db: DB, r: LogoRequest, t = now()) {
   if (r.status === 'pending_payment' || r.status === 'under_review') return true
-  if (r.status !== 'accepted') return false
+  if (r.status !== 'accepted' || r.kind === 'compound') return false
   return r.candidates.every((c) => {
     const a = c.auctionId ? db.auctions.find((x) => x.id === c.auctionId) : undefined
     return !a || (t < Date.parse(a.startsAt) && a.bidCount === 0)
@@ -305,6 +326,7 @@ function cancellable(db: DB, r: LogoRequest, t = now()) {
 /** A single name can be withdrawn while it is pending or accepted and its auction (if any) has not started. */
 function withdrawable(db: DB, r: LogoRequest, c: LogoRequest['candidates'][number], t = now()) {
   if (!['pending_payment', 'under_review', 'accepted'].includes(r.status)) return false
+  if (r.kind === 'compound') return false // a single name: cancel the request instead
   if (c.status !== 'pending' && c.status !== 'accepted') return false
   const a = c.auctionId ? db.auctions.find((x) => x.id === c.auctionId) : undefined
   return !a || (t < Date.parse(a.startsAt) && a.bidCount === 0)
@@ -423,7 +445,7 @@ export const demoApi: SammhaApi = {
     return publicUser(u)
   }),
 
-  signIn: (login, password, portal) => tx((db) => {
+  startSignIn: (login, password, portal) => tx((db) => {
     const l = login.trim().toLowerCase()
     const u = db.users.find((x) => x.phone === l || x.email.toLowerCase() === l)
     const wrong = new ApiError(portal === 'staff' ? 'البيانات غير صحيحة' : 'رقم الجوال أو كلمة المرور غير صحيحة')
@@ -436,7 +458,58 @@ export const demoApi: SammhaApi = {
     }
     if (u.password !== password) throw wrong
     if (u.active === false) throw new ApiError('هذا الحساب موقوف، تواصل مع مدير النظام')
+    return issueOtp(u.id, 'login', u.phone)
+  }),
+
+  completeSignIn: (challenge, code) => tx((db) => {
+    const c = consumeOtp(challenge, code, 'login')
+    const u = db.users.find((x) => x.id === c.userId)
+    if (!u || u.active === false) throw new ApiError('تعذّر الدخول')
     setSession(u.id)
+    return publicUser(u)
+  }),
+
+  resendOtp: (challenge) => tx(() => {
+    const c = challenges.get(challenge)
+    if (!c) throw new ApiError('انتهت الجلسة، أعد إدخال بياناتك')
+    return issueOtp(c.userId, c.purpose, c.phone, challenge)
+  }),
+
+  updateMyAccount: ({ fullName, email, nationalId }) => tx((db) => {
+    const u = me(db)
+    const name = fullName.trim().replace(/\s+/g, ' ')
+    const mail = email.trim()
+    if (name.length < 6) throw new ApiError('اكتب الاسم الرباعي')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) throw new ApiError('البريد الإلكتروني غير صحيح')
+    if (isSuper(u) && mail.toLowerCase() !== SUPER_ADMIN_EMAIL) throw new ApiError('بريد مدير النظام الرئيسي ثابت')
+    if (db.users.some((x) => x.id !== u.id && x.email.toLowerCase() === mail.toLowerCase())) throw new ApiError('البريد الإلكتروني مسجل لحساب آخر')
+    const nid = nationalId?.trim()
+    if (nid && !/^[12]\d{9}$/.test(nid)) throw new ApiError('رقم الهوية أو الإقامة 10 أرقام يبدأ بـ 1 أو 2')
+    const renamed = name !== u.fullName
+    Object.assign(u, { fullName: name, email: mail, nationalId: nid || undefined })
+    // keep the owner's name on registered names and requests in step
+    if (renamed) {
+      db.reserved.forEach((r) => { if (r.ownerId === u.id) r.ownerName = name })
+      db.requests.forEach((r) => { if (r.userId === u.id) r.ownerName = name })
+    }
+    return publicUser(u)
+  }),
+
+  requestPhoneChange: (newPhone) => tx((db) => {
+    const u = me(db)
+    const phone = otpDigits(newPhone)
+    if (!/^05\d{8}$/.test(phone)) throw new ApiError('رقم الجوال يبدأ بـ 05 ويتكون من 10 أرقام')
+    if (phone === u.phone) throw new ApiError('هذا رقمك الحالي')
+    if (db.users.some((x) => x.phone === phone)) throw new ApiError('رقم الجوال مسجل لحساب آخر')
+    return issueOtp(u.id, 'phone', phone)
+  }),
+
+  confirmPhoneChange: (challenge, code) => tx((db) => {
+    const u = me(db)
+    const c = consumeOtp(challenge, code, 'phone')
+    if (c.userId !== u.id) throw new ApiError('تعذّر التحقق')
+    if (db.users.some((x) => x.id !== u.id && x.phone === c.phone)) throw new ApiError('رقم الجوال مسجل لحساب آخر')
+    u.phone = c.phone
     return publicUser(u)
   }),
 
@@ -614,6 +687,31 @@ export const demoApi: SammhaApi = {
     return r
   }),
 
+  createCompoundRequest: (reservedId, fullName) => tx((db) => {
+    const u = me(db)
+    const base = db.reserved.find((x) => x.id === reservedId && x.ownerId === u.id)
+    if (!base) throw new ApiError('اختر اسمًا من أسمائك المسجلة')
+    const unpaid = db.invoices.find((i) => i.userId === u.id && i.name === base.name && i.status === 'unpaid')
+    if (unpaid) throw new ApiError(`سدّد فاتورة «${base.name}» أولًا (${unpaid.number})`)
+    const name = fullName.trim().replace(/\s+/g, ' ')
+    const n = normalizeName(name)
+    if (!n.includes(base.normalized) || n === base.normalized) throw new ApiError(`الاسم المركب يتكون من «${base.name}» مع كلمة أخرى`)
+    if (name.split(' ').length > 4 || name.length > 40) throw new ApiError('الاسم المركب طويل، اكتفِ بكلمتين أو ثلاث')
+    const check = checkNamesIn(db, [name])[0]
+    if (check.verdict === 'invalid') throw new ApiError(check.message || 'الاسم غير صالح')
+    if (check.verdict === 'exact') throw new ApiError(`«${name}» مسجل أو مطلوب مسبقًا`)
+    if (db.requests.some((r) => r.kind === 'compound' && r.baseReservedId === base.id && r.status === 'under_review'))
+      throw new ApiError(`لديك طلب اسم مركب لـ«${base.name}» تحت المراجعة`)
+    const r: LogoRequest = {
+      id: uid(db, 'q'), number: `SM-${1000 + db.requests.length + 1}`, userId: u.id, ownerName: u.fullName, type: base.type, kind: 'compound',
+      baseName: base.name, baseReservedId: base.id,
+      candidates: [{ id: uid(db, 'c'), name, normalized: n, status: 'pending', similar: check.hits.filter((h) => normalizeName(h.name) !== base.normalized) }],
+      status: 'under_review', depositAmount: 0, depositPaid: false, depositState: 'none', createdAt: iso(now()), submittedAt: iso(now()),
+    }
+    db.requests.push(r)
+    return withCancel(db, r)
+  }),
+
   payDeposit: (requestId, method: PayMethod) => tx((db) => {
     const u = me(db)
     const r = db.requests.find((x) => x.id === requestId && x.userId === u.id)
@@ -746,7 +844,7 @@ export const demoApi: SammhaApi = {
     staff(db)
     return {
       underReview: db.requests.filter((r) => r.status === 'under_review').length,
-      awaitingSchedule: db.requests.flatMap((r) => r.candidates).filter((c) => c.status === 'accepted' && !c.auctionId).length,
+      awaitingSchedule: db.requests.filter((r) => r.kind !== 'compound' && r.status === 'accepted').flatMap((r) => r.candidates).filter((c) => c.status === 'accepted' && !c.auctionId).length,
       live: db.auctions.filter((a) => phaseOf(a) === 'live').length,
       scheduled: db.auctions.filter((a) => phaseOf(a) === 'scheduled').length,
       unpaidInvoices: db.invoices.filter((i) => i.status === 'unpaid').length,
@@ -788,6 +886,15 @@ export const demoApi: SammhaApi = {
     const anyAccepted = r.candidates.some((c) => c.status === 'accepted')
     Object.assign(r, { status: anyAccepted ? 'accepted' : 'rejected', reviewedAt: iso(now()), reviewerName: u.fullName, reviewNote: note })
     const acc = r.candidates.filter((c) => c.status === 'accepted').map((c) => c.name)
+    if (r.kind === 'compound') {
+      if (anyAccepted) {
+        const c = r.candidates[0]
+        db.reserved.push({ id: uid(db, 'r'), name: c.name, normalized: c.normalized, type: r.type, ownerId: r.userId, ownerName: r.ownerName, price: 0, acquiredAt: iso(now()), source: 'compound', baseName: r.baseName })
+      }
+      notify(db, r.userId, 'reviewed', anyAccepted ? `اعتُمد الاسم المركب «${acc[0]}»` : `لم يُعتمد الاسم المركب لـ«${r.baseName}»`,
+        anyAccepted ? 'سُجّل باسمك مباشرة دون مزاد، وشهادته في «أسمائي».' : (r.candidates[0].rejectReason || 'راجع ملاحظة اللجنة في الطلب.'), anyAccepted ? '/dashboard/names' : `/dashboard/requests/${r.id}`)
+      return r
+    }
     notify(db, r.userId, 'reviewed', anyAccepted ? `قُبل طلبك ${r.number}` : `لم يُقبل طلبك ${r.number}`,
       anyAccepted ? `الأسماء المقبولة: ${acc.join('، ')}. سيُحدَّد موعد المزاد قريبًا.` : 'أُعيد ضمان المزاد إلى محفظتك.', `/dashboard/requests/${r.id}`)
     if (!anyAccepted) refundDeposit(db, r, 'مرفوض')
@@ -817,7 +924,7 @@ export const demoApi: SammhaApi = {
 
   awaitingSchedule: () => tx((db) => {
     staff(db)
-    return db.requests.filter((r) => r.status === 'accepted')
+    return db.requests.filter((r) => r.status === 'accepted' && r.kind !== 'compound')
       .flatMap((r) => r.candidates.filter((c) => c.status === 'accepted' && !c.auctionId).map((c) => ({ ...c, request: r })))
   }),
 

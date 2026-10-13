@@ -117,12 +117,14 @@ export function MyRequests() {
     filters: [
       { key: 'status', label: 'الحالة', options: [['', 'الكل'], ['pending_payment', 'بانتظار السداد'], ['under_review', 'تحت المراجعة'], ['accepted', 'مقبول'], ['rejected', 'مرفوض'], ['cancelled', 'ملغى']], test: (r, v) => r.status === v },
       { key: 'type', label: 'النوع', options: [['', 'الكل'], ['qaadan', 'قعدان'], ['bakkar', 'بكار']], test: (r, v) => r.type === v },
+      { key: 'kind', label: 'الطلب', options: [['', 'الكل'], ['standard', 'طلب شعار'], ['compound', 'اسم مركب']], test: (r, v) => (r.kind ?? 'standard') === v },
     ],
   })
 
   return (
     <>
-      <PageHead title="طلبات الشعارات" sub="كل طلب يضم ثلاثة أسماء وضمان مزاد قدره 50 ريال." action={<Link to="/dashboard/requests/new" className="btn-gold">طلب شعار جديد</Link>} />
+      <PageHead title="طلبات الشعارات" sub="كل طلب يضم ثلاثة أسماء وضمان مزاد قدره 50 ريال. ولأي اسم تملكه تقدر تطلب له اسمًا مركبًا."
+        action={<div className="flex flex-wrap gap-2"><Link to="/dashboard/names" className="btn-ghost">طلب اسم مركب</Link><Link to="/dashboard/requests/new" className="btn-gold">طلب شعار جديد</Link></div>} />
       {loading && !data ? <Loading /> : data?.length ? (
         <>
         <TableTools t={tf} placeholder="بحث برقم الطلب أو الاسم" />
@@ -133,6 +135,7 @@ export function MyRequests() {
               <div className="flex flex-wrap items-center gap-3">
                 <Link to={`/dashboard/requests/${r.id}`} className="num font-semibold hover:text-gold-deep">{r.number}</Link>
                 <TypeBadge type={r.type} />
+                {r.kind === 'compound' && <span className="pill bg-gold-soft text-gold-deep">اسم مركب لـ«{r.baseName}»</span>}
                 <RequestStatusPill status={r.status} />
                 <span className="ms-auto text-sm text-muted">{dateTime(r.submittedAt || r.createdAt)}</span>
               </div>
@@ -268,7 +271,12 @@ export function RequestDetail() {
   if (loading && !r) return <Loading />
   if (error || !r) return <ErrorBox text={error || 'الطلب غير موجود'} />
 
-  const steps: [string, boolean][] = [
+  const compound = r.kind === 'compound'
+  const steps: [string, boolean][] = compound ? [
+    ['تقديم الطلب', true],
+    ['مراجعة اللجنة', !!r.reviewedAt],
+    ['التسجيل باسمك', r.status === 'accepted'],
+  ] : [
     ['تقديم الطلب', true],
     ['سداد الضمان', r.depositPaid],
     ['مراجعة اللجنة', !!r.reviewedAt],
@@ -277,7 +285,7 @@ export function RequestDetail() {
 
   return (
     <>
-      <PageHead title={`الطلب ${r.number}`} sub={<span className="flex flex-wrap items-center gap-2"><TypeBadge type={r.type} /><RequestStatusPill status={r.status} /></span>}
+      <PageHead title={compound ? `طلب اسم مركب ${r.number}` : `الطلب ${r.number}`} sub={<span className="flex flex-wrap items-center gap-2"><TypeBadge type={r.type} />{compound && <span className="pill bg-gold-soft text-gold-deep">مركب من «{r.baseName}»</span>}<RequestStatusPill status={r.status} /></span>}
         action={r.cancellable ? (
           <button className="btn-danger btn-sm" onClick={() => setCancelling(true)}>{r.depositState === 'held' ? 'إلغاء كل الأسماء واسترداد الضمان' : 'إلغاء الطلب'}</button>
         ) : undefined} />
@@ -293,7 +301,15 @@ export function RequestDetail() {
         <p className="mb-4 text-[14px] text-muted">بدأ مزاد أحد أسماء هذا الطلب، لذلك لا يمكن إلغاؤه. يُعاد الضمان تلقائيًا إن رست كل الأسماء على غيرك.</p>
       )}
 
-      <ol className="panel mb-4 grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+      {compound && (
+        <div className={`mb-4 rounded-xl border p-4 text-[15px] ${r.status === 'accepted' ? 'border-ok/40 bg-[#E2F0E8]' : 'border-gold/50 bg-gold-soft'}`}>
+          {r.status === 'accepted'
+            ? <>اعتمدت اللجنة الاسم المركب وسُجّل باسمك مباشرة دون مزاد. <Link to="/dashboard/names" className="font-bold text-pine underline">شهادته في «أسمائي»</Link>.</>
+            : r.status === 'under_review' ? 'يُراجع من لجنة الاعتماد. إذا اعتُمد يُسجّل باسمك مباشرة دون مزاد ودون ضمان.'
+            : r.status === 'rejected' ? 'لم تعتمد اللجنة هذا الاسم المركب. تقدر تطلب صيغة أخرى من «أسمائي».' : 'أُلغي هذا الطلب.'}
+        </div>
+      )}
+      <ol className={`panel mb-4 grid grid-cols-2 gap-3 p-4 ${compound ? 'sm:grid-cols-3' : 'sm:grid-cols-4'}`}>
         {steps.map(([label, done], i) => (
           <li key={label} className="flex items-center gap-2">
             <span className={`num flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${done ? 'bg-ok text-paper' : 'border border-line text-muted'}`}>{i + 1}</span>
@@ -327,7 +343,9 @@ export function RequestDetail() {
 
       <dl className="panel mt-4 grid gap-4 p-5 text-sm sm:grid-cols-2">
         <div><dt className="text-muted">تاريخ التقديم</dt><dd className="font-semibold">{dateTime(r.submittedAt || r.createdAt)}</dd></div>
-        <div><dt className="text-muted">ضمان المزاد</dt><dd className="font-semibold">{sar(r.depositAmount)}، {DEPOSIT_STATE[r.depositState]}</dd></div>
+        {compound
+          ? <div><dt className="text-muted">الاسم الأساسي</dt><dd className="font-semibold">{r.baseName}، بلا ضمان ولا مزاد</dd></div>
+          : <div><dt className="text-muted">ضمان المزاد</dt><dd className="font-semibold">{sar(r.depositAmount)}، {DEPOSIT_STATE[r.depositState]}</dd></div>}
         {r.reviewedAt && <div><dt className="text-muted">تاريخ المراجعة</dt><dd className="font-semibold">{dateTime(r.reviewedAt)}</dd></div>}
         {r.reviewNote && <div><dt className="text-muted">ملاحظة اللجنة</dt><dd className="font-semibold">{r.reviewNote}</dd></div>}
       </dl>

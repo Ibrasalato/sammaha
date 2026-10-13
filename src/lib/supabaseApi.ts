@@ -23,10 +23,19 @@ async function rpc<T>(fn: string, args: Record<string, unknown> = {}): Promise<T
   return data as T
 }
 
-async function profile(): Promise<User | null> {
+// A password session only counts once its one-time code was verified (see start/completeSignIn).
+const OTP_OK = 'sammha-otp-ok'
+const otpOk = (uid: string) => { try { return sessionStorage.getItem(OTP_OK) === uid } catch { return false } }
+const setOtpOk = (uid: string | null) => { try { if (uid) sessionStorage.setItem(OTP_OK, uid); else sessionStorage.removeItem(OTP_OK) } catch { /* ignore */ } }
+
+async function rawProfile(): Promise<User | null> {
   const { data } = await sb().auth.getSession()
   if (!data.session) return null
   return rpc<User>('me')
+}
+async function profile(): Promise<User | null> {
+  const u = await rawProfile()
+  return u && otpOk(u.id) ? u : null
 }
 
 /** Card payments go through Moyasar; the Edge Function `moyasar-webhook` confirms and credits the wallet. */
@@ -46,22 +55,50 @@ export const supabaseApi: SammhaApi = {
       options: { data: { full_name: input.fullName, phone: input.phone, national_id: input.nationalId } },
     })
     if (error) throw new ApiError(error.message)
-    const u = await profile()
+    const u = await rawProfile()
     if (!u) throw new ApiError('تم إنشاء الحساب، فعّل بريدك الإلكتروني ثم سجّل الدخول')
+    setOtpOk(u.id)
     return u
   },
 
-  async signIn(login, password, portal) {
+  async startSignIn(login, password, portal) {
     let email = login.trim()
     if (!email.includes('@')) email = await rpc<string>('email_for_phone', { p_phone: email })
     const wrong = new ApiError(portal === 'staff' ? 'البيانات غير صحيحة' : 'رقم الجوال أو كلمة المرور غير صحيحة')
+    setOtpOk(null)
     const { error } = await sb().auth.signInWithPassword({ email, password })
     if (error) throw wrong
-    const u = await profile()
+    const u = await rawProfile()
     // staff sign in only on the staff portal, owners only on the public page; same error either way
     if (!u || (portal === 'staff') !== (u.role !== 'owner')) { await sb().auth.signOut(); throw wrong }
     if (u.active === false) { await sb().auth.signOut(); throw new ApiError('هذا الحساب موقوف، تواصل مع مدير النظام') }
+    return rpc('request_otp', { p_purpose: 'login', p_phone: null })
+  },
+
+  async completeSignIn(challenge, code) {
+    const res = await rpc<{ ok: boolean; error?: string }>('verify_otp', { p_challenge: challenge, p_code: code, p_purpose: 'login' })
+    if (!res.ok) throw new ApiError(res.error ?? 'الرمز غير صحيح')
+    const u = await rawProfile()
+    if (!u) throw new ApiError('تعذّر الدخول')
+    setOtpOk(u.id)
     return u
+  },
+
+  resendOtp: (challenge) => rpc('resend_otp', { p_challenge: challenge }),
+
+  updateMyAccount: async ({ fullName, email, nationalId }) => {
+    const { data: { user } } = await sb().auth.getUser()
+    if (user && email.trim().toLowerCase() !== (user.email ?? '').toLowerCase()) {
+      const { error } = await sb().auth.updateUser({ email: email.trim() }) // Supabase sends a confirmation link
+      if (error) throw new ApiError(error.message)
+    }
+    return rpc('update_my_account', { p_full_name: fullName, p_national_id: nationalId ?? null })
+  },
+  requestPhoneChange: (newPhone) => rpc('request_otp', { p_purpose: 'phone', p_phone: newPhone }),
+  async confirmPhoneChange(challenge, code) {
+    const res = await rpc<{ ok: boolean; error?: string; user?: User }>('change_my_phone', { p_challenge: challenge, p_code: code })
+    if (!res.ok || !res.user) throw new ApiError(res.error ?? 'الرمز غير صحيح')
+    return res.user
   },
 
   async changePassword(current, next) {
@@ -74,7 +111,7 @@ export const supabaseApi: SammhaApi = {
   },
 
 
-  async signOut() { await sb().auth.signOut() },
+  async signOut() { setOtpOk(null); await sb().auth.signOut() },
 
   stats: () => rpc('public_stats'),
   listAuctions: (f = {}) => rpc('list_auctions', { p_phase: f.phase ?? 'all', p_type: f.type ?? 'all', p_q: f.q ?? '' }),
@@ -90,6 +127,7 @@ export const supabaseApi: SammhaApi = {
   myTickets: () => rpc('my_tickets'),
 
   myRequests: () => rpc('my_requests'),
+  createCompoundRequest: (reservedId, fullName) => rpc('create_compound_request', { p_reserved: reservedId, p_name: fullName }),
   createRequest: (type, names) => rpc('create_request', { p_type: type, p_names: names }),
   async payDeposit(requestId, method) {
     if (method === 'card') await cardPayment('deposit', requestId, 50)

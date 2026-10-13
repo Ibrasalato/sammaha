@@ -1,12 +1,15 @@
-import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Avatar, resizeToSquare } from '../../components/Avatar'
 import { CertificateDoc } from '../../components/CertificateDoc'
 import { InvoiceDoc } from '../../components/InvoiceDoc'
 import { NoResults, TableTools, useTableFilter } from '../../components/TableTools'
 import { PayModal } from '../../components/PayModal'
 import { Alert, Icon, SectionCard, StatTile, StepDots, WinAlert } from '../../components/dash'
-import { Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, PhasePill, RequestStatusPill, TypeBadge } from '../../components/ui'
+import { Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, PhasePill, RequestStatusPill, Segmented, TypeBadge } from '../../components/ui'
+import type { NameCheck, ReservedName } from '../../lib/types'
+import type { OtpChallenge } from '../../lib/api'
+import { OtpForm } from '../../components/OtpForm'
 import { phaseOf } from '../../lib/demoApi'
 import { date, dateTime, humanLeft, num, sar } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
@@ -297,8 +300,52 @@ export function MyBids() {
   )
 }
 
+/** Compound name on top of an owned name: the committee reviews it, approval registers it directly (no auction). */
+function CompoundName({ base, onClose }: { base: ReservedName; onClose: () => void }) {
+  const nav = useNavigate()
+  const { toast } = useApp()
+  const [extra, setExtra] = useState('')
+  const [pos, setPos] = useState<'after' | 'before'>('after')
+  const [check, setCheck] = useState<NameCheck | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const full = extra.trim() ? (pos === 'after' ? `${base.name} ${extra.trim()}` : `${extra.trim()} ${base.name}`) : ''
+  useEffect(() => {
+    if (!full) { setCheck(null); return }
+    const t = setTimeout(() => { api.checkNames([full], base.type).then((c) => setCheck(c[0])).catch(() => setCheck(null)) }, 350)
+    return () => clearTimeout(t)
+  }, [full, base.type])
+  async function submit() {
+    setBusy(true); setErr('')
+    try { const r = await api.createCompoundRequest(base.id, full); toast('أُرسل طلب الاسم المركب إلى لجنة الاعتماد'); nav(`/dashboard/requests/${r.id}`) } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
+  }
+  const blocked = check?.verdict === 'exact' || check?.verdict === 'invalid'
+  return (
+    <Modal open onClose={onClose} title={`اسم مركب لـ«${base.name}»`}>
+      <div className="space-y-4">
+        {err && <ErrorBox text={err} />}
+        <p className="text-[15px] text-muted">أضف كلمة إلى اسمك المسجل. يُراجع الطلب من لجنة الاعتماد، وإذا اعتُمد يُسجّل باسمك مباشرة <b className="text-ink">دون مزاد ودون ضمان</b>.</p>
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+          <div><label className="label" htmlFor="cx">الكلمة المضافة</label><input id="cx" className="field" maxLength={25} placeholder="مثال: الشمال" value={extra} onChange={(e) => setExtra(e.target.value)} autoFocus /></div>
+          <div><span className="label">موضعها</span><Segmented value={pos} onChange={setPos} options={[['after', 'بعد الاسم'], ['before', 'قبل الاسم']]} /></div>
+        </div>
+        <div className="flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-lg bg-stone p-4">
+          {full ? <NameSeal name={full} type={base.type} size="md" /> : <span className="text-muted">تظهر هنا معاينة الاسم المركب</span>}
+          {check && (
+            <span className={`text-[14px] font-bold ${check.verdict === 'available' ? 'text-ok' : check.verdict === 'similar' ? 'text-gold-deep' : 'text-bad'}`}>
+              {check.verdict === 'available' ? 'متاح مبدئيًا' : check.verdict === 'similar' ? 'يشبه أسماء موجودة، وتدرسه اللجنة' : check.verdict === 'exact' ? 'مسجل أو مطلوب مسبقًا' : check.message}
+            </span>
+          )}
+        </div>
+        <button className="btn-primary w-full" disabled={!full || blocked || busy} onClick={submit}>{busy ? 'جارٍ الإرسال…' : 'إرسال للجنة الاعتماد'}</button>
+      </div>
+    </Modal>
+  )
+}
+
 export function MyNames() {
   const { data, loading } = useLoad(() => api.myNames(), [])
+  const [compoundFor, setCompoundFor] = useState<ReservedName | null>(null)
   const invoices = useLoad(() => api.myInvoices(), [])
   const unpaidFor = (name: string) => invoices.data?.find((i) => i.name === name && i.status === 'unpaid')
   return (
@@ -310,14 +357,20 @@ export function MyNames() {
             <li key={n.id} className="panel flex flex-col items-center gap-3 p-5 text-center">
               <NameSeal name={n.name} type={n.type} size="md" />
               <TypeBadge type={n.type} />
-              <p className="text-sm text-muted">منذ {dateTime(n.acquiredAt)}، بسعر {sar(n.price)}</p>
+              {n.source === 'compound'
+                ? <p className="text-sm text-muted">اسم مركب من «{n.baseName}»، اعتُمد {dateTime(n.acquiredAt)}</p>
+                : <p className="text-sm text-muted">منذ {dateTime(n.acquiredAt)}، بسعر {sar(n.price)}</p>}
               {unpaidFor(n.name)
                 ? <Link to={`/dashboard/invoices/${unpaidFor(n.name)!.id}`} className="btn-gold btn-sm">سدّد الفاتورة لإصدار الشهادة</Link>
-                : <Link to={`/dashboard/names/${n.id}/certificate`} className="btn-ghost btn-sm">شهادة التسجيل</Link>}
+                : <div className="flex flex-wrap justify-center gap-2">
+                    <Link to={`/dashboard/names/${n.id}/certificate`} className="btn-ghost btn-sm">شهادة التسجيل</Link>
+                    {n.source !== 'compound' && <button className="btn-ghost btn-sm border-gold/60 text-gold-deep" onClick={() => setCompoundFor(n)}>طلب اسم مركب</button>}
+                  </div>}
             </li>
           ))}
         </ul>
       ) : <Empty title="لا تملك أسماء بعد"><p className="text-muted">تظهر هنا الأسماء التي ترسو عليك في المزادات.</p></Empty>}
+      {compoundFor && <CompoundName base={compoundFor} onClose={() => setCompoundFor(null)} />}
     </>
   )
 }
@@ -340,6 +393,71 @@ export function CertificatePage() {
   )
 }
 
+/** Owner edits name, email and ID directly; a new mobile number is confirmed with a one-time code. */
+function AccountDetails() {
+  const { user, setUser, toast } = useApp()
+  const [f, setF] = useState({ fullName: user?.fullName ?? '', email: user?.email ?? '', nationalId: user?.nationalId ?? '' })
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [phoneOpen, setPhoneOpen] = useState(false)
+  const [newPhone, setNewPhone] = useState('')
+  const [otp, setOtp] = useState<OtpChallenge | null>(null)
+  const [pErr, setPErr] = useState('')
+  if (!user) return null
+  const dirty = f.fullName !== user.fullName || f.email !== user.email || f.nationalId !== (user.nationalId ?? '')
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true); setErr('')
+    try { const u = await api.updateMyAccount(f); setUser(u); toast(u.email === f.email ? 'حُفظت بياناتك' : 'حُفظت بياناتك، وأرسلنا رابط تأكيد إلى بريدك الجديد') } catch (x) { setErr((x as Error).message) } finally { setBusy(false) }
+  }
+  async function sendCode(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true); setPErr('')
+    try { setOtp(await api.requestPhoneChange(newPhone)) } catch (x) { setPErr((x as Error).message) } finally { setBusy(false) }
+  }
+  const closePhone = () => { setPhoneOpen(false); setOtp(null); setNewPhone(''); setPErr('') }
+  return (
+    <SectionCard title="بيانات الحساب" icon="file">
+      <form onSubmit={save} className="space-y-4 p-5">
+        {err && <ErrorBox text={err} />}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div><label className="label" htmlFor="af">الاسم الرباعي</label><input id="af" className="field" value={f.fullName} onChange={(e) => setF({ ...f, fullName: e.target.value })} required /></div>
+          <div><label className="label" htmlFor="ae">البريد الإلكتروني</label><input id="ae" type="email" className="field" dir="ltr" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required /><p className="hint">تصلك عليه الفواتير الإلكترونية.</p></div>
+          <div><label className="label" htmlFor="an">رقم الهوية أو الإقامة <span className="font-normal text-muted">(اختياري)</span></label><input id="an" className="field num" dir="ltr" inputMode="numeric" maxLength={10} value={f.nationalId} onChange={(e) => setF({ ...f, nationalId: e.target.value.replace(/\D/g, '') })} /></div>
+          <div>
+            <span className="label">رقم الجوال</span>
+            <div className="flex items-center gap-2">
+              <span className="field num flex-1 bg-stone" dir="ltr">{user.phone}</span>
+              <button type="button" className="btn-ghost btn-sm shrink-0" onClick={() => setPhoneOpen(true)}>تغيير</button>
+            </div>
+            <p className="hint">يتطلب رمز تحقق يُرسل إلى الرقم الجديد.</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
+          <button className="btn-primary" disabled={!dirty || busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ التعديلات'}</button>
+          {dirty && <button type="button" className="text-[14px] font-bold text-muted hover:text-ink" onClick={() => setF({ fullName: user.fullName, email: user.email, nationalId: user.nationalId ?? '' })}>تراجع</button>}
+          <span className="ms-auto text-[13px] text-muted">مسجّل منذ {date(user.createdAt)}</span>
+        </div>
+        <p className="text-[13px] text-muted">تعديل الاسم يحدّث اسم المالك على أسمائك المسجلة وشهاداتها.</p>
+      </form>
+      <Modal open={phoneOpen} onClose={closePhone} title="تغيير رقم الجوال">
+        {otp ? (
+          <OtpForm c={otp} title="أكّد الرقم الجديد" onBack={() => setOtp(null)}
+            onResend={async () => { const n = await api.resendOtp(otp.challenge); setOtp(n); return n }}
+            onVerify={async (code) => { const u = await api.confirmPhoneChange(otp.challenge, code); setUser(u); toast(`تم تغيير رقم الجوال إلى ${u.phone}`); closePhone() }} />
+        ) : (
+          <form onSubmit={sendCode} className="space-y-4">
+            {pErr && <ErrorBox text={pErr} />}
+            <p className="text-[15px] text-muted">رقمك الحالي <b className="num text-ink" dir="ltr">{user.phone}</b>. سنرسل رمز تحقق إلى الرقم الجديد للتأكد أنه لك.</p>
+            <div><label className="label" htmlFor="np">رقم الجوال الجديد</label><input id="np" className="field num" dir="ltr" inputMode="tel" placeholder="05XXXXXXXX" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} required autoFocus /></div>
+            <button className="btn-primary w-full" disabled={busy}>{busy ? 'جارٍ الإرسال…' : 'إرسال رمز التحقق'}</button>
+          </form>
+        )}
+      </Modal>
+    </SectionCard>
+  )
+}
+
 export function ProfilePage() {
   const { user, setUser, toast } = useApp()
   const [busy, setBusy] = useState(false)
@@ -350,7 +468,7 @@ export function ProfilePage() {
   }
   return (
     <>
-      <PageHead title="حسابي" sub="بياناتك وصورتك التي تظهر في قوائم ملاك الأسماء." />
+      <PageHead title="حسابي" sub="عدّل بياناتك ورقم جوالك، وصورتك التي تظهر في قوائم ملاك الأسماء." />
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <SectionCard title="الصورة الشخصية" icon="users">
           <div className="flex flex-col items-center gap-4 p-6 text-center">
@@ -372,14 +490,7 @@ export function ProfilePage() {
             </label>
           </div>
         </SectionCard>
-        <SectionCard title="بيانات الحساب" icon="file">
-          <dl className="grid gap-px bg-line/60 sm:grid-cols-2">
-            {([['الاسم', user.fullName], ['رقم الجوال', user.phone], ['البريد الإلكتروني', user.email], ['رقم الهوية', user.nationalId || '—'], ['تاريخ التسجيل', date(user.createdAt)]] as [string, string][]).map(([l, v], i, all) => (
-              <div key={l} className={`bg-paper px-5 py-4 ${i === all.length - 1 && all.length % 2 ? 'sm:col-span-2' : ''}`}><dt className="text-[13px] font-medium text-muted">{l}</dt><dd className="mt-0.5 font-bold" dir="auto">{v}</dd></div>
-            ))}
-          </dl>
-          <p className="px-5 py-4 text-[14px] text-muted">لتعديل الاسم أو رقم الجوال تواصل مع فريق المنصة، لأنها مرتبطة بملكية الأسماء المسجلة.</p>
-        </SectionCard>
+        <AccountDetails />
       </div>
     </>
   )

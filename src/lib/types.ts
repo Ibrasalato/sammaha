@@ -77,6 +77,10 @@ export interface LogoRequest {
   cancelledAt?: string
   cancelledBy?: 'owner' | 'committee'
   cancelReason?: string
+  /** 'compound' = a compound name for a name the owner already holds; registered on approval, no auction */
+  kind?: 'standard' | 'compound'
+  baseName?: string
+  baseReservedId?: string
 }
 
 export type AuctionPhase = 'scheduled' | 'live' | 'ended'
@@ -121,7 +125,9 @@ export interface ReservedName {
   ownerName: string
   price: number
   acquiredAt: string
-  source: 'auction' | 'legacy'
+  source: 'auction' | 'legacy' | 'compound'
+  /** for a compound name: the owned name it was built on */
+  baseName?: string
   /** owner's public photo, only when they chose to show it */
   ownerAvatar?: string
 }

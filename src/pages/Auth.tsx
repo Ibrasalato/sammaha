@@ -4,6 +4,8 @@ import type { FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Logo } from '../components/Layout'
 import { ErrorBox } from '../components/ui'
+import { OtpForm } from '../components/OtpForm'
+import type { OtpChallenge } from '../lib/api'
 import { IS_DEMO, SUPER_ADMIN_EMAIL } from '../lib/config'
 import { api, useApp } from '../lib/store'
 import type { User } from '../lib/types'
@@ -44,11 +46,21 @@ export function Login() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
+  const [otp, setOtp] = useState<OtpChallenge | null>(null)
+
   async function submit(e?: FormEvent, l = login, p = password) {
     e?.preventDefault()
     setBusy(true); setErr('')
-    try { const u = await api.signIn(l, p, 'owner'); setUser(u); done(u) } catch (x) { setErr((x as Error).message) } finally { setBusy(false) }
+    try { setOtp(await api.startSignIn(l, p, 'owner')) } catch (x) { setErr((x as Error).message) } finally { setBusy(false) }
   }
+
+  if (otp) return (
+    <AuthFrame title={tr('تسجيل الدخول', 'Sign in')}>
+      <OtpForm c={otp} onBack={() => setOtp(null)}
+        onResend={async () => { const n = await api.resendOtp(otp.challenge); setOtp(n); return n }}
+        onVerify={async (code) => { const u = await api.completeSignIn(otp.challenge, code); setUser(u); done(u) }} />
+    </AuthFrame>
+  )
 
   return (
     <AuthFrame title={tr('تسجيل الدخول', 'Sign in')}>
@@ -79,13 +91,14 @@ export function StaffLogin() {
   const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
+  const [otp, setOtp] = useState<OtpChallenge | null>(null)
   if (user && user.role !== 'owner') return <Navigate to="/admin" replace />
   const firstSuper = IS_DEMO && login.trim().toLowerCase() === SUPER_ADMIN_EMAIL
 
   async function submit(e: FormEvent) {
     e.preventDefault()
     setBusy(true); setErr('')
-    try { const u = await api.signIn(login, password, 'staff'); setUser(u); nav(from?.startsWith('/admin') ? from : '/admin', { replace: true }) } catch (x) { setErr((x as Error).message) } finally { setBusy(false) }
+    try { setOtp(await api.startSignIn(login, password, 'staff')) } catch (x) { setErr((x as Error).message) } finally { setBusy(false) }
   }
 
   return (
@@ -97,6 +110,13 @@ export function StaffLogin() {
             <Logo className="h-14" />
             <span className="rounded bg-pine-soft px-2.5 py-1 text-[12.5px] font-bold text-pine">بوابة الموظفين</span>
           </div>
+          {otp ? (
+            <div className="mt-6">
+              <OtpForm c={otp} onBack={() => setOtp(null)}
+                onResend={async () => { const n = await api.resendOtp(otp.challenge); setOtp(n); return n }}
+                onVerify={async (code) => { const u = await api.completeSignIn(otp.challenge, code); setUser(u); nav(from?.startsWith('/admin') ? from : '/admin', { replace: true }) }} />
+            </div>
+          ) : <>
           <h1 className="mt-6 text-[24px]">دخول لجنة الاعتماد والإدارة</h1>
           <p className="mt-1 text-[14.5px] text-muted">للموظفين المصرّح لهم فقط. الحسابات ينشئها مدير النظام.</p>
           <form onSubmit={submit} className="mt-6 space-y-4">
@@ -109,6 +129,7 @@ export function StaffLogin() {
             </div>
             <button className="btn-primary w-full" disabled={busy}>دخول</button>
           </form>
+          </>}
           <p className="mt-6 border-t border-line pt-4 text-center text-[13px] text-muted">نسيت كلمة المرور؟ تواصل مع مدير النظام. <Link to="/" className="font-bold text-pine underline">الصفحة الرئيسية</Link></p>
         </div>
       </div>

@@ -102,7 +102,10 @@ export function AdminRequests() {
   const rows = useMemo(() => (data ?? []).filter((r) => type === 'all' || r.type === type), [data, type])
   const tf = useTableFilter(rows, {
     fields: (r) => [r.number, r.ownerName, ...r.candidates.map((c) => c.name)],
-    filters: [{ key: 'similar', label: 'التشابه', options: [['', 'الكل'], ['yes', 'فيها أسماء شبيهة'], ['no', 'بلا تشابه']], test: (r, v) => r.candidates.some((c) => c.similar.length) === (v === 'yes') }],
+    filters: [
+      { key: 'kind', label: 'الطلب', options: [['', 'الكل'], ['standard', 'طلب شعار'], ['compound', 'اسم مركب']], test: (r, v) => (r.kind ?? 'standard') === v },
+      { key: 'similar', label: 'التشابه', options: [['', 'الكل'], ['yes', 'فيها أسماء شبيهة'], ['no', 'بلا تشابه']], test: (r, v) => r.candidates.some((c) => c.similar.length) === (v === 'yes') },
+    ],
   })
   const list = tf.list
   return (
@@ -120,7 +123,7 @@ export function AdminRequests() {
             <tbody>
               {list.map((r) => (
                 <tr key={r.id}>
-                  <td><Link to={`/admin/requests/${r.id}`} className="num font-semibold underline-offset-4 hover:underline">{r.number}</Link></td>
+                  <td><Link to={`/admin/requests/${r.id}`} className="num font-semibold underline-offset-4 hover:underline">{r.number}</Link>{r.kind === 'compound' && <span className="pill ms-2 bg-gold-soft text-gold-deep">اسم مركب</span>}</td>
                   <td>{r.ownerName}</td>
                   <td><TypeBadge type={r.type} /></td>
                   <td className="font-extrabold">
@@ -175,7 +178,13 @@ export function AdminReview() {
   return (
     <>
       <Link to="/admin/requests" className="text-sm font-medium text-muted hover:text-ink">الطلبات</Link>
-      <PageHead title={`مراجعة الطلب ${r.number}`} sub={<span className="flex flex-wrap items-center gap-2"><TypeBadge type={r.type} /><RequestStatusPill status={r.status} /><span>{r.ownerName}، قُدّم {dateTime(r.submittedAt)}</span></span>} />
+      {r.kind === 'compound' && (
+        <div className="mb-4 mt-3 flex items-start gap-3 rounded-xl border border-gold/50 bg-gold-soft p-4 text-[15px]">
+          <Icon name="tag" className="mt-0.5 h-5 w-5 shrink-0 text-gold-deep" />
+          <span>طلب <b>اسم مركب</b> من الاسم المسجل «<b>{r.baseName}</b>» المملوك لمقدم الطلب. عند القبول يُسجّل الاسم المركب باسمه مباشرة <b>دون مزاد</b>، وعند الرفض لا يترتب شيء.</span>
+        </div>
+      )}
+      <PageHead title={r.kind === 'compound' ? `مراجعة اسم مركب ${r.number}` : `مراجعة الطلب ${r.number}`} sub={<span className="flex flex-wrap items-center gap-2"><TypeBadge type={r.type} /><RequestStatusPill status={r.status} /><span>{r.ownerName}، قُدّم {dateTime(r.submittedAt)}</span></span>} />
 
       <div className="space-y-4">
         {r.candidates.map((c) => {
@@ -195,7 +204,7 @@ export function AdminReview() {
                           <tr key={h.name + h.source}>
                             <td className="font-extrabold">{h.name}</td>
                             <td>{TYPE_LABEL[h.type]}</td>
-                            <td className="text-muted">{h.source === 'reserved' ? 'سجل الأسماء' : h.source === 'auction' ? 'في مزاد' : 'طلب آخر'}</td>
+                            <td className="text-muted">{r.kind === 'compound' && h.name === r.baseName ? <span className="font-bold text-pine">الاسم الأساسي، ملك مقدم الطلب</span> : h.source === 'reserved' ? 'سجل الأسماء' : h.source === 'auction' ? 'في مزاد' : 'طلب آخر'}</td>
                             <td><span className={`num font-semibold ${h.score === 1 ? 'text-bad' : h.score >= 0.85 ? 'text-warn' : 'text-muted'}`}>{h.score === 1 ? 'مطابق' : `${Math.round(h.score * 100)}%`}</span></td>
                           </tr>
                         ))}
@@ -245,7 +254,9 @@ export function AdminReview() {
             <button className="btn-danger" disabled={busy} onClick={() => { setAction('reject'); setReason('') }}>رفض الطلب كاملًا</button>
             <button className="btn-ghost" disabled={busy} onClick={() => { setAction('cancel'); setReason('') }}>إلغاء الطلب</button>
           </div>
-          <p className="hint">الرفض أو الإلغاء يعيد {sar(r.depositAmount)} إلى محفظة المالك. إن رُفضت الأسماء الثلاثة يُعدّ الطلب مرفوضًا ويُعاد الضمان.</p>
+          <p className="hint">{r.kind === 'compound'
+            ? 'لا ضمان على طلب الاسم المركب. القبول يسجّل الاسم باسم المالك فورًا دون مزاد.'
+            : `الرفض أو الإلغاء يعيد ${sar(r.depositAmount)} إلى محفظة المالك. إن رُفضت الأسماء الثلاثة يُعدّ الطلب مرفوضًا ويُعاد الضمان.`}</p>
         </section>
       ) : r.status === 'accepted' && r.candidates.some((c) => c.status === 'accepted' && !c.auctionId) ? (
         <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-gold bg-gold-soft p-4">
