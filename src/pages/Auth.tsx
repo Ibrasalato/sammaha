@@ -16,11 +16,21 @@ function useAfterAuth() {
 
 function AuthFrame({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mx-auto flex max-w-md flex-col px-4 py-12">
-      <div className="mb-6 flex justify-center"><Logo className="h-16" /></div>
-      <div className="panel p-6">
-        <h1 className="mb-5 text-2xl">{title}</h1>
-        {children}
+    <div className="wrap py-12 lg:py-16">
+      <div className="mx-auto grid max-w-5xl overflow-hidden rounded-xl border border-line bg-paper shadow-card lg:grid-cols-[1fr_1.1fr]">
+        <div className="hero-field relative hidden flex-col justify-between p-10 text-paper lg:flex">
+          <Logo light className="h-16" />
+          <div>
+            <h2 className="text-[28px] font-extrabold leading-snug text-paper">السجل الدولي لأسماء الإبل وشعاراتها</h2>
+            <p className="mt-3 text-paper/70">اطلب أسماء إبلك، وتابع مزاداتها، واحصل على فواتيرك الإلكترونية من مكان واحد.</p>
+          </div>
+          <div className="sadu sadu-thin absolute inset-x-0 bottom-0" aria-hidden />
+        </div>
+        <div className="p-6 sm:p-10">
+          <div className="mb-6 lg:hidden"><Logo className="h-14" /></div>
+          <h1 className="mb-6 text-[26px]">{title}</h1>
+          {children}
+        </div>
       </div>
     </div>
   )

@@ -17,7 +17,7 @@ const DEPOSIT_STATE: Record<LogoRequest['depositState'], string> = {
 function CandidateChip({ c, type }: { c: Candidate; type: NameType }) {
   const tone = c.status === 'accepted' ? 'text-ok' : c.status === 'rejected' ? 'text-bad line-through' : 'text-ink'
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1 font-kufi ${tone}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1 font-extrabold ${tone}`}>
       <span className={`h-2 w-2 rounded-full ${type === 'qaadan' ? 'bg-qaadan' : 'bg-bakkar'}`} />{c.name}
     </span>
   )
@@ -109,9 +109,9 @@ export function NewRequest() {
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {(['qaadan', 'bakkar'] as NameType[]).map((t) => (
             <button key={t} type="button" onClick={() => setType(t)} aria-pressed={type === t}
-              className={`flex items-center gap-4 rounded-xl border-2 p-4 text-start transition-colors ${type === t ? (t === 'qaadan' ? 'border-qaadan bg-qaadan-soft' : 'border-bakkar bg-bakkar-soft') : 'border-line bg-paper hover:border-ink'}`}>
+              className={`flex items-center gap-4 rounded-xl border-2 p-4 text-start transition-colors ${type === t ? (t === 'qaadan' ? 'border-qaadan bg-qaadan-soft' : 'border-bakkar bg-bakkar-soft') : 'border-line bg-paper hover:border-navy'}`}>
               <NameSeal name={TYPE_LABEL[t]} type={t} size="sm" />
-              <span><span className="block font-kufi text-xl">{TYPE_LABEL[t]}</span><span className="text-sm text-muted">{TYPE_HINT[t]}</span></span>
+              <span><span className="block font-extrabold text-xl">{TYPE_LABEL[t]}</span><span className="text-sm text-muted">{TYPE_HINT[t]}</span></span>
             </button>
           ))}
         </div>
@@ -126,7 +126,7 @@ export function NewRequest() {
             return (
               <div key={i}>
                 <label className="label" htmlFor={`n${i}`}>الاسم {['الأول', 'الثاني', 'الثالث'][i]}</label>
-                <input id={`n${i}`} className={`field font-kufi text-lg ${c && VERDICT_STYLE[c.verdict] === 'text-bad' ? 'border-bad' : ''}`} value={n} maxLength={30}
+                <input id={`n${i}`} className={`field font-extrabold text-lg ${c && VERDICT_STYLE[c.verdict] === 'text-bad' ? 'border-bad' : ''}`} value={n} maxLength={30}
                   onChange={(e) => setNames(names.map((x, j) => (j === i ? e.target.value : x)))} />
                 {c && (
                   <p className={`mt-1 text-sm font-semibold ${VERDICT_STYLE[c.verdict]}`}>

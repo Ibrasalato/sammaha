@@ -7,10 +7,16 @@ import type { AuctionPhase, NameType, RequestStatus } from '../lib/types'
 
 /** The wasm seal — every camel name is shown as a brand-mark stamp in its type colour. */
 export function NameSeal({ name, type, size = 'md' }: { name: string; type: NameType; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
-  const dims = { sm: 'w-14 text-[15px]', md: 'w-24 text-xl', lg: 'w-36 text-3xl', xl: 'w-56 text-5xl sm:w-64 sm:text-6xl' }[size]
+  const dims = {
+    sm: 'h-14 w-16 text-[15px]',
+    md: 'h-20 w-28 text-xl',
+    lg: 'h-32 w-44 text-[32px]',
+    xl: 'h-44 w-full max-w-sm text-5xl sm:h-52 sm:text-6xl',
+  }[size]
   return (
-    <div className={`seal seal-${type} ${dims} shrink-0 font-kufi font-semibold`} aria-label={`${name} — ${TYPE_LABEL[type]}`}>
-      <span className="px-2 text-center leading-tight">{name}</span>
+    <div className={`plate plate-${type} ${dims} shrink-0`} aria-label={`${name}، ${TYPE_LABEL[type]}`}>
+      <span className="px-2">{name}</span>
+      {size !== 'sm' && <span className="mt-1 text-[11px] font-bold opacity-70" style={{ fontSize: size === 'xl' ? 14 : undefined }}>{TYPE_LABEL[type]}</span>}
     </div>
   )
 }
@@ -26,7 +32,7 @@ export function TypeBadge({ type }: { type: NameType }) {
 
 export function PhasePill({ phase }: { phase: AuctionPhase }) {
   const m = {
-    live: ['bg-ok/10 text-ok', 'جارٍ الآن'],
+    live: ['bg-[#E2F0E8] text-ok', 'جارٍ الآن'],
     scheduled: ['bg-gold-soft text-gold-deep', 'قادم'],
     ended: ['bg-stone-deep text-muted', 'منتهٍ'],
   }[phase]
@@ -72,9 +78,9 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
   }, [open, onClose])
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/50 p-0 sm:items-center sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-navy/50 p-0 sm:items-center sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
       <div className={`max-h-[92vh] w-full overflow-auto rounded-t-2xl bg-paper p-5 sm:rounded-2xl sm:p-6 ${wide ? 'sm:max-w-2xl' : 'sm:max-w-md'}`} onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="mb-5 flex items-center justify-between gap-4 border-b border-line pb-4">
           <h2 className="text-xl">{title}</h2>
           <button className="rounded-md px-2 text-2xl leading-none text-muted hover:text-ink" onClick={onClose} aria-label="إغلاق">×</button>
         </div>
@@ -87,7 +93,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="panel flex flex-col items-center gap-3 px-6 py-12 text-center">
-      <p className="font-kufi text-lg">{title}</p>
+      <p className="text-lg font-extrabold">{title}</p>
       {children}
     </div>
   )
@@ -103,9 +109,9 @@ export function ErrorBox({ text }: { text: string }) {
 
 export function PageHead({ title, sub, action }: { title: string; sub?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl sm:text-3xl">{title}</h1>
+        <h1 className="text-[26px] sm:text-[32px]">{title}</h1>
         {sub && <p className="mt-1 text-muted">{sub}</p>}
       </div>
       {action}
@@ -115,10 +121,10 @@ export function PageHead({ title, sub, action }: { title: string; sub?: ReactNod
 
 export function Segmented<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: [T, string][] }) {
   return (
-    <div className="inline-flex rounded-lg border border-line bg-paper p-1" role="tablist">
+    <div className="inline-flex rounded-md border border-line bg-paper p-1" role="tablist">
       {options.map(([v, label]) => (
         <button key={v} role="tab" aria-selected={value === v} onClick={() => onChange(v)}
-          className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${value === v ? 'bg-ink text-paper' : 'text-muted hover:text-ink'}`}>
+          className={`rounded px-3.5 py-1.5 text-sm font-bold transition-colors ${value === v ? 'bg-navy text-paper' : 'text-muted hover:text-navy'}`}>
           {label}
         </button>
       ))}

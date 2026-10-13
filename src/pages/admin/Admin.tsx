@@ -24,7 +24,7 @@ export function AdminHome() {
       <PageHead title="لوحة لجنة الاعتماد" />
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         {tiles.map(([l, v, to]) => (
-          <Link key={l} to={to} className="panel block p-4 hover:border-ink"><dt className="text-sm text-muted">{l}</dt><dd className="num mt-1 font-kufi text-2xl font-semibold">{v}</dd></Link>
+          <Link key={l} to={to} className="panel block p-4 hover:border-navy"><dt className="text-sm text-muted">{l}</dt><dd className="num mt-1 font-extrabold text-2xl font-semibold">{v}</dd></Link>
         ))}
       </dl>
       <h2 className="mb-3 mt-8 text-xl">أقدم الطلبات في قائمة المراجعة</h2>
@@ -34,7 +34,7 @@ export function AdminHome() {
             <li key={r.id}>
               <Link to={`/admin/requests/${r.id}`} className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-stone">
                 <span className="num font-semibold">{r.number}</span><TypeBadge type={r.type} />
-                <span className="font-kufi">{r.candidates.map((c) => c.name).join('، ')}</span>
+                <span className="font-extrabold">{r.candidates.map((c) => c.name).join('، ')}</span>
                 {r.candidates.some((c) => c.similar.length) && <span className="pill bg-gold-soft text-gold-deep">أسماء شبيهة</span>}
                 <span className="ms-auto text-sm text-muted">{dateTime(r.submittedAt)}</span>
               </Link>
@@ -68,7 +68,7 @@ export function AdminRequests() {
                   <td><Link to={`/admin/requests/${r.id}`} className="num font-semibold underline-offset-4 hover:underline">{r.number}</Link></td>
                   <td>{r.ownerName}</td>
                   <td><TypeBadge type={r.type} /></td>
-                  <td className="font-kufi">
+                  <td className="font-extrabold">
                     {r.candidates.map((c, i) => (
                       <span key={c.id} className={c.status === 'rejected' ? 'text-bad line-through' : c.status === 'accepted' ? 'text-ok' : ''}>
                         {c.name}{c.similar.length ? <sup className="text-gold-deep">●</sup> : null}{i < r.candidates.length - 1 ? '، ' : ''}
@@ -138,7 +138,7 @@ export function AdminReview() {
                       <tbody>
                         {c.similar.map((h) => (
                           <tr key={h.name + h.source}>
-                            <td className="font-kufi">{h.name}</td>
+                            <td className="font-extrabold">{h.name}</td>
                             <td>{TYPE_LABEL[h.type]}</td>
                             <td className="text-muted">{h.source === 'reserved' ? 'سجل الأسماء' : h.source === 'auction' ? 'في مزاد' : 'طلب آخر'}</td>
                             <td><span className={`num font-semibold ${h.score === 1 ? 'text-bad' : h.score >= 0.85 ? 'text-warn' : 'text-muted'}`}>{h.score === 1 ? 'مطابق' : `${Math.round(h.score * 100)}%`}</span></td>
@@ -233,7 +233,7 @@ export function AdminSchedule() {
                 {data.map((c) => (
                   <tr key={c.id} className="cursor-pointer hover:bg-stone" onClick={() => toggle(c.id)}>
                     <td><input type="checkbox" checked={sel.has(c.id)} onChange={() => toggle(c.id)} onClick={(e) => e.stopPropagation()} aria-label={c.name} /></td>
-                    <td className="font-kufi text-lg">{c.name}</td>
+                    <td className="font-extrabold text-lg">{c.name}</td>
                     <td><TypeBadge type={c.request.type} /></td>
                     <td className="num">{c.request.number}</td>
                     <td>{c.request.ownerName}</td>
@@ -284,7 +284,7 @@ export function AdminAuctions() {
                 const p = phaseOf(a)
                 return (
                   <tr key={a.id}>
-                    <td><Link to={`/auctions/${a.id}`} className="flex items-center gap-2 font-kufi text-lg hover:text-gold-deep"><TypeBadge type={a.type} />{a.name}</Link></td>
+                    <td><Link to={`/auctions/${a.id}`} className="flex items-center gap-2 font-extrabold text-lg hover:text-gold-deep"><TypeBadge type={a.type} />{a.name}</Link></td>
                     <td><PhasePill phase={p} /></td>
                     <td className="num font-semibold">{sar(a.finalPrice ?? a.currentPrice)}</td>
                     <td className="num">{num(a.bidCount)}</td>
@@ -317,7 +317,7 @@ export function AdminInvoices() {
                 <tr key={i.id}>
                   <td className="num font-semibold">{i.number}</td>
                   <td>{i.buyerName}</td>
-                  <td className="font-kufi">{i.name}</td>
+                  <td className="font-extrabold">{i.name}</td>
                   <td className="num">{sar(i.total)}</td>
                   <td className="num text-muted">{sar(i.vat)}</td>
                   <td className="num font-semibold">{sar(i.amountDue)}</td>

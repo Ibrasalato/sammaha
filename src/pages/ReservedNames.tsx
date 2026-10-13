@@ -26,7 +26,7 @@ export default function ReservedNames() {
             <li key={r.id} className="panel flex items-center gap-4 p-3">
               <NameSeal name={r.name} type={r.type} size="sm" />
               <div className="min-w-0">
-                <div className="flex items-center gap-2"><span className="font-kufi text-lg">{r.name}</span><TypeBadge type={r.type} /></div>
+                <div className="flex items-center gap-2"><span className="font-extrabold text-lg">{r.name}</span><TypeBadge type={r.type} /></div>
                 <p className="truncate text-sm text-muted">{r.ownerName}</p>
                 <p className="text-[13px] text-muted">منذ {date(r.acquiredAt)}</p>
               </div>

@@ -45,7 +45,7 @@ export function InvoiceDoc({ inv }: { inv: Invoice }) {
           <div className="flex justify-between"><dt className="text-muted">ضريبة القيمة المضافة 15%</dt><dd>{sar(inv.vat)}</dd></div>
           <div className="flex justify-between border-t border-line pt-1.5 font-semibold"><dt>الإجمالي شامل الضريبة</dt><dd>{sar(inv.total)}</dd></div>
           {inv.depositApplied > 0 && <div className="flex justify-between text-ok"><dt>مخصوم من ضمان المزاد</dt><dd>−{num(inv.depositApplied)} ر.س</dd></div>}
-          <div className="flex justify-between font-kufi text-lg"><dt>المستحق</dt><dd>{sar(inv.amountDue)}</dd></div>
+          <div className="flex justify-between font-extrabold text-lg"><dt>المستحق</dt><dd>{sar(inv.amountDue)}</dd></div>
           <div className="pt-1 text-end"><span className={`pill ${inv.status === 'paid' ? 'bg-ok/10 text-ok' : 'bg-gold-soft text-gold-deep'}`}>{inv.status === 'paid' ? 'مدفوعة' : 'غير مدفوعة'}</span></div>
         </dl>
       </div>

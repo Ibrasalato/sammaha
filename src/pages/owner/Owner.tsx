@@ -28,7 +28,7 @@ export function DashHome() {
           {unpaid.map((i) => (
             <Link key={i.id} to={`/dashboard/invoices/${i.id}`} className="flex flex-wrap items-center gap-3 rounded-xl border border-gold bg-gold-soft p-4 hover:border-gold-deep">
               <span className="flex-1 font-semibold">رسا عليك اسم «{i.name}». الفاتورة {i.number} بانتظار السداد.</span>
-              <span className="num font-kufi text-lg">{sar(i.amountDue)}</span>
+              <span className="num font-extrabold text-lg">{sar(i.amountDue)}</span>
             </Link>
           ))}
           {pendingPay.map((r) => (
@@ -56,7 +56,7 @@ export function DashHome() {
                   <Link to={`/dashboard/requests/${r.id}`} className="flex flex-wrap items-center gap-2 px-4 py-3 hover:bg-stone">
                     <span className="num font-semibold">{r.number}</span>
                     <TypeBadge type={r.type} />
-                    <span className="truncate font-kufi text-muted">{r.candidates.map((c) => c.name).join('، ')}</span>
+                    <span className="truncate font-extrabold text-muted">{r.candidates.map((c) => c.name).join('، ')}</span>
                     <span className="ms-auto"><RequestStatusPill status={r.status} /></span>
                   </Link>
                 </li>
@@ -78,7 +78,7 @@ export function DashHome() {
                         <p className={`text-sm font-semibold ${leading ? 'text-ok' : 'text-bad'}`}>{leading ? 'أنت المتصدر' : 'تجاوزك مزايد آخر'}</p>
                         <Countdown to={b.auction.endsAt} prefix="ينتهي خلال" className="text-sm" />
                       </div>
-                      <span className="num font-kufi text-lg">{num(b.auction.currentPrice)}</span>
+                      <span className="num font-extrabold text-lg">{num(b.auction.currentPrice)}</span>
                     </Link>
                   </li>
                 )
@@ -93,9 +93,9 @@ export function DashHome() {
 
 function Stat({ label, value, to }: { label: string; value: string; to: string }) {
   return (
-    <Link to={to} className="panel block p-4 hover:border-ink">
+    <Link to={to} className="panel block p-4 hover:border-navy">
       <dt className="text-sm text-muted">{label}</dt>
-      <dd className="num mt-1 font-kufi text-2xl font-semibold">{value}</dd>
+      <dd className="num mt-1 font-extrabold text-2xl font-semibold">{value}</dd>
     </Link>
   )
 }
@@ -112,7 +112,7 @@ export function WalletPage() {
       <PageHead title="المحفظة" sub="يُعاد إليها ضمان الطلبات المرفوضة أو الملغاة، ويمكنك الدفع منها." action={<button className="btn-gold" onClick={() => setOpen(true)}>شحن المحفظة</button>} />
       <div className="panel mb-6 p-5">
         <p className="text-muted">الرصيد المتاح</p>
-        <p className="num font-kufi text-4xl font-semibold">{data ? sar(data.balance) : '…'}</p>
+        <p className="num font-extrabold text-4xl font-semibold">{data ? sar(data.balance) : '…'}</p>
       </div>
       {loading && !data ? <Loading /> : data?.txs.length ? (
         <div className="panel overflow-x-auto">
@@ -156,7 +156,7 @@ export function MyInvoices() {
               {data.map((i) => (
                 <tr key={i.id}>
                   <td><Link to={`/dashboard/invoices/${i.id}`} className="num font-semibold underline-offset-4 hover:underline">{i.number}</Link></td>
-                  <td className="font-kufi">{i.name}</td>
+                  <td className="font-extrabold">{i.name}</td>
                   <td className="text-muted">{date(i.issuedAt)}</td>
                   <td className="num">{sar(i.total)}</td>
                   <td className="num font-semibold">{sar(i.amountDue)}</td>
@@ -208,7 +208,7 @@ export function MyBids() {
                 const leading = b.auction.leaderId === b.userId
                 return (
                   <tr key={b.id}>
-                    <td><Link to={`/auctions/${b.auctionId}`} className="flex items-center gap-2 font-kufi text-lg hover:text-gold-deep"><TypeBadge type={b.auction.type} />{b.auction.name}</Link></td>
+                    <td><Link to={`/auctions/${b.auctionId}`} className="flex items-center gap-2 font-extrabold text-lg hover:text-gold-deep"><TypeBadge type={b.auction.type} />{b.auction.name}</Link></td>
                     <td><PhasePill phase={phase} /></td>
                     <td className="num">{sar(b.amount)}</td>
                     <td className="num font-semibold">{sar(b.auction.finalPrice ?? b.auction.currentPrice)}</td>
