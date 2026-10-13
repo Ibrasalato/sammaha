@@ -1,0 +1,173 @@
+export type NameType = 'qaadan' | 'bakkar'
+export type Role = 'owner' | 'committee' | 'admin'
+
+export interface User {
+  id: string
+  fullName: string
+  phone: string
+  email: string
+  nationalId?: string
+  role: Role
+  createdAt: string
+}
+
+export type RequestStatus =
+  | 'pending_payment' // created, deposit not paid yet
+  | 'under_review' // deposit paid, waiting for the approval committee
+  | 'accepted' // at least one name accepted
+  | 'rejected' // committee rejected the whole request → deposit refunded
+  | 'cancelled' // cancelled (by owner before payment or by committee) → deposit refunded if paid
+
+export type CandidateStatus = 'pending' | 'accepted' | 'rejected'
+
+export interface Candidate {
+  id: string
+  name: string
+  normalized: string
+  status: CandidateStatus
+  /** existing names found similar at check time (for the committee) */
+  similar: SimilarHit[]
+  rejectReason?: string
+  auctionId?: string
+}
+
+export interface SimilarHit {
+  name: string
+  type: NameType
+  source: 'reserved' | 'request' | 'auction'
+  score: number // 0..1, 1 = identical after normalisation
+}
+
+export interface LogoRequest {
+  id: string
+  number: string
+  userId: string
+  ownerName: string
+  type: NameType
+  candidates: Candidate[]
+  status: RequestStatus
+  depositAmount: number
+  depositPaid: boolean
+  depositState: 'none' | 'held' | 'applied' | 'refunded'
+  createdAt: string
+  submittedAt?: string
+  reviewedAt?: string
+  reviewerName?: string
+  reviewNote?: string
+}
+
+export type AuctionPhase = 'scheduled' | 'live' | 'ended'
+
+export interface Auction {
+  id: string
+  requestId: string
+  candidateId: string
+  name: string
+  type: NameType
+  requesterId: string
+  openingPrice: number
+  minIncrement: number
+  startsAt: string
+  endsAt: string
+  currentPrice: number
+  bidCount: number
+  leaderId?: string
+  leaderLabel?: string
+  settled: boolean
+  winnerId?: string
+  winnerName?: string
+  finalPrice?: number
+  wonByRequester?: boolean
+}
+
+export interface Bid {
+  id: string
+  auctionId: string
+  userId: string
+  bidderLabel: string
+  amount: number
+  createdAt: string
+}
+
+export interface ReservedName {
+  id: string
+  name: string
+  normalized: string
+  type: NameType
+  ownerId?: string
+  ownerName: string
+  price: number
+  acquiredAt: string
+  source: 'auction' | 'legacy'
+}
+
+export type TxKind = 'topup' | 'deposit' | 'refund' | 'invoice_payment'
+
+export interface WalletTx {
+  id: string
+  userId: string
+  amount: number // + credit, - debit
+  kind: TxKind
+  note: string
+  createdAt: string
+}
+
+export interface Invoice {
+  id: string
+  number: string
+  userId: string
+  buyerName: string
+  buyerPhone: string
+  auctionId: string
+  name: string
+  type: NameType
+  total: number // VAT inclusive hammer price
+  vat: number
+  subtotal: number
+  depositApplied: number
+  amountDue: number
+  status: 'paid' | 'unpaid'
+  issuedAt: string
+  paidAt?: string
+}
+
+export interface NameCheck {
+  name: string
+  normalized: string
+  verdict: 'available' | 'exact' | 'similar' | 'invalid' | 'duplicate'
+  message: string
+  hits: SimilarHit[]
+}
+
+export interface Wallet {
+  balance: number
+  txs: WalletTx[]
+}
+
+export interface PublicStats {
+  live: number
+  upcoming: number
+  reserved: number
+  owners: number
+}
+
+export interface AdminOverview {
+  underReview: number
+  awaitingSchedule: number
+  live: number
+  scheduled: number
+  unpaidInvoices: number
+  revenue: number
+}
+
+export interface AuctionFilter {
+  phase?: AuctionPhase | 'all'
+  type?: NameType | 'all'
+  q?: string
+}
+
+export interface ReviewDecision {
+  candidateId: string
+  status: 'accepted' | 'rejected'
+  reason?: string
+}
