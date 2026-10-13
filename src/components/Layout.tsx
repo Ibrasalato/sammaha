@@ -15,6 +15,7 @@ const PUBLIC_NAV = (): [string, string][] => [
   ['/auctions', tr('المزادات', 'Auctions')],
   ['/events', tr('المواعيد', 'Calendar')],
   ['/names', tr('سجل الأسماء', 'Registry')],
+  ['/market', tr('سوق الأسماء', 'Name market')],
   ['/invest', tr('استثمار الاسم', 'Name investment')],
   ['/about', tr('عن المنصة', 'About')],
 ]

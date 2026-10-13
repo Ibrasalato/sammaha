@@ -5,6 +5,7 @@ import { Countdown, ErrorBox, NameSeal, PhasePill, TypeBadge } from '../componen
 import { Skeleton } from '../components/Skeleton'
 import { PriceChart } from '../components/PriceChart'
 import { CountdownBoxes } from '../components/AuctionCard'
+import { PayModal } from '../components/PayModal'
 import { RULES, TYPE_HINT } from '../lib/config'
 import { phaseOf } from '../lib/demoApi'
 import { cur, dateTime, num, sar, time } from '../lib/format'
@@ -29,6 +30,7 @@ export default function AuctionDetail() {
   const [autoMax, setAutoMax] = useState('')
   const [confirm, setConfirm] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
+  const [payingDeposit, setPayingDeposit] = useState(false)
   const [flash, setFlash] = useState(0)
   const lastPrice = useRef<number | null>(null)
   const panel = useRef<HTMLElement>(null)
@@ -46,11 +48,14 @@ export default function AuctionDetail() {
   if (error || !a) return <div className="mx-auto max-w-3xl px-4 py-10"><ErrorBox text={error || tr('المزاد غير موجود', 'Auction not found')} /></div>
 
   const phase = phaseOf(a, now)
+  const mine = data.mine
   const min = a.currentPrice + a.minIncrement
   const isRequester = user?.id === a.requesterId
-  const ownInvest = !!a.investment && isRequester // the proposer may not bid on his own name
+  const resale = !!a.listingId
+  const ownInvest = (!!a.investment || resale) && isRequester // the proposer or seller may not bid on the name
+  // resale auctions: bidders pay a participation guarantee first
+  const needDeposit = resale && !!user && !isRequester && !mine?.depositPaid && phase !== 'ended'
   const leading = !!user && a.leaderId === user.id
-  const mine = data.mine
   const endsSoon = phase === 'live' && Date.parse(a.endsAt) - now < RULES.extendMinutes * 60_000 * 3
 
   async function run<T>(p: Promise<T>, ok: (r: T) => string) {
@@ -83,7 +88,7 @@ export default function AuctionDetail() {
           <div className="mt-6 flex flex-col items-start gap-6 sm:flex-row sm:items-center">
             <NameSeal name={a.name} type={a.type} size="lg" />
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2"><TypeBadge type={a.type} />{a.investment && <Link to="/invest" className="pill bg-gold text-pine hover:bg-gold-light">{tr('استثمار الاسم', 'Name investment')}</Link>}<PhasePill phase={phase} />{(a.extensions ?? 0) > 0 && phase === 'live' && <span className="pill bg-gold text-paper">{tr(`مُدّد ${num(a.extensions!)} مرة`, `Extended ${num(a.extensions!)}×`)}</span>}</div>
+              <div className="flex flex-wrap items-center gap-2"><TypeBadge type={a.type} />{a.investment && <Link to="/invest" className="pill bg-gold text-pine hover:bg-gold-light">{tr('استثمار الاسم', 'Name investment')}</Link>}{resale && <Link to="/market" className="pill bg-gold text-pine hover:bg-gold-light">{tr('إعادة بيع من مالكه', 'Resale by its owner')}</Link>}<PhasePill phase={phase} />{(a.extensions ?? 0) > 0 && phase === 'live' && <span className="pill bg-gold text-paper">{tr(`مُدّد ${num(a.extensions!)} مرة`, `Extended ${num(a.extensions!)}×`)}</span>}</div>
               <h1 className="mt-3 text-[40px] font-extrabold leading-none text-paper sm:text-[48px]">{a.name}</h1>
               <p className="mt-2 text-paper/65">{TYPE_HINT[a.type]}</p>
             </div>
@@ -185,9 +190,18 @@ export default function AuctionDetail() {
               </div>
 
               {phase !== 'ended' && ownInvest && (
-                <p className="mt-5 rounded-lg border border-line bg-stone p-4 text-[14.5px] leading-7">{tr('هذا اسمك المقدّم في «استثمار الاسم»، ولا يمكنك المزايدة عليه حفاظًا على عدالة المزاد. لك 30% من قيمة بيعه قبل الضريبة، وإن لم يزايد أحد يؤول إليك.', 'This is your «Name investment» name, so you cannot bid on it. You get 30% of its sale before VAT; if nobody bids, it is yours.')}</p>
+                <p className="mt-5 rounded-lg border border-line bg-stone p-4 text-[14.5px] leading-7">{resale
+                  ? tr(`هذا اسمك المعروض للبيع، ولا يمكنك المزايدة عليه. يصلك ثمن البيع بعد خصم عمولة سمّها ${Math.round(RULES.resaleCommission * 100)}% فور سداد المشتري، وإن لم يزايد أحد يبقى الاسم باسمك.`, `This is your name on sale, so you cannot bid on it. You receive the price less the ${Math.round(RULES.resaleCommission * 100)}% commission once the buyer pays.`)
+                  : tr('هذا اسمك المقدّم في «استثمار الاسم»، ولا يمكنك المزايدة عليه حفاظًا على عدالة المزاد. لك 30% من قيمة بيعه قبل الضريبة، وإن لم يزايد أحد يؤول إليك.', 'This is your «Name investment» name, so you cannot bid on it. You get 30% of its sale before VAT; if nobody bids, it is yours.')}</p>
               )}
-              {phase === 'live' && !ownInvest && (user ? (
+              {needDeposit && (
+                <div className="mt-5 rounded-lg border border-gold/60 bg-gold-soft p-4 text-[14.5px] leading-7">
+                  <b>{tr('ضمان دخول المزاد', 'Participation guarantee')} {sar(a.bidDeposit ?? RULES.resaleBidDeposit)}</b>
+                  <p className="text-ink/80">{tr('يدفعه كل مشارك قبل المزايدة على اسم معروض من مالكه. يُعاد إلى محفظتك إن لم يرسُ عليك، ويُخصم من فاتورتك إن فزت.', 'Every bidder pays it before bidding on an owner’s resale. It is refunded unless you win, and deducted from your invoice if you do.')}</p>
+                  <button className="btn-gold mt-3 w-full" disabled={busy} onClick={() => setPayingDeposit(true)}>{tr('دفع الضمان والمشاركة', 'Pay and take part')}</button>
+                </div>
+              )}
+              {phase === 'live' && !ownInvest && !needDeposit && (user ? (
                 <form className="mt-5" onSubmit={(e) => { e.preventDefault(); bid(Number(amount)) }}>
                   {isRequester && <p className="mb-3 rounded-md bg-stone px-3 py-2 text-[13px] text-muted">{tr('أنت مقدم طلب هذا الاسم. إن لم يزايد أحد يرسو عليك بمبلغ الضمان.', 'You requested this name. If nobody bids it is yours for the guarantee amount.')}</p>}
                   <span className="label">{tr('مزايدة سريعة', 'Quick bid')}</span>
@@ -222,7 +236,7 @@ export default function AuctionDetail() {
               ))}
             </div>
 
-            {user && phase !== 'ended' && !ownInvest && (
+            {user && phase !== 'ended' && !ownInvest && !needDeposit && (
               <div className="border-t border-line bg-stone/60 p-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-[16px]">{tr('المزايدة التلقائية', 'Automatic bidding')}</h3>
@@ -249,6 +263,10 @@ export default function AuctionDetail() {
       </div>
 
       {/* mobile: price and bid button always in reach */}
+      {payingDeposit && (
+        <PayModal open title={tr(`ضمان دخول مزاد «${a.name}»`, `Guarantee for “${a.name}”`)} amount={a.bidDeposit ?? RULES.resaleBidDeposit} onClose={() => setPayingDeposit(false)}
+          onPay={async (m) => { try { setData(await api.payBidDeposit(a.id, m)); toast(tr('تم دفع الضمان، تقدر تزايد الآن', 'Guarantee paid, you can bid now')) } catch (e) { toast((e as Error).message, 'bad'); throw e } }} />
+      )}
       {phase === 'live' && !ownInvest && (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(0,0,0,.25)] backdrop-blur lg:hidden print:hidden">
           <div className="mx-auto flex max-w-xl items-center gap-3">
@@ -256,7 +274,9 @@ export default function AuctionDetail() {
               <div className="num text-[22px] font-extrabold leading-none">{num(a.currentPrice)} <span className="text-[13px] font-medium text-muted">{cur()}</span></div>
               <Countdown to={a.endsAt} className={`text-[13px] font-bold ${endsSoon ? 'text-bad' : 'text-muted'}`} />
             </div>
-            {user
+            {user && needDeposit
+              ? <button className="btn-gold" onClick={() => setPayingDeposit(true)}>{tr('ادفع الضمان', 'Pay guarantee')}</button>
+              : user
               ? <button className="btn-gold" disabled={busy || leading} onClick={() => bid(min)}>{leading ? tr('أنت المتصدر', 'Leading') : tr(`زايد ${num(min)}`, `Bid ${num(min)}`)}</button>
               : <Link to="/login" state={{ from: loc.pathname }} className="btn-gold">{tr('سجّل للمزايدة', 'Sign in to bid')}</Link>}
             <button className="btn-ghost btn-sm" onClick={() => panel.current?.scrollIntoView({ behavior: 'smooth' })} aria-label={tr('خيارات المزايدة', 'Bid options')}>⋯</button>

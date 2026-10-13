@@ -35,7 +35,7 @@ export function InvoiceDoc({ inv }: { inv: Invoice }) {
       <table className="tbl my-4">
         <thead><tr><th>البيان</th><th>النوع</th><th className="text-end">المبلغ</th></tr></thead>
         <tbody>
-          <tr><td>اسم شعار «{inv.name}» عبر المزاد</td><td>{TYPE_LABEL[inv.type]}</td><td className="num text-end">{sar(inv.subtotal)}</td></tr>
+          <tr><td>اسم شعار «{inv.name}» {inv.listingId ? (inv.auctionId === inv.listingId ? 'بالشراء الفوري من مالكه' : 'عبر مزاد إعادة البيع') : 'عبر المزاد'}</td><td>{TYPE_LABEL[inv.type]}</td><td className="num text-end">{sar(inv.subtotal)}</td></tr>
         </tbody>
       </table>
       <div className="flex flex-col-reverse items-start justify-between gap-6 sm:flex-row">

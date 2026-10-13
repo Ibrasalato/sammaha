@@ -22,6 +22,15 @@ export const RULES = {
   investOwnerShare: 0.3,
   /** «استثمار الاسم»: names allowed in one request */
   investMaxNames: 3,
+  /** «بيع اسم»: resale auction — listed 72 h before it opens, runs 3 days, 10% commission */
+  resaleNoticeHours: 72,
+  resaleAuctionDays: 3,
+  resaleCommission: 0.1,
+  /** participation guarantee every bidder pays on a resale auction (refunded unless they win) */
+  resaleBidDeposit: 50,
+  /** «بيع اسم»: fixed-price sale — on the market for 72 h, 15% commission */
+  instantSaleHours: 72,
+  instantCommission: 0.15,
 }
 
 export const SELLER = {

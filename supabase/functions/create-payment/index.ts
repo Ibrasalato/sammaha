@@ -1,5 +1,6 @@
 // Creates a Moyasar hosted invoice for a card payment and returns its URL.
 // purpose: 'topup' | 'deposit' (ref = request id) | 'invoice' (ref = invoice id)
+//          | 'bid_deposit' (ref = resale auction id) | 'listing' (ref = fixed-price listing id)
 // Env: MOYASAR_SECRET_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
@@ -23,6 +24,14 @@ Deno.serve(async (req) => {
     const { data } = await admin.from('invoices').select('amount_due,user_id,status').eq('id', ref).single()
     if (!data || data.user_id !== user.id || data.status !== 'unpaid') return json({ error: 'الفاتورة غير متاحة للسداد' }, 400)
     amount = Number(data.amount_due)
+  } else if (purpose === 'bid_deposit') {
+    const { data } = await admin.from('auctions').select('bid_deposit,requester_id,settled,ends_at,listing_id').eq('id', ref).single()
+    if (!data?.listing_id || data.settled || data.requester_id === user.id || new Date(data.ends_at) <= new Date()) return json({ error: 'المزاد غير متاح' }, 400)
+    amount = Number(data.bid_deposit)
+  } else if (purpose === 'listing') {
+    const { data } = await admin.from('name_listings').select('price,seller_id,status,mode,ends_at').eq('id', ref).single()
+    if (!data || data.mode !== 'instant' || data.status !== 'live' || data.seller_id === user.id || new Date(data.ends_at) <= new Date()) return json({ error: 'العرض غير متاح' }, 400)
+    amount = Number(data.price)
   } else if (!(amount >= 10 && amount <= 100000)) {
     return json({ error: 'مبلغ غير صحيح' }, 400)
   }
@@ -36,7 +45,7 @@ Deno.serve(async (req) => {
     body: JSON.stringify({
       amount: Math.round(amount * 100), // halalas
       currency: 'SAR',
-      description: purpose === 'deposit' ? 'ضمان مزاد — منصة سمّها' : purpose === 'invoice' ? 'سداد فاتورة — منصة سمّها' : 'شحن محفظة — منصة سمّها',
+      description: purpose === 'deposit' ? 'ضمان مزاد — منصة سمّها' : purpose === 'bid_deposit' ? 'ضمان دخول مزاد — منصة سمّها' : purpose === 'listing' ? 'شراء اسم — منصة سمّها' : purpose === 'invoice' ? 'سداد فاتورة — منصة سمّها' : 'شحن محفظة — منصة سمّها',
       callback_url: callback,
       metadata: { payment_id: payment!.id },
     }),

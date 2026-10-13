@@ -304,10 +304,59 @@ function MinimalRow({ a }: { a: Auction }) {
   )
 }
 
+/** Corner ribbon carrying the category, in the category colour. */
+function CornerRibbon({ label, color, deep }: { label: string; color: string; deep: string }) {
+  return (
+    <span className="pointer-events-none absolute -right-[7px] -top-[7px] h-[104px] w-[104px] overflow-hidden" aria-hidden>
+      <span className="absolute left-0 top-0 h-[7px] w-[7px]" style={{ background: deep }} />
+      <span className="absolute bottom-0 right-0 h-[7px] w-[7px]" style={{ background: deep }} />
+      <span className="absolute -right-[34px] top-[24px] w-[150px] rotate-45 py-1.5 text-center text-[13px] font-extrabold text-paper shadow-md"
+        style={{ background: `linear-gradient(180deg, ${color}, ${deep})` }}>{label}</span>
+    </span>
+  )
+}
+/** Round medal for a resale («بيع اسم») auction. */
+export function ResaleMedal({ className = '' }: { className?: string }) {
+  return (
+    <span className={`pointer-events-none absolute grid h-12 w-12 place-items-center rounded-full border-[3px] border-[#D9BD82] bg-gradient-to-b from-[#1F7A3A] to-[#145227] text-paper shadow-lg ${className}`} title={tr('إعادة بيع', 'Resale')} aria-hidden>
+      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 01-15.3 6.4M3 12A9 9 0 0118.3 5.6M18 2v4h-4M6 22v-4h4" /></svg>
+    </span>
+  )
+}
+
+/** Ribbon: a white-to-sand catalogue card, gold name, the category on a corner ribbon, gold pill button on the edge. */
+function RibbonCard({ a }: { a: Auction }) {
+  const l = useLot(a)
+  const c = TYPE_HEX[a.type]
+  return (
+    <Link to={`/auctions/${a.id}`} className="group relative mb-5 flex flex-col rounded-md border border-[#C9A55A]/70 bg-gradient-to-b from-paper via-paper to-[#EAD9B4] px-5 pb-9 pt-6 text-center shadow-card transition hover:-translate-y-0.5 hover:shadow-lift">
+      <CornerRibbon label={TYPE_LABEL[a.type]} color={c.base} deep={c.deep} />
+      {a.listingId && <ResaleMedal className="-left-3 -top-3" />}
+      {a.investment && <span className="absolute left-3 top-3 rounded-full bg-[#F3EBDA] px-2 py-0.5 text-[11px] font-extrabold text-[#80601E]">{tr('استثمار', 'Investment')}</span>}
+      <div className="truncate px-6 text-[38px] font-extrabold leading-tight text-[#A87C26]">{a.name}</div>
+      <div className="mx-auto mt-2 h-px w-[85%] bg-ink/25" />
+      <div className="mt-2 text-[13px] text-ink/80">{l.phase === 'live' ? tr('الوقت المتبقي حتى نهاية المزاد', 'Time left') : l.phase === 'scheduled' ? tr('يبدأ المزاد خلال', 'Starts in') : tr('انتهى المزاد', 'Auction ended')}</div>
+      <div className="mt-2">
+        {l.phase === 'ended'
+          ? <div className="rounded-md bg-paper/80 py-2 text-[14px] font-bold">{date(a.endsAt)}</div>
+          : <CountdownBoxes to={l.phase === 'live' ? a.endsAt : a.startsAt} tone={l.urgent ? 'urgent' : 'ink'} />}
+      </div>
+      <div className="mt-4 flex items-baseline justify-center gap-2">
+        <span className="num text-[44px] font-black leading-none tracking-tight">{num(l.price)}</span><span className="text-[15px]">{cur()}</span>
+      </div>
+      <div className="mt-1 text-[14px] text-ink/80">{l.phase === 'ended' ? tr('سعر الترسية', 'Hammer price') : a.bidCount ? tr('مبلغ الأعلى مزايدة', 'Highest bid') : tr('السعر الافتتاحي', 'Opening price')}</div>
+      <span className="absolute -bottom-5 left-1/2 inline-flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-[#A87C26]/50 bg-gradient-to-b from-[#D9B867] to-[#B88E3A] px-7 py-2 text-[17px] font-extrabold text-paper shadow-md transition group-hover:brightness-105">
+        <Icon d={ICON.gavel} className="h-4 w-4" />{l.phase === 'live' ? tr('زايد الآن', 'Bid now') : l.phase === 'scheduled' ? tr('تفاصيل المزاد', 'View auction') : tr('عرض النتيجة', 'View result')}
+      </span>
+    </Link>
+  )
+}
+
 export function AuctionCard({ a, style }: { a: Auction; style?: CardStyle }) {
   const chosen = useCardStyle()
   switch (style ?? chosen) {
     case 'brand': return <BrandCard a={a} />
+    case 'ribbon': return <RibbonCard a={a} />
     case 'classic': return <ClassicCard a={a} />
     case 'heritage': return <HeritageCard a={a} />
     case 'luxury': return <LuxuryCard a={a} />
@@ -327,7 +376,8 @@ export function AuctionGrid({ list, className = '' }: { list: Auction[]; classNa
 function Thumb({ s }: { s: CardStyle }) {
   const box = 'h-6 w-8 shrink-0 overflow-hidden rounded-[3px]'
   if (s === 'modern') return <span className={`${box} flex flex-col border border-line bg-paper`}><span className="h-3 bg-qaadan" /><span className="mx-1 mt-1 h-0.5 rounded bg-muted/40" /></span>
-  if (s === 'brand') return <span className={`${box} flex border border-[#1D5C2F]/30 bg-paper`}><span className="h-3 flex-1 bg-[#1D5C2F]" /><span className="h-3 flex-1 bg-[#9C7425]" /></span>
+  if (s === 'brand') return <span className={`${box} flex border border-[#1D5C2F]/30 bg-paper`}><span className="h-3 flex-1 bg-[#5A3F7A]" /><span className="h-3 flex-1 bg-[#1D5C2F]" /><span className="h-3 flex-1 bg-[#9C7425]" /></span>
+  if (s === 'ribbon') return <span className={`${box} relative overflow-hidden border border-[#C9A55A] bg-gradient-to-b from-paper to-[#EAD9B4]`}><span className="absolute -right-2 top-1 h-1.5 w-6 rotate-45 bg-[#1F6B3A]" /><span className="absolute inset-x-1.5 top-2.5 h-0.5 bg-[#A87C26]" /></span>
   if (s === 'classic') return <span className={`${box} grid place-items-center border border-gold/70 bg-paper p-[2px]`}><span className="grid h-full w-full place-items-center rounded-[2px] border border-gold/50"><span className="h-0.5 w-3 bg-qaadan-deep" /></span></span>
   if (s === 'heritage') return <span className={`${box} flex flex-col border border-[#E5D7B8] bg-[#FBF6EA]`}><span className="sadu h-1.5" style={{ backgroundSize: '12px 6px' }} /><span className="m-auto h-1.5 w-1.5 rotate-45 bg-bakkar" /></span>
   if (s === 'luxury') return <span className={`${box} grid place-items-center bg-pine ring-1 ring-gold/60`}><span className="h-0.5 w-4 bg-gold-light" /></span>

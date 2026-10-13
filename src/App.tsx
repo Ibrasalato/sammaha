@@ -20,6 +20,7 @@ import { ChatWidget } from './components/ChatWidget'
 import Events from './pages/Events'
 import Home from './pages/Home'
 import Invest from './pages/Invest'
+import Market from './pages/Market'
 import ReservedNames from './pages/ReservedNames'
 import Verify from './pages/Verify'
 import { STAFF_LOGIN_PATH } from './lib/config'
@@ -34,6 +35,7 @@ const DashHome = pick(ownerMod, 'DashHome'), WalletPage = pick(ownerMod, 'Wallet
 const InvoicePage = pick(ownerMod, 'InvoicePage'), MyBids = pick(ownerMod, 'MyBids'), MyNames = pick(ownerMod, 'MyNames')
 const CertificatePage = pick(ownerMod, 'CertificatePage'), ProfilePage = pick(ownerMod, 'ProfilePage'), WatchlistPage = pick(ownerMod, 'WatchlistPage')
 const MyRequests = pick(reqMod, 'MyRequests'), NewRequest = pick(reqMod, 'NewRequest'), RequestDetail = pick(reqMod, 'RequestDetail')
+const SellPage = pick(() => import('./pages/owner/Sell'), 'SellPage')
 const InvestPage = pick(() => import('./pages/owner/Invest'), 'InvestPage')
 const MyTickets = pick(() => import('./pages/owner/Tickets'), 'MyTickets')
 const AdminHome = pick(adminMod, 'AdminHome'), AdminRequests = pick(adminMod, 'AdminRequests'), AdminReview = pick(adminMod, 'AdminReview')
@@ -47,7 +49,7 @@ const TITLES: [RegExp, string, string][] = [
   [/^\/$/, '', ''], [/^\/auctions$/, 'المزادات', 'Auctions'], [/^\/names/, 'سجل الأسماء', 'Name registry'], [/^\/events/, 'المواعيد والمهرجانات', 'Events'],
   [/^\/verify/, 'التحقق من شهادة', 'Verify a certificate'], [/^\/faq/, 'الأسئلة الشائعة', 'FAQ'], [/^\/terms/, 'الشروط والأحكام', 'Terms'],
   [/^\/privacy/, 'سياسة الخصوصية', 'Privacy'], [/^\/refund/, 'سياسة الاسترداد', 'Refunds'], [/^\/contact\/track/, 'متابعة طلب', 'Track a request'],
-  [/^\/contact/, 'تواصل معنا', 'Contact'], [/^\/about/, 'عن المنصة', 'About'], [/^\/invest/, 'استثمار الاسم', 'Name investment'], [/^\/login/, 'تسجيل الدخول', 'Sign in'], [/^\/signup/, 'إنشاء حساب', 'Sign up'],
+  [/^\/contact/, 'تواصل معنا', 'Contact'], [/^\/about/, 'عن المنصة', 'About'], [/^\/invest/, 'استثمار الاسم', 'Name investment'], [/^\/market/, 'سوق الأسماء', 'Name market'], [/^\/login/, 'تسجيل الدخول', 'Sign in'], [/^\/signup/, 'إنشاء حساب', 'Sign up'],
   [/^\/dashboard/, 'لوحة التحكم', 'Dashboard'], [/^\/admin/, 'لجنة الاعتماد', 'Committee'], [/^\/ico-staff/, 'بوابة الموظفين', 'Staff'],
 ]
 function RouteTitle() {
@@ -77,6 +79,7 @@ const OWNER_NAV: NavItem[] = [
   { to: '/dashboard', label: 'الرئيسية', icon: 'home', end: true },
   { to: '/dashboard/requests', label: 'طلبات الشعارات', short: 'طلباتي', icon: 'file' },
   { to: '/dashboard/invest', label: 'استثمار الاسم', short: 'استثمار', icon: 'coins' },
+  { to: '/dashboard/sell', label: 'بيع اسم', icon: 'tag' },
   { to: '/dashboard/bids', label: 'مزايداتي', icon: 'gavel' },
   { to: '/dashboard/watchlist', label: 'قائمة المتابعة', short: 'المتابعة', icon: 'clock' },
   { to: '/dashboard/names', label: 'أسمائي', icon: 'tag' },
@@ -142,6 +145,7 @@ function AppRoutes() {
             <Route path="verify/:code" element={<Verify />} />
             <Route path="about" element={<About />} />
             <Route path="invest" element={<Invest />} />
+            <Route path="market" element={<Market />} />
             <Route path="login" element={<Login />} />
             <Route path="signup" element={<Signup />} />
           </Route>
@@ -160,6 +164,7 @@ function AppRoutes() {
             <Route path="tickets" element={<MyTickets />} />
             <Route path="watchlist" element={<WatchlistPage />} />
             <Route path="invest" element={<InvestPage />} />
+            <Route path="sell" element={<SellPage />} />
           </Route>
           <Route path={STAFF_LOGIN_PATH.slice(1)} element={<StaffLogin />} />
           <Route path="admin" element={<Guard roles={['committee', 'admin']}><AdminShell /></Guard>}>

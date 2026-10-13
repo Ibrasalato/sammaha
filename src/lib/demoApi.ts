@@ -5,7 +5,7 @@
  */
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'
-import type { AuctionView } from './types'
+import type { AuctionView , NameListing } from './types'
 import { NAME_TYPES, OTP, RULES, SUPER_ADMIN_EMAIL } from './config'
 import { maskEmail, maskPhone, otpDigits } from './otp'
 import { namesCount } from './format'
@@ -37,11 +37,14 @@ interface DB {
   tickets: Ticket[]
   autobids?: AutoBid[]
   watches?: Watch[]
+  listings?: NameListing[]
+  bidDeposits?: BidDeposit[]
 }
+interface BidDeposit { auctionId: string; userId: string; amount: number; state: 'held' | 'refunded' | 'applied'; createdAt: string }
 
 const KEY = 'sammha-demo-db'
 const SESSION = 'sammha-demo-session'
-const VERSION = 9
+const VERSION = 10
 
 const now = () => Date.now()
 const iso = (t: number) => new Date(t).toISOString()
@@ -188,6 +191,7 @@ function seed(): DB {
   seedTickets(db, t)
   seedInvestment(db, t)
   seedManqiya(db, t)
+  seedListings(db, t)
   // compute similar hits for pending requests
   for (const r of db.requests) for (const c of r.candidates) if (!c.similar.length) c.similar = similarFor(db, c.normalized, r.id)
   return db
@@ -338,6 +342,11 @@ function load(): DB {
       if (db.v === 8) {
         // «منقية» joins قعدان and بكار
         if (!db.requests.some((r) => r.type === 'manqiya')) seedManqiya(db, now())
+        db.v = 9
+      }
+      if (db.v === 9) {
+        // «بيع اسم»: owners reselling names they own
+        if (!db.listings?.length) seedListings(db, now())
         db.v = VERSION; save(db); return db
       }
     }
@@ -480,10 +489,123 @@ function settleInvestment(db: DB, a: Auction, r: LogoRequest) {
 function payOwnerShare(db: DB, inv: Invoice) {
   if (!inv.ownerShare || !inv.ownerShareTo || inv.ownerSharePaid) return
   inv.ownerSharePaid = true
-  db.txs.push({ id: uid(db, 't'), userId: inv.ownerShareTo, amount: inv.ownerShare, kind: 'investment_payout', note: `نصيبك 30% من بيع الاسم «${inv.name}» (${inv.number})`, createdAt: iso(now()) })
-  notify(db, inv.ownerShareTo, 'refund', `أُضيف ${inv.ownerShare} ريال إلى محفظتك`, `نصيبك من بيع الاسم «${inv.name}» في المزاد.`, '/dashboard/wallet')
+  const sale = !!inv.listingId
+  db.txs.push({ id: uid(db, 't'), userId: inv.ownerShareTo, amount: inv.ownerShare, kind: sale ? 'sale_payout' : 'investment_payout',
+    note: sale ? `ثمن بيع الاسم «${inv.name}» بعد عمولة سمّها (${inv.number})` : `نصيبك 30% من بيع الاسم «${inv.name}» (${inv.number})`, createdAt: iso(now()) })
+  notify(db, inv.ownerShareTo, 'refund', `أُضيف ${inv.ownerShare} ريال إلى محفظتك`, sale ? `ثمن بيع اسمك «${inv.name}» بعد خصم عمولة سمّها.` : `نصيبك من بيع الاسم «${inv.name}» في المزاد.`, '/dashboard/wallet')
+  if (sale) { const l = db.listings?.find((x) => x.id === inv.listingId); if (l) l.payoutPaid = true }
 }
 const isInvestment = (db: DB, a: Auction) => db.requests.find((r) => r.id === a.requestId)?.kind === 'investment'
+
+// ───────────────────────── «بيع اسم» ─────────────────────────
+const hasBidDeposit = (db: DB, auctionId: string, userId: string) => !!db.bidDeposits?.some((d) => d.auctionId === auctionId && d.userId === userId && d.state === 'held')
+/** Resale auctions: the seller cannot bid, and every bidder pays the participation guarantee first. */
+function resaleGuard(db: DB, a: Auction, userId: string) {
+  if (!a.listingId) return
+  if (a.requesterId === userId) throw new ApiError('لا يمكنك المزايدة على اسم تبيعه')
+  if (!hasBidDeposit(db, a.id, userId)) throw new ApiError(`ادفع ضمان دخول المزاد ${a.bidDeposit ?? RULES.resaleBidDeposit} ريال أولًا`)
+}
+const pct = (r: number) => Math.round(r * 100)
+function listingOut(db: DB, l: NameListing): NameListing {
+  const a = l.auctionId ? db.auctions.find((x) => x.id === l.auctionId) : undefined
+  return { ...l, currentPrice: a?.currentPrice ?? l.price, bidCount: a?.bidCount }
+}
+function transferName(db: DB, l: NameListing, buyer: DemoUser, price: number) {
+  const r = db.reserved.find((x) => x.id === l.reservedId)
+  if (!r) return
+  Object.assign(r, { ownerId: buyer.id, ownerName: buyer.fullName, price, acquiredAt: iso(now()), source: 'resale' as const, listingId: undefined, ownerAvatar: undefined })
+}
+function sellerInvoice(db: DB, l: NameListing, buyer: DemoUser, price: number, depositApplied: number, auction?: Auction) {
+  const inv = issueInvoice(db, auction ?? ({ id: l.id, name: l.name, type: l.type } as Auction), buyer, price, depositApplied)
+  inv.listingId = l.id
+  inv.ownerShare = round2(price * (1 - l.commissionRate))
+  inv.ownerShareTo = l.sellerId
+  l.payout = inv.ownerShare
+  return inv
+}
+/** Instant listings close after their window; resale auctions follow their auction's phase. */
+function sweepListings(db: DB) {
+  let changed = false
+  const t = now()
+  for (const l of db.listings ?? []) {
+    if (l.mode === 'instant' && l.status === 'live' && t >= Date.parse(l.endsAt)) {
+      l.status = 'expired'; changed = true
+      const r = db.reserved.find((x) => x.id === l.reservedId); if (r) r.listingId = undefined
+      notify(db, l.sellerId, 'lost', `انتهت مدة عرض «${l.name}» للبيع`, 'لم يُشترَ الاسم خلال 72 ساعة وبقي باسمك. تقدر تعرضه من جديد.', '/dashboard/sell')
+    }
+    if (l.mode === 'auction' && l.status === 'scheduled' && t >= Date.parse(l.startsAt)) { l.status = 'live'; changed = true }
+  }
+  return changed
+}
+function settleResale(db: DB, a: Auction) {
+  const l = db.listings?.find((x) => x.id === a.listingId)
+  const seller = db.users.find((u) => u.id === a.requesterId)!
+  const refundOthers = (except?: string) => {
+    for (const d of db.bidDeposits ?? []) if (d.auctionId === a.id && d.state === 'held' && d.userId !== except) {
+      d.state = 'refunded'
+      db.txs.push({ id: uid(db, 't'), userId: d.userId, amount: d.amount, kind: 'refund', note: `استرداد ضمان دخول مزاد «${a.name}»`, createdAt: iso(now()) })
+      notify(db, d.userId, 'refund', 'أُعيد ضمان دخول المزاد إلى محفظتك', `${d.amount} ريال من مزاد «${a.name}».`, '/dashboard/wallet')
+    }
+  }
+  if (a.bidCount === 0 || !a.leaderId) {
+    Object.assign(a, { settled: true, winnerId: seller.id, winnerName: seller.fullName, finalPrice: 0, wonByRequester: true })
+    if (l) { l.status = 'unsold'; const r = db.reserved.find((x) => x.id === l.reservedId); if (r) r.listingId = undefined }
+    refundOthers()
+    notify(db, seller.id, 'lost', `انتهى مزاد «${a.name}» دون مزايدات`, 'بقي الاسم باسمك. تقدر تعرضه من جديد بسعر آخر.', '/dashboard/sell')
+    return
+  }
+  const winner = db.users.find((u) => u.id === a.leaderId)!
+  const price = a.currentPrice
+  const dep = db.bidDeposits?.find((d) => d.auctionId === a.id && d.userId === winner.id && d.state === 'held')
+  if (dep) dep.state = 'applied'
+  refundOthers(winner.id)
+  Object.assign(a, { settled: true, winnerId: winner.id, winnerName: winner.fullName, finalPrice: price, wonByRequester: false })
+  if (!l) return
+  const inv = sellerInvoice(db, l, winner, price, Math.min(dep?.amount ?? 0, price), a)
+  transferName(db, l, winner, price)
+  Object.assign(l, { status: 'sold', soldPrice: price, soldAt: iso(now()) })
+  notify(db, winner.id, 'won', `مبارك عليك الفوز بمزاد شعار «${a.name}»`, `بسعر ${price} ريال، وخُصم منه ضمان الدخول. سدّد الفاتورة خلال 3 أيام لنقل الاسم وإصدار شهادته.`, '/dashboard/invoices')
+  notify(db, seller.id, 'won', `بيع اسمك «${a.name}» في المزاد`, `بسعر ${price} ريال. يصلك ${inv.ownerShare} ريال (بعد عمولة ${pct(l.commissionRate)}%) فور سداد المشتري.`, '/dashboard/sell')
+  for (const u of new Set(db.bids.filter((b) => b.auctionId === a.id && b.userId !== winner.id).map((b) => b.userId))) {
+    notify(db, u, 'lost', `انتهى مزاد «${a.name}»`, `رسا الاسم بسعر ${price} ريال.`, `/auctions/${a.id}`)
+  }
+}
+/** Sample listings: a live resale auction, one opening soon, and fixed-price names on the market. */
+function seedListings(db: DB, t: number) {
+  db.listings ??= []
+  const mk = (name: string, mode: 'auction' | 'instant', price: number, start: number, end: number, extra: Partial<NameListing> = {}) => {
+    const r = db.reserved.find((x) => x.name === name && x.ownerId)
+    if (!r) return undefined
+    const l: NameListing = {
+      id: `l-${r.id}`, number: `SL-${1001 + db.listings!.length}`, reservedId: r.id, name: r.name, type: r.type, sellerId: r.ownerId!, mode, price,
+      commissionRate: mode === 'auction' ? RULES.resaleCommission : RULES.instantCommission, status: mode === 'auction' ? (start <= 0 ? 'live' : 'scheduled') : 'live',
+      createdAt: iso(t + (mode === 'auction' ? start - RULES.resaleNoticeHours * H : start)), startsAt: iso(t + start), endsAt: iso(t + end), ...extra,
+    }
+    db.listings!.push(l); r.listingId = l.status === 'live' || l.status === 'scheduled' ? l.id : undefined
+    if (mode === 'auction') {
+      const a: Auction = { id: `a-${l.id}`, requestId: l.id, candidateId: l.id, name: l.name, type: l.type, requesterId: l.sellerId, openingPrice: price, minIncrement: RULES.minIncrement,
+        startsAt: l.startsAt, endsAt: l.endsAt, currentPrice: price, bidCount: 0, settled: false, listingId: l.id, bidDeposit: RULES.resaleBidDeposit }
+      db.auctions.push(a); l.auctionId = a.id
+    }
+    return l
+  }
+  const live = mk('البيرق', 'auction', 3000, -D, 2 * D)
+  if (live?.auctionId) {
+    const a = db.auctions.find((x) => x.id === live.auctionId)!
+    ;([['u-b3', 3200], ['u-b1', 3600]] as [string, number][]).forEach(([u, amount], k) => {
+      const user = db.users.find((x) => x.id === u)!
+      ;(db.bidDeposits ??= []).push({ auctionId: a.id, userId: u, amount: RULES.resaleBidDeposit, state: 'held', createdAt: iso(t - D + k * H) })
+      db.txs.push({ id: uid(db, 't'), userId: u, amount: RULES.resaleBidDeposit, kind: 'topup', note: 'دفع بالبطاقة لضمان مزاد', createdAt: iso(t - D + k * H) })
+      db.txs.push({ id: uid(db, 't'), userId: u, amount: -RULES.resaleBidDeposit, kind: 'bid_deposit', note: `ضمان دخول مزاد «${a.name}»`, createdAt: iso(t - D + k * H) })
+      db.bids.push({ id: `b-${a.id}${k}`, auctionId: a.id, userId: u, bidderLabel: maskName(user.fullName), amount, createdAt: iso(t - D + (k + 1) * 2 * H) })
+      Object.assign(a, { currentPrice: amount, bidCount: k + 1, leaderId: u, leaderLabel: maskName(user.fullName) })
+    })
+  }
+  mk('الهدباء', 'auction', 5000, 30 * H, 30 * H + RULES.resaleAuctionDays * D)
+  mk('الغيمة', 'instant', 6500, -20 * H, (RULES.instantSaleHours - 20) * H)
+  mk('مرهوب', 'instant', 2800, -50 * H, (RULES.instantSaleHours - 50) * H)
+  mk('الأدهم', 'instant', 1500, -4 * D, -D, { status: 'expired' })
+}
 
 // ───────────────────────── bidding engine ─────────────────────────
 /** Record one bid: price, leader, anti-sniping extension and the outbid notice. */
@@ -522,7 +644,8 @@ function resolveAuto(db: DB, a: Auction) {
 function mineFor(db: DB, auctionId: string) {
   const id = getSession()
   if (!id) return undefined
-  return { watching: !!db.watches?.some((w) => w.auctionId === auctionId && w.userId === id), autoMax: db.autobids?.find((x) => x.auctionId === auctionId && x.userId === id)?.max }
+  return { watching: !!db.watches?.some((w) => w.auctionId === auctionId && w.userId === id), autoMax: db.autobids?.find((x) => x.auctionId === auctionId && x.userId === id)?.max,
+    depositPaid: hasBidDeposit(db, auctionId, id) || undefined }
 }
 function view(db: DB, a: Auction): AuctionView {
   return { auction: a, bids: db.bids.filter((b) => b.auctionId === a.id).sort((x, y) => y.amount - x.amount || Date.parse(y.createdAt) - Date.parse(x.createdAt)), mine: mineFor(db, a.id) }
@@ -547,12 +670,13 @@ function remind(db: DB) {
 }
 
 function sweep(db: DB) {
-  let changed = remind(db)
+  let changed = remind(db) || sweepListings(db)
   for (const a of db.auctions) if (!a.settled && phaseOf(a) === 'live' && db.autobids?.some((x) => x.auctionId === a.id)) {
     const before = a.bidCount; resolveAuto(db, a); if (a.bidCount !== before) changed = true
   }
   for (const a of db.auctions) {
     if (a.settled || phaseOf(a) !== 'ended') continue
+    if (a.listingId) { settleResale(db, a); changed = true; continue }
     const r = db.requests.find((x) => x.id === a.requestId)!
     if (r.kind === 'investment') { settleInvestment(db, a, r); changed = true; continue }
     const noBids = a.bidCount === 0
@@ -1068,6 +1192,103 @@ export const demoApi: SammhaApi = {
     return db.reserved.filter((r) => r.ownerId === u.id).sort((a, b) => Date.parse(b.acquiredAt) - Date.parse(a.acquiredAt))
   }),
 
+  createListing: (reservedId, mode, price) => tx((db) => {
+    const u = me(db)
+    const r = db.reserved.find((x) => x.id === reservedId && x.ownerId === u.id)
+    if (!r) throw new ApiError('الاسم غير مسجل باسمك')
+    if (r.listingId && db.listings?.some((l) => l.id === r.listingId && (l.status === 'live' || l.status === 'scheduled'))) throw new ApiError('الاسم معروض للبيع حاليًا')
+    if (db.invoices.some((i) => i.status === 'unpaid' && i.userId === u.id && i.name === r.name)) throw new ApiError('سدّد فاتورة الاسم أولًا قبل عرضه للبيع')
+    if (db.auctions.some((a) => !a.settled && a.name === r.name)) throw new ApiError('للاسم مزاد قائم حاليًا')
+    const p = Math.floor(Number(price))
+    if (!Number.isFinite(p) || p < RULES.openingPrice) throw new ApiError(`أقل قيمة ${RULES.openingPrice} ريال`)
+    if (p > 10_000_000) throw new ApiError('القيمة كبيرة جدًا')
+    const t = now()
+    const auction = mode === 'auction'
+    const startsAt = auction ? t + RULES.resaleNoticeHours * H : t
+    const endsAt = auction ? startsAt + RULES.resaleAuctionDays * D : t + RULES.instantSaleHours * H
+    db.listings ??= []
+    const l: NameListing = {
+      id: uid(db, 'l'), number: `SL-${1001 + db.listings.length}`, reservedId: r.id, name: r.name, type: r.type, sellerId: u.id, mode, price: p,
+      commissionRate: auction ? RULES.resaleCommission : RULES.instantCommission, status: auction ? 'scheduled' : 'live',
+      createdAt: iso(t), startsAt: iso(startsAt), endsAt: iso(endsAt),
+    }
+    if (auction) {
+      const a: Auction = { id: uid(db, 'a'), requestId: l.id, candidateId: l.id, name: l.name, type: l.type, requesterId: u.id, openingPrice: p, minIncrement: RULES.minIncrement,
+        startsAt: l.startsAt, endsAt: l.endsAt, currentPrice: p, bidCount: 0, settled: false, listingId: l.id, bidDeposit: RULES.resaleBidDeposit }
+      db.auctions.push(a); l.auctionId = a.id
+    }
+    db.listings.push(l)
+    r.listingId = l.id
+    // announced to every registered user (sent on by SMS through the notification webhook)
+    for (const x of db.users) if (x.id !== u.id && x.role === 'owner' && x.active !== false) {
+      notify(db, x.id, 'auction_opened', auction ? `مزاد إعادة بيع: «${l.name}»` : `اسم معروض للبيع الفوري: «${l.name}»`,
+        auction ? `يبدأ بعد ${RULES.resaleNoticeHours} ساعة بسعر افتتاحي ${p} ريال، ويستمر ${RULES.resaleAuctionDays} أيام.` : `بسعر ${p} ريال، متاح للشراء ${RULES.instantSaleHours} ساعة.`,
+        auction ? `/auctions/${l.auctionId}` : '/market')
+    }
+    return listingOut(db, l)
+  }),
+
+  cancelListing: (id) => tx((db) => {
+    const u = me(db)
+    const l = db.listings?.find((x) => x.id === id && x.sellerId === u.id)
+    if (!l) throw new ApiError('العرض غير موجود')
+    if (l.mode === 'auction') {
+      const a = db.auctions.find((x) => x.id === l.auctionId)
+      if (l.status !== 'scheduled' || !a || phaseOf(a) !== 'scheduled') throw new ApiError('بدأ المزاد، فلا يمكن إلغاء العرض')
+      db.auctions = db.auctions.filter((x) => x.id !== a.id)
+    } else if (l.status !== 'live') throw new ApiError('العرض منتهٍ')
+    l.status = 'cancelled'
+    const r = db.reserved.find((x) => x.id === l.reservedId); if (r) r.listingId = undefined
+    return listingOut(db, l)
+  }),
+
+  myListings: () => tx((db) => {
+    const u = me(db)
+    return (db.listings ?? []).filter((l) => l.sellerId === u.id).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).map((l) => listingOut(db, l))
+  }),
+
+  marketListings: () => tx((db) => {
+    const t = now()
+    // on sale now, plus the ones that closed in the last 3 days (shown locked)
+    return (db.listings ?? []).filter((l) => l.mode === 'instant' && (l.status === 'live' || ((l.status === 'sold' || l.status === 'expired') && t - Date.parse(l.soldAt ?? l.endsAt) < 3 * D)))
+      .sort((a, b) => (a.status === 'live' ? 0 : 1) - (b.status === 'live' ? 0 : 1) || Date.parse(a.endsAt) - Date.parse(b.endsAt))
+      .map((l) => ({ ...listingOut(db, l), sellerId: '' }))
+  }),
+
+  buyListing: (id, method) => tx((db) => {
+    const u = me(db)
+    const l = db.listings?.find((x) => x.id === id)
+    if (!l || l.mode !== 'instant') throw new ApiError('العرض غير موجود')
+    if (l.status !== 'live' || now() >= Date.parse(l.endsAt)) throw new ApiError('انتهى عرض هذا الاسم')
+    if (l.sellerId === u.id) throw new ApiError('لا يمكنك شراء اسم تبيعه')
+    if (method === 'wallet' && balanceOf(db, u.id) < l.price) throw new ApiError('رصيد المحفظة لا يكفي، اشحن المحفظة أو ادفع بالبطاقة')
+    if (method === 'card') db.txs.push({ id: uid(db, 't'), userId: u.id, amount: l.price, kind: 'topup', note: `دفع بالبطاقة لشراء «${l.name}»`, createdAt: iso(now()) })
+    db.txs.push({ id: uid(db, 't'), userId: u.id, amount: -l.price, kind: 'purchase', note: `شراء فوري للاسم «${l.name}» (${l.number})`, createdAt: iso(now()) })
+    const inv = sellerInvoice(db, l, u, l.price, 0)
+    inv.status = 'paid'; inv.paidAt = iso(now())
+    transferName(db, l, u, l.price)
+    Object.assign(l, { status: 'sold', soldPrice: l.price, soldAt: iso(now()) })
+    payOwnerShare(db, inv)
+    notify(db, u.id, 'won', `مبارك، أصبح «${l.name}» باسمك`, `اشتريته بـ ${l.price} ريال. فاتورتك وشهادة التسجيل في «أسمائي».`, '/dashboard/names')
+    notify(db, l.sellerId, 'won', `بيع اسمك «${l.name}»`, `بـ ${l.price} ريال، وأُضيف ${inv.ownerShare} ريال إلى محفظتك بعد عمولة ${pct(l.commissionRate)}%.`, '/dashboard/sell')
+    return listingOut(db, l)
+  }),
+
+  payBidDeposit: (auctionId, method) => tx((db) => {
+    const u = me(db)
+    const a = db.auctions.find((x) => x.id === auctionId)
+    if (!a || !a.listingId) throw new ApiError('المزاد غير موجود')
+    if (a.settled || phaseOf(a) === 'ended') throw new ApiError('انتهى المزاد')
+    if (a.requesterId === u.id) throw new ApiError('لا يمكنك المزايدة على اسم تبيعه')
+    if (hasBidDeposit(db, a.id, u.id)) return view(db, a)
+    const amount = a.bidDeposit ?? RULES.resaleBidDeposit
+    if (method === 'wallet' && balanceOf(db, u.id) < amount) throw new ApiError('رصيد المحفظة لا يكفي، اشحن المحفظة أو ادفع بالبطاقة')
+    if (method === 'card') db.txs.push({ id: uid(db, 't'), userId: u.id, amount, kind: 'topup', note: `دفع بالبطاقة لضمان مزاد «${a.name}»`, createdAt: iso(now()) })
+    db.txs.push({ id: uid(db, 't'), userId: u.id, amount: -amount, kind: 'bid_deposit', note: `ضمان دخول مزاد «${a.name}»`, createdAt: iso(now()) })
+    ;(db.bidDeposits ??= []).push({ auctionId: a.id, userId: u.id, amount, state: 'held', createdAt: iso(now()) })
+    return view(db, a)
+  }),
+
   placeBid: (auctionId, amount) => tx((db) => {
     const u = me(db)
     const a = db.auctions.find((x) => x.id === auctionId)
@@ -1079,6 +1300,7 @@ export const demoApi: SammhaApi = {
     if (!Number.isFinite(amount) || amount < min) throw new ApiError(`أقل مزايدة ${min} ريال`)
     if (a.leaderId === u.id) throw new ApiError('أنت صاحب أعلى مزايدة حاليًا')
     if (isInvestment(db, a) && a.requesterId === u.id) throw new ApiError('لا يمكنك المزايدة على اسم قدّمته في «استثمار الاسم»')
+    resaleGuard(db, a, u.id)
     recordBid(db, a, u.id, amount)
     resolveAuto(db, a)
     return view(db, a)
@@ -1090,6 +1312,7 @@ export const demoApi: SammhaApi = {
     if (!a) throw new ApiError('المزاد غير موجود')
     if (phaseOf(a) === 'ended') throw new ApiError('انتهى المزاد')
     if (isInvestment(db, a) && a.requesterId === u.id) throw new ApiError('لا يمكنك المزايدة على اسم قدّمته في «استثمار الاسم»')
+    resaleGuard(db, a, u.id)
     const floor = a.leaderId === u.id ? a.currentPrice + a.minIncrement : a.currentPrice + a.minIncrement
     if (!Number.isFinite(max) || max < floor) throw new ApiError(`الحد الأقصى ${floor} ريال على الأقل`)
     if (max > 1_000_000) throw new ApiError('الحد الأقصى كبير جدًا')

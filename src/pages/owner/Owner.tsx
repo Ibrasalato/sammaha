@@ -138,7 +138,7 @@ export function DashHome() {
   )
 }
 
-const TX_LABEL = { topup: 'شحن', deposit: 'ضمان مزاد', refund: 'استرداد', invoice_payment: 'سداد فاتورة', service_fee: 'رسوم استثمار الاسم', investment_payout: 'عائد استثمار الاسم' }
+const TX_LABEL = { topup: 'شحن', deposit: 'ضمان مزاد', refund: 'استرداد', invoice_payment: 'سداد فاتورة', service_fee: 'رسوم استثمار الاسم', investment_payout: 'عائد استثمار الاسم', bid_deposit: 'ضمان دخول مزاد', sale_payout: 'ثمن بيع اسم', purchase: 'شراء اسم' }
 
 export function WalletPage() {
   const { toast } = useApp()
@@ -367,6 +367,9 @@ export function MyNames() {
                 : <div className="flex flex-wrap justify-center gap-2">
                     <Link to={`/dashboard/names/${n.id}/certificate`} className="btn-ghost btn-sm">شهادة التسجيل</Link>
                     {n.source !== 'compound' && <button className="btn-ghost btn-sm border-gold/60 text-gold-deep" onClick={() => setCompoundFor(n)}>طلب اسم مركب</button>}
+                    {n.listingId
+                      ? <Link to="/dashboard/sell" className="pill bg-gold-soft text-gold-deep">معروض للبيع</Link>
+                      : <Link to={`/dashboard/sell?name=${n.id}`} className="btn-ghost btn-sm border-pine/40 text-pine">بيع الاسم</Link>}
                   </div>}
             </li>
           ))}

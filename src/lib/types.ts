@@ -112,6 +112,10 @@ export interface Auction {
   extensions?: number
   /** offered through «استثمار الاسم»: its proposer cannot bid on it */
   investment?: boolean
+  /** an owner reselling a name they own («بيع اسم»): the listing it belongs to */
+  listingId?: string
+  /** resale auctions: every bidder pays this participation guarantee first */
+  bidDeposit?: number
 }
 
 export interface Bid {
@@ -130,6 +134,8 @@ export interface AuctionMine {
   watching: boolean
   /** active automatic-bidding ceiling, if any */
   autoMax?: number
+  /** resale auctions: the participation guarantee is paid */
+  depositPaid?: boolean
 }
 
 export interface AuctionView {
@@ -147,14 +153,16 @@ export interface ReservedName {
   ownerName: string
   price: number
   acquiredAt: string
-  source: 'auction' | 'legacy' | 'compound' | 'investment'
+  source: 'auction' | 'legacy' | 'compound' | 'investment' | 'resale'
   /** for a compound name: the owned name it was built on */
   baseName?: string
   /** owner's public photo, only when they chose to show it */
   ownerAvatar?: string
+  /** an active sale listing of this name, if its owner is selling it */
+  listingId?: string
 }
 
-export type TxKind = 'topup' | 'deposit' | 'refund' | 'invoice_payment' | 'service_fee' | 'investment_payout'
+export type TxKind = 'topup' | 'deposit' | 'refund' | 'invoice_payment' | 'service_fee' | 'investment_payout' | 'bid_deposit' | 'sale_payout' | 'purchase'
 
 export interface WalletTx {
   id: string
@@ -186,6 +194,40 @@ export interface Invoice {
   ownerShare?: number
   ownerShareTo?: string
   ownerSharePaid?: boolean
+  /** set when the invoice is for a name sold by its owner («بيع اسم») */
+  listingId?: string
+}
+
+/** «بيع اسم»: an owner selling a name they own, in a resale auction or at a fixed price */
+export type ListingMode = 'auction' | 'instant'
+export type ListingStatus = 'scheduled' | 'live' | 'sold' | 'unsold' | 'expired' | 'cancelled'
+export interface NameListing {
+  id: string
+  number: string
+  reservedId: string
+  name: string
+  type: NameType
+  sellerId: string
+  mode: ListingMode
+  /** auction: the minimum (opening) price; instant: the fixed sale price (SAR, VAT inclusive) */
+  price: number
+  /** the platform's commission on the final value (0.10 auction, 0.15 instant) */
+  commissionRate: number
+  status: ListingStatus
+  createdAt: string
+  /** auction: when bidding opens (72 hours after listing); instant: when it went on sale */
+  startsAt: string
+  endsAt: string
+  auctionId?: string
+  /** the sale value (hammer price or fixed price) */
+  soldPrice?: number
+  soldAt?: string
+  /** what the seller receives after commission, and whether it reached their wallet */
+  payout?: number
+  payoutPaid?: boolean
+  /** the auction's current price, for display */
+  currentPrice?: number
+  bidCount?: number
 }
 
 /** One «استثمار الاسم» request as its owner sees it */

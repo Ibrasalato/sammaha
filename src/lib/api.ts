@@ -1,6 +1,6 @@
 import type {
   AppNotification, CamelEvent, AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
-  AuctionView, InvestmentItem, PublicStats, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
+  AuctionView, InvestmentItem, ListingMode, NameListing, PublicStats, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
 } from './types'
 
 export interface SignUpInput {
@@ -70,6 +70,15 @@ export interface SammhaApi {
   payInvoice(id: string, method: PayMethod): Promise<Invoice>
   myBids(): Promise<(Bid & { auction: Auction })[]>
   myNames(): Promise<ReservedName[]>
+  /** «بيع اسم»: put a name the user owns up for sale */
+  createListing(reservedId: string, mode: ListingMode, price: number): Promise<NameListing>
+  cancelListing(id: string): Promise<NameListing>
+  myListings(): Promise<NameListing[]>
+  /** fixed-price names on sale now (public) */
+  marketListings(): Promise<NameListing[]>
+  buyListing(id: string, method: PayMethod): Promise<NameListing>
+  /** resale auctions: pay the participation guarantee before bidding */
+  payBidDeposit(auctionId: string, method: PayMethod): Promise<AuctionView>
   updateMyProfile(p: { avatarUrl?: string | null; showAvatar: boolean }): Promise<User>
   updateMyAccount(p: { fullName: string; nationalId?: string }): Promise<User>
   /** sends a one-time code to the new email; the email changes only after the code is confirmed */

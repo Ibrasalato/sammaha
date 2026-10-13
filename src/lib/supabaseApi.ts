@@ -139,6 +139,19 @@ export const supabaseApi: SammhaApi = {
   myRequests: () => rpc('my_requests'),
   createInvestmentRequest: (type, names) => rpc('create_investment_request', { p_type: type, p_names: names }),
   myInvestments: () => rpc('my_investments'),
+  createListing: (reservedId, mode, price) => rpc('create_listing', { p_reserved: reservedId, p_mode: mode, p_price: price }),
+  cancelListing: (id) => rpc('cancel_listing', { p_listing: id }),
+  myListings: () => rpc('my_listings'),
+  marketListings: () => rpc('market_listings'),
+  async buyListing(id, method) {
+    if (method === 'card') await cardPayment('listing', id, 0)
+    return rpc('buy_listing', { p_listing: id })
+  },
+  async payBidDeposit(auctionId, method) {
+    if (method === 'card') await cardPayment('bid_deposit', auctionId, 0)
+    await rpc('pay_bid_deposit', { p_auction: auctionId })
+    return rpc('get_auction', { p_id: auctionId })
+  },
   createCompoundRequest: (reservedId, fullName) => rpc('create_compound_request', { p_reserved: reservedId, p_name: fullName }),
   createRequest: (type, names) => rpc('create_request', { p_type: type, p_names: names }),
   async payDeposit(requestId, method) {

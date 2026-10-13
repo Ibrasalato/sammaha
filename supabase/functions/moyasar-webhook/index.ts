@@ -17,5 +17,7 @@ Deno.serve(async (req) => {
   await admin.from('wallet_txs').insert({ user_id: p.user_id, amount: p.amount, kind: 'topup', note: 'دفع بالبطاقة عبر ميسّر', ref: p.id })
   if (p.purpose === 'deposit') await admin.rpc('pay_deposit_for', { p_user: p.user_id, p_request: p.ref })
   if (p.purpose === 'invoice') await admin.rpc('pay_invoice_for', { p_user: p.user_id, p_invoice: p.ref })
+  if (p.purpose === 'bid_deposit') await admin.rpc('pay_bid_deposit_for', { p_user: p.user_id, p_auction: p.ref })
+  if (p.purpose === 'listing') await admin.rpc('buy_listing_for', { p_user: p.user_id, p_listing: p.ref })
   return new Response('ok')
 })
