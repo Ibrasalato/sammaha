@@ -1,7 +1,7 @@
 /**
  * Demo backend: the full business logic running in the browser on localStorage,
  * so the platform can be tried on GitHub Pages without a server.
- * The production backend (supabase/migrations) implements the same rules in SQL.
+ * The production backend (repo Ibrasalato/sammaha-api, ASP.NET Core + SQL Server) implements the same rules.
  */
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'

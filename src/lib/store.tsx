@@ -3,10 +3,10 @@ import type { ReactNode } from 'react'
 import type { SammhaApi } from './api'
 import { IS_DEMO } from './config'
 import { demoApi } from './demoApi'
-import { supabaseApi } from './supabaseApi'
+import { httpApi } from './httpApi'
 import type { User } from './types'
 
-export const api: SammhaApi = IS_DEMO ? demoApi : supabaseApi
+export const api: SammhaApi = IS_DEMO ? demoApi : httpApi
 
 interface Toast { id: number; text: string; tone: 'ok' | 'bad' }
 interface Ctx {

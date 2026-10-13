@@ -77,7 +77,7 @@ const WEBHOOK = (import.meta.env.VITE_TICKET_WEBHOOK_URL as string | undefined) 
 
 /**
  * Email fan-out through n8n ("Sammha 6 — Tickets Email"). In production the database calls the same
- * webhook (app_settings.ticket_webhook_url), so the browser only does this in demo mode.
+ * webhook (Integrations:TicketWebhookUrl), so the browser only does this in demo mode.
  * Fire-and-forget: a failed email never blocks the ticket.
  */
 export function emailTicketEvent(event: 'created' | 'reply' | 'status', t: Ticket, reply?: string) {

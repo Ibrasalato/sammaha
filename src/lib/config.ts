@@ -1,7 +1,7 @@
 import { getLang } from './i18n'
 import type { NameType } from './types'
 
-/** Business rules — change here, they're mirrored in supabase/migrations (app_settings). */
+/** Business rules — change here, they're mirrored in the API (appsettings.json → Platform). */
 export const RULES = {
   /** Auction guarantee paid with every logo request (SAR) */
   depositAmount: 50,
@@ -89,4 +89,5 @@ export const TYPE_HEX: Record<NameType, { base: string; deep: string; soft: stri
 /** [value, label] options for filters; `all` = the value used for "everything" */
 export const typeOptions = <A extends string>(all: A, allLabel: string): [A | NameType, string][] => [[all, allLabel], ...NAME_TYPES.map((t) => [t, TYPE_LABEL[t]] as [NameType, string])]
 
-export const IS_DEMO = !import.meta.env.VITE_SUPABASE_URL
+/** no API address → the in-browser demo backend */
+export const IS_DEMO = !import.meta.env.VITE_API_URL

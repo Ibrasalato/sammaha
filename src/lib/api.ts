@@ -22,7 +22,7 @@ export interface OtpChallenge {
   expiresAt: string
 }
 
-/** Everything the UI needs. Implemented by demoApi (localStorage) and supabaseApi (Postgres RPC). */
+/** Everything the UI needs. Implemented by demoApi (localStorage) and httpApi (Sammha API, ASP.NET Core). */
 export interface SammhaApi {
   // auth
   currentUser(): Promise<User | null>
