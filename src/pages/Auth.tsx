@@ -21,9 +21,13 @@ function AuthFrame({ title, children }: { title: string; children: React.ReactNo
   return (
     <div className="wrap py-12 lg:py-16">
       <div className="mx-auto grid max-w-5xl overflow-hidden rounded-xl border border-line bg-paper shadow-card lg:grid-cols-[1fr_1.1fr]">
-        <div className="hero-field relative hidden flex-col justify-between p-10 text-paper lg:flex">
-          <div><Logo light className="h-24" /></div>
-          <div>
+        <div className="relative hidden flex-col overflow-hidden bg-pine p-10 text-paper lg:flex">
+          <img src="./hero/auth-camels.webp" alt="" className="absolute inset-0 h-full w-full object-cover object-bottom" />
+          {/* the blue sky becomes brand green; the camels stay in natural colour at the bottom */}
+          <div className="absolute inset-0 bg-gradient-to-b from-pine via-pine/90 via-55% to-pine/5" aria-hidden />
+          <div className="absolute inset-x-0 bottom-0 h-1 bg-gold" aria-hidden />
+          <div className="relative"><Logo light className="h-24" /></div>
+          <div className="relative mt-10">
             <h2 className="text-[28px] font-extrabold leading-snug text-paper">{tr('السجل الدولي لأسماء الإبل وشعاراتها', 'The international registry of camel names and marks')}</h2>
             <p className="mt-3 text-paper/70">{tr('اطلب أسماء إبلك، وتابع مزاداتها، واحصل على فواتيرك الإلكترونية من مكان واحد.', 'Request names for your camels, follow their auctions and get your e-invoices in one place.')}</p>
           </div>
