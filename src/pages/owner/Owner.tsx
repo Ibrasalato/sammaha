@@ -268,7 +268,6 @@ export function InvoicePage() {
         <span className="ms-auto" />
         {data.status === 'unpaid' && data.dueAt && !processing && <span className="text-[13.5px] font-semibold text-bad">{tr('سدّد قبل', 'Pay before')} {dateTime(data.dueAt)} {tr('وإلا يُلغى فوزك ويُخصم الضمان', 'or the win is cancelled and the guarantee forfeited')}</span>}
         {data.status === 'cancelled' && <span className="pill bg-bad/10 text-bad">{tr('أُلغيت لانتهاء مهلة السداد، وآل الاسم إلى المنظمة الدولية للإبل', 'Cancelled: the deadline passed and the name passed to the International Camel Organization')}</span>}
-        {data.status === 'unpaid' && !processing && <button className="btn-gold" onClick={() => setPaying(true)}>{tr('سداد', 'Pay')} {sar(data.amountDue)}</button>}
         {paid && !processing && <button className="btn-ghost" onClick={() => window.print()}>{tr('طباعة أو حفظ PDF', 'Print or save PDF')}</button>}
       </div>
       {processing ? (
