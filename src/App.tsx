@@ -42,15 +42,14 @@ const MyRequests = pick(reqMod, 'MyRequests'), NewRequest = pick(reqMod, 'NewReq
 const SellPage = pick(() => import('./pages/owner/Sell'), 'SellPage')
 const InvestPage = pick(() => import('./pages/owner/Invest'), 'InvestPage')
 const MyTickets = pick(() => import('./pages/owner/Tickets'), 'MyTickets')
-const AdminHome = pick(adminMod, 'AdminHome'), AdminRequests = pick(() => import('./pages/admin/RequestsBoard'), 'AdminRequestsBoard'), AdminReview = pick(adminMod, 'AdminReview')
+const AdminHome = pick(adminMod, 'AdminHome'), AdminReview = pick(adminMod, 'AdminReview')
 const AdminSchedule = pick(adminMod, 'AdminSchedule'), AdminAuctions = pick(adminMod, 'AdminAuctions'), AdminInvoices = pick(adminMod, 'AdminInvoices')
 const AdminEvents = pick(adminMod, 'AdminEvents')
 const certMod = () => import('./pages/owner/Certificates')
 const CertificatesPage = pick(certMod, 'CertificatesPage'), CertificateView = pick(certMod, 'CertificateView'), StaffCertificateView = pick(certMod, 'StaffCertificateView')
 const AdminCertificates = pick(() => import('./pages/admin/Certificates'), 'AdminCertificates')
 const AdminIcoNames = pick(() => import('./pages/admin/IcoNames'), 'AdminIcoNames')
-const AdminTransfers = pick(() => import('./pages/admin/Transfers'), 'AdminTransfers')
-const AdminLogos = pick(() => import('./pages/admin/Logos'), 'AdminLogos')
+const AdminOwnerRequests = pick(() => import('./pages/admin/OwnerRequests'), 'AdminOwnerRequests')
 const TransfersPage = pick(() => import('./pages/owner/Transfers'), 'TransfersPage')
 const ServicesPage = pick(() => import('./pages/owner/Services'), 'ServicesPage')
 const PublicServices = pick(() => import('./pages/owner/Services'), 'PublicServices')
@@ -104,14 +103,12 @@ const OWNER_NAV: NavItem[] = [
 /** each staff page and what opens it: a role sees only the pages its permissions allow */
 const ADMIN_NAV: (NavItem & { perms?: Permission[] })[] = [
   { to: '/admin', get label() { return tr('نظرة عامة', 'Overview') }, icon: 'home', end: true },
-  { to: '/admin/requests', get label() { return tr('مراجعة الطلبات', 'Review requests') }, get short() { return tr('المراجعة', 'Review') }, icon: 'shield', perms: ['requests.view'] },
+  { to: '/admin/requests', get label() { return tr('الطلبات', 'Requests') }, icon: 'shield', perms: ['requests.view', 'names.transfer', 'names.logos'] },
   { to: '/admin/schedule', get label() { return tr('فتح المزادات', 'Open auctions') }, get short() { return tr('فتح مزاد', 'Open auction') }, icon: 'calendar', perms: ['auctions.schedule'] },
   { to: '/admin/auctions', get label() { return tr('التحكم في المزادات', 'Auction control') }, get short() { return tr('المزادات', 'Auctions') }, icon: 'gavel', perms: ['auctions.manage', 'auctions.cancel', 'auctions.schedule'] },
   { to: '/admin/reports/marks', get label() { return tr('تقرير الشعارات', 'Marks report') }, get short() { return tr('التقرير', 'Report') }, icon: 'list', perms: ['reports.marks'] },
   { to: '/admin/certificates', get label() { return tr('الشهادات والسجل', 'Certificates & registry') }, get short() { return tr('الشهادات', 'Certificates') }, icon: 'file', perms: ['certificates.manage', 'names.latin'] },
   { to: '/admin/ico-names', get label() { return tr('أسماء المنظمة الدولية', 'Organization names') }, get short() { return tr('أسماء المنظمة', 'ICO names') }, icon: 'tag', perms: ['names.ico'] },
-  { to: '/admin/transfers', get label() { return tr('طلبات نقل الملكية', 'Ownership transfers') }, get short() { return tr('نقل الملكية', 'Transfers') }, icon: 'users', perms: ['names.transfer'] },
-  { to: '/admin/logos', get label() { return tr('لوجوهات الشعارات', 'Mark logos') }, get short() { return tr('اللوجوهات', 'Logos') }, icon: 'file', perms: ['names.logos'] },
   { to: '/admin/customers', get label() { return tr('بيانات العملاء', 'Customer data') }, get short() { return tr('العملاء', 'Customers') }, icon: 'users', perms: ['owners.view'] },
   { to: '/admin/invoices', get label() { return tr('الفواتير', 'Invoices') }, icon: 'receipt', perms: ['invoices.view'] },
   { to: '/admin/wallets', get label() { return tr('المحافظ والاسترداد', 'Wallets & refunds') }, get short() { return tr('المحافظ', 'Wallets') }, icon: 'wallet', perms: ['wallets.view', 'wallets.refund', 'banks.verify'] },
@@ -209,7 +206,7 @@ function AppRoutes() {
           <Route path={STAFF_LOGIN_PATH.slice(1)} element={<StaffLogin />} />
           <Route path="admin" element={<Guard roles={['committee', 'admin']}><AdminShell /></Guard>}>
             <Route index element={<AdminHome />} />
-            <Route path="requests" element={<Can perms={['requests.view']}><AdminRequests /></Can>} />
+            <Route path="requests" element={<Can perms={['requests.view', 'names.transfer', 'names.logos']}><AdminOwnerRequests /></Can>} />
             <Route path="requests/:id" element={<Can perms={['requests.view']}><AdminReview /></Can>} />
             <Route path="schedule" element={<Can perms={['auctions.schedule']}><AdminSchedule /></Can>} />
             <Route path="auctions" element={<Can perms={['auctions.manage', 'auctions.cancel', 'auctions.schedule']}><AdminAuctions /></Can>} />
@@ -218,8 +215,8 @@ function AppRoutes() {
             <Route path="customers" element={<Can perms={['owners.view']}><AdminCustomers /></Can>} />
             <Route path="certificates" element={<Can perms={['certificates.manage', 'names.latin']}><AdminCertificates /></Can>} />
             <Route path="ico-names" element={<Can perms={['names.ico']}><AdminIcoNames /></Can>} />
-            <Route path="transfers" element={<Can perms={['names.transfer']}><AdminTransfers /></Can>} />
-            <Route path="logos" element={<Can perms={['names.logos']}><AdminLogos /></Can>} />
+            <Route path="transfers" element={<Navigate to="/admin/requests?tab=transfer" replace />} />
+            <Route path="logos" element={<Navigate to="/admin/requests?tab=logo" replace />} />
             <Route path="certificates/:number" element={<Can perms={['certificates.manage']}><StaffCertificateView /></Can>} />
             <Route path="wallets" element={<Can perms={['wallets.view', 'wallets.refund', 'banks.verify']}><AdminWallets /></Can>} />
             <Route path="deposits" element={<Can perms={['deposits.view']}><AdminDeposits /></Can>} />

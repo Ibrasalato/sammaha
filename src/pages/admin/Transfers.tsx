@@ -73,7 +73,7 @@ function ReviewDialog({ t, approve, onClose, onDone }: { t: NameTransfer; approv
 }
 
 /** «طلبات نقل الملكية»: owner → recipient accepts → the committee approves or rejects (names.transfer) */
-export function AdminTransfers() {
+export function AdminTransfers({ embedded = false }: { embedded?: boolean } = {}) {
   const [status, setStatus] = useState<TransferStatus | 'all'>('under_review')
   const { data, loading, error, reload } = useLoad(() => api.adminTransfers(status), [status])
   const [review, setReview] = useState<{ t: NameTransfer; approve: boolean } | null>(null)
@@ -82,7 +82,7 @@ export function AdminTransfers() {
   })
   return (
     <>
-      <PageHead title={tr('طلبات نقل الملكية', 'Ownership transfers')} sub={tr('يطلب المالك نقل اسم إلى مالك آخر، فيوافق المستلم، ثم تعتمد اللجنة النقل أو ترفضه.', 'An owner asks to move a name to another owner, the recipient accepts, then the committee approves or rejects the transfer.')} />
+      {!embedded && <PageHead title={tr('طلبات نقل الملكية', 'Ownership transfers')} sub={tr('يطلب المالك نقل اسم إلى مالك آخر، فيوافق المستلم، ثم تعتمد اللجنة النقل أو ترفضه.', 'An owner asks to move a name to another owner, the recipient accepts, then the committee approves or rejects the transfer.')} />}
       <section className="panel overflow-hidden">
         <div className="px-5 pt-4">
           <TableTools t={tf} placeholder={tr('بحث بالرقم أو الاسم أو الجوال', 'Search by number, name or phone')}>

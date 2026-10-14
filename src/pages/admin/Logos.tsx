@@ -64,7 +64,7 @@ function RejectDialog({ l, onClose, onDone }: { l: LogoRow; onClose: () => void;
 }
 
 /** «لوجوهات الشعارات»: logos owners upload for their marks, approved before they show in the registry (names.logos) */
-export function AdminLogos() {
+export function AdminLogos({ embedded = false }: { embedded?: boolean } = {}) {
   const { toast } = useApp()
   const [status, setStatus] = useState<LogoStatus | 'all'>('pending')
   const { data, loading, error, reload } = useLoad(() => api.adminLogos(status), [status])
@@ -77,7 +77,7 @@ export function AdminLogos() {
   }
   return (
     <>
-      <PageHead title={tr('لوجوهات الشعارات', 'Mark logos')} sub={tr('يرفع الملاك لوجو لشعاراتهم، ولا يظهر مع الاسم في سجل الأسماء إلا بعد اعتماده.', 'Owners upload a logo for their marks; it shows with the name in the registry only after approval.')} />
+      {!embedded && <PageHead title={tr('لوجوهات الشعارات', 'Mark logos')} sub={tr('يرفع الملاك لوجو لشعاراتهم، ولا يظهر مع الاسم في سجل الأسماء إلا بعد اعتماده.', 'Owners upload a logo for their marks; it shows with the name in the registry only after approval.')} />}
       <TableTools t={tf} placeholder={tr('بحث بالاسم أو المالك أو الملف', 'Search by name, owner or file')}>
         <select className={`field w-auto py-2 text-[15px] ${status !== 'all' ? 'border-pine bg-pine-soft font-bold text-pine' : ''}`} value={status} onChange={(e) => setStatus(e.target.value as LogoStatus | 'all')} aria-label={tr('الحالة', 'Status')}>
           <option value="all">{tr('الحالة: الكل', 'Status: All')}</option>

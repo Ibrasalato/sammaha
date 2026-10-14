@@ -4,6 +4,7 @@ import { Icon } from '../../components/dash'
 import { OWNER_COLUMNS, OwnerCell, ownerColumns, useOwners } from '../../components/OwnerCell'
 import { Empty, ErrorBox, Loading, Modal, PageHead, RequestStatusPill, Segmented, TypeBadge } from '../../components/ui'
 import { TableTools, useTableFilter } from '../../components/TableTools'
+import type { FilterDef } from '../../components/TableTools'
 import { TYPE_LABEL, typeOptions } from '../../lib/config'
 import { date, num, sar } from '../../lib/format'
 import { RELATION_LABEL } from '../../lib/names'
@@ -196,7 +197,11 @@ function AuditReport({ rows, status, type }: { rows: AuditRow[]; status: string;
   )
 }
 
-export function AdminRequestsBoard() {
+type Kind = 'standard' | 'compound' | 'investment'
+const KIND_HEAD = (k?: Kind) => k === 'compound' ? tr('طلبات الأسماء المركبة', 'Compound name requests') : k === 'investment' ? tr('طلبات شعارات الاستثمار', 'Name investment requests') : k === 'standard' ? tr('طلبات الشعارات', 'Mark requests') : tr('طلبات الشعارات', 'Mark requests')
+
+/** kind: one type of owner request (a tab of «الطلبات»); embedded: inside that page, without its own heading */
+export function AdminRequestsBoard({ kind, embedded = false }: { kind?: Kind; embedded?: boolean } = {}) {
   const { user } = useApp()
   const [status, setStatus] = useState<RequestStatus | 'all'>('under_review')
   const [type, setType] = useState<NameType | 'all'>('all')
@@ -204,18 +209,18 @@ export function AdminRequestsBoard() {
   const canAudit = can(user, 'requests.audit')
   const audit = useLoad(() => (canAudit ? api.requestsAudit(status, type) : Promise.resolve([] as AuditRow[])), [status, type, canAudit])
   const byCandidate = useMemo(() => new Map((audit.data ?? []).map((a) => [a.candidateId, a])), [audit.data])
-  const rows = useMemo(() => (data ?? []).filter((r) => type === 'all' || r.type === type), [data, type])
+  const rows = useMemo(() => (data ?? []).filter((r) => (type === 'all' || r.type === type) && (!kind || (r.kind ?? 'standard') === kind)), [data, type, kind])
   const tf = useTableFilter(rows, {
     fields: (r) => [r.number, r.ownerName, ...r.candidates.map((c) => c.name)],
     filters: [
-      { key: 'kind', label: tr('الطلب', 'Request'), options: [['', tr('الكل', 'All')], ['standard', tr('طلب شعار', 'Mark request')], ['compound', tr('اسم مركب', 'Compound name')], ['investment', tr('استثمار الاسم', 'Name investment')]], test: (r, v) => (r.kind ?? 'standard') === v },
-      { key: 'similar', label: tr('التشابه', 'Similarity'), options: [['', tr('الكل', 'All')], ['yes', tr('فيها أسماء شبيهة', 'Has similar names')], ['no', tr('بلا تشابه', 'No similarity')]], test: (r, v) => r.candidates.some((c) => c.similar.length || (byCandidate.get(c.id)?.matches.length ?? 0) > 0) === (v === 'yes') },
+      ...(kind ? [] : [{ key: 'kind', label: tr('الطلب', 'Request'), options: [['', tr('الكل', 'All')], ['standard', tr('طلب شعار', 'Mark request')], ['compound', tr('اسم مركب', 'Compound name')], ['investment', tr('استثمار الاسم', 'Name investment')]], test: (r: LogoRequest, v: string) => (r.kind ?? 'standard') === v } as FilterDef<LogoRequest>]),
+      ({ key: 'similar', label: tr('التشابه', 'Similarity'), options: [['', tr('الكل', 'All')], ['yes', tr('فيها أسماء شبيهة', 'Has similar names')], ['no', tr('بلا تشابه', 'No similarity')]], test: (r, v) => r.candidates.some((c) => c.similar.length || (byCandidate.get(c.id)?.matches.length ?? 0) > 0) === (v === 'yes') }) as FilterDef<LogoRequest>,
     ],
   })
   const refresh = () => { reload(); audit.reload() }
   return (
     <>
-      <PageHead title={tr('طلبات الشعارات', 'Mark requests')} sub={tr('القرار بجانب كل اسم: اقبل أو ارفض كل اسم ثم اعتمد القرار، أو ارفض الطلب كاملًا أو ألغه. التفاصيل الكاملة من رقم الطلب.', 'Decide beside each name: accept or reject each one, then approve the decision — or reject or cancel the whole request. Full details via the request number.')} />
+      {!embedded && <PageHead title={KIND_HEAD(kind)} sub={tr('القرار بجانب كل اسم: اقبل أو ارفض كل اسم ثم اعتمد القرار، أو ارفض الطلب كاملًا أو ألغه. التفاصيل الكاملة من رقم الطلب.', 'Decide beside each name: accept or reject each one, then approve the decision — or reject or cancel the whole request. Full details via the request number.')} />}
       <div className="mb-4 flex flex-wrap gap-3">
         <Segmented value={status} onChange={setStatus} options={[['under_review', tr('تحت المراجعة', 'Under review')], ['accepted', tr('مقبولة', 'Accepted')], ['rejected', tr('مرفوضة', 'Rejected')], ['cancelled', tr('ملغاة', 'Cancelled')], ['all', tr('الكل', 'All')]]} />
         <Segmented value={type} onChange={setType} options={typeOptions('all', tr('الكل', 'All'))} />
@@ -230,7 +235,7 @@ export function AdminRequestsBoard() {
           </table>
         </div>
       ) : <Empty title={tr('لا توجد طلبات بهذه التصفية', 'No requests match this filter')} />}
-      {canAudit && (audit.loading && !audit.data ? <Loading /> : <AuditReport rows={audit.data ?? []} status={status} type={type} />)}
+      {canAudit && (!kind || kind === 'standard') && (audit.loading && !audit.data ? <Loading /> : <AuditReport rows={audit.data ?? []} status={status} type={type} />)}
     </>
   )
 }
