@@ -109,7 +109,8 @@ export function ServicesGrid({ audience, className = '' }: { audience: 'public' 
   const { user } = useApp()
   const list = useServices()
   const isOwner = audience === 'owner' || user?.role === 'owner'
-  const cols = audience === 'public' ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5' : 'sm:grid-cols-2 xl:grid-cols-3'
+  // the same grid on the home page and in the owner's dashboard
+  const cols = 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'
   return (
     <ul className={`grid gap-4 ${cols} ${className}`}>
       {list.map((s) => <ServiceCard key={s.key} s={s} isOwner={isOwner} signedIn={!!user} />)}
@@ -159,7 +160,10 @@ function ServiceCard({ s, isOwner, signedIn }: { s: EService; isOwner: boolean; 
       ) : (
         <button type="button" disabled className="btn-ghost mt-4 w-full">{s.soon ? tr('قريبًا', 'Coming soon') : label}</button>
       )}
-      {isOwner && signedIn && s.mine && !s.soon && <Link to={s.mine} className="mt-2 text-center text-[13.5px] font-bold text-pine hover:underline">{tr('متابعة طلباتي', 'Track my requests')}</Link>}
+      {/* signed-in owners: «متابعة طلباتي» where it applies, an empty line elsewhere so every card's buttons line up */}
+      {isOwner && signedIn && (s.mine && !s.soon
+        ? <Link to={s.mine} className="mt-2 h-6 text-center text-[13.5px] font-bold text-pine hover:underline">{tr('متابعة طلباتي', 'Track my requests')}</Link>
+        : <span className="mt-2 h-6" aria-hidden />)}
       {terms && (
         <Modal open onClose={() => setTerms(null)} title={tr(`شروط وسياسة خدمة «${s.title}»`, `“${s.title}” terms and policy`)}>
           <div className="space-y-4">
