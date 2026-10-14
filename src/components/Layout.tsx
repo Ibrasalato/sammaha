@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { LangSwitch, tr } from '../lib/i18n'
 import type { ReactNode } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { IS_DEMO, SELLER } from '../lib/config'
+import { IS_DEMO, SELLER, SLOGAN } from '../lib/config'
 import { resetDemo } from '../lib/demoApi'
 import { api, useApp } from '../lib/store'
 import { Avatar } from './Avatar'
@@ -122,7 +122,8 @@ export function Footer() {
             <span className="h-14 w-px bg-paper/20" aria-hidden />
             <IcoLogo light className="h-11" />
           </div>
-          <p className="mt-5 max-w-sm text-[14.5px] leading-7">
+          <p className="mt-4 text-[17px] font-bold text-gold-light">{tr(SLOGAN.ar, SLOGAN.en)}</p>
+          <p className="mt-2 max-w-sm text-[14.5px] leading-7">
             {tr('منصة إلكترونية عالمية تابعة للمنظمة الدولية للإبل، تُعنى بتنظيم أسماء الشعارات لمنقيات وفرديات الإبل، وإقامة مزاداتها وتسجيلها لأصحابها محليًا ودوليًا.', 'A global platform of the International Camel Organization that organises camel names and brand marks, runs their public auctions and registers them to their owners locally and internationally.')}
           </p>
         </div>

@@ -1748,18 +1748,21 @@ export const demoApi: SammhaApi = {
       .flatMap((r) => r.candidates.filter((c) => c.status === 'accepted' && !c.auctionId).map((c) => ({ ...c, request: r })))
   }),
 
-  scheduleAuctions: (candidateIds, startsAt, endsAt) => tx((db) => {
+  scheduleAuctions: (candidateIds, startsAt, endsAt, stagger = 0) => tx((db) => {
     need(db, 'auctions.schedule')
     const s = Date.parse(startsAt), e = Date.parse(endsAt)
     if (!s || !e) throw new ApiError('حدد موعد البداية والنهاية')
     if (e <= s) throw new ApiError('موعد النهاية يجب أن يكون بعد البداية')
     if (e <= now()) throw new ApiError('موعد النهاية في الماضي')
     if (!candidateIds.length) throw new ApiError('اختر اسمًا واحدًا على الأقل')
+    if (!(stagger >= 0 && stagger <= 1440)) throw new ApiError('الفاصل بين الشعارات من 0 إلى 1440 دقيقة')
     const out: Auction[] = []
+    const base = { s, e }
     for (const cid of candidateIds) {
       const r = db.requests.find((x) => x.candidates.some((c) => c.id === cid))
       const c = r?.candidates.find((x) => x.id === cid)
       if (!r || !c || c.status !== 'accepted' || c.auctionId) continue
+      const s = base.s + out.length * stagger * 60_000, e = base.e + out.length * stagger * 60_000
       const a: Auction = {
         id: uid(db, 'a'), requestId: r.id, candidateId: c.id, name: c.name, type: r.type, requesterId: r.userId,
         openingPrice: RULES.openingPrice, minIncrement: RULES.minIncrement, startsAt: iso(s), endsAt: iso(e),

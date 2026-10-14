@@ -7,7 +7,7 @@ import { Avatar } from '../components/Avatar'
 import { HeroSlides } from '../components/HeroSlides'
 import { CalendarRow, useCalendar } from './Events'
 import { Countdown, Loading, NameSeal, Segmented } from '../components/ui'
-import { NAME_TYPES, RULES, TYPE_GROUPS, TYPE_LABEL, typeOptions, TYPE_CLS } from '../lib/config'
+import { NAME_TYPES, RULES, TYPE_GROUPS, TYPE_LABEL, typeOptions, TYPE_CLS, SLOGAN } from '../lib/config'
 import { num, sar } from '../lib/format'
 import { getLang, tr } from '../lib/i18n'
 import { api, useApp, useLoad } from '../lib/store'
@@ -45,26 +45,27 @@ export default function Home() {
           <div>
             <p className="text-[15px] font-bold text-gold-light">{tr('المنظمة الدولية للإبل', 'International Camel Organization')}</p>
             <h1 className="mt-3 text-[40px] font-extrabold leading-[1.2] text-paper sm:text-[54px]">{getLang() === 'ar' ? <>السجل الدولي<br />لأسماء الإبل وشعاراتها</> : <span className="block text-[38px] sm:text-[48px]">The international registry of camel names and marks</span>}</h1>
-            <p className="mt-5 max-w-xl text-[18px] leading-8 text-paper/75">
+            <p className="mt-4 text-[20px] font-bold text-gold-light sm:text-[22px]">{tr(SLOGAN.ar, SLOGAN.en)}</p>
+            <p className="mt-3 max-w-xl text-[18px] leading-8 text-paper/75">
               {tr('اطلب اسمًا لمنقياتك وفردياتك، وتابع مزاده العلني، وسجّله باسمك معتمدًا على المستوى المحلي والدولي.', 'Request a name for your camels, follow its public auction, and have it registered to you, recognised locally and internationally.')}
             </p>
             <NameChecker ctaTo={ctaTo} />
           </div>
 
-          <div className="w-full max-w-md lg:justify-self-end">
+          <div className="w-full max-w-[21rem] justify-self-center lg:justify-self-end">
             {spot ? (
-              <Link to={`/auctions/${spot.id}`} className="block rounded-xl bg-paper/95 p-6 text-ink shadow-lift backdrop-blur">
+              <Link to={`/auctions/${spot.id}`} className="block rounded-xl bg-paper/95 p-4 text-ink shadow-lift backdrop-blur sm:p-5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[14px] font-medium text-muted">{tr('الشعار صاحب أعلى مزايدة', 'Highest bid right now')}</span>
+                  <span className="text-[13px] font-medium text-muted">{tr('الشعار صاحب أعلى مزايدة', 'Highest bid right now')}</span>
                   <span className="flex items-center gap-1.5 text-[13px] font-bold text-ok"><span className="h-2 w-2 animate-pulse rounded-full bg-ok" />{tr('مباشر', 'Live')}</span>
                 </div>
-                <div className="mt-4"><NameSeal name={spot.name} type={spot.type} size="xl" palette={cardStyle === 'brand' ? 'brand' : 'standard'} /></div>
-                <dl className="mt-6 grid grid-cols-3 divide-x divide-line rtl:divide-x-reverse text-center">
-                  <div><dt className="text-[12.5px] font-medium text-muted">{tr('أعلى مزايدة', 'Top bid')}</dt><dd className="num text-2xl font-extrabold">{num(spot.currentPrice)}</dd></div>
-                  <div><dt className="text-[12.5px] font-medium text-muted">{tr('المزايدات', 'Bids')}</dt><dd className="num text-2xl font-extrabold">{num(spot.bidCount)}</dd></div>
-                  <div><dt className="text-[12.5px] font-medium text-muted">{tr('يُغلق بعد', 'Closes in')}</dt><dd><Countdown to={spot.endsAt} className="text-lg font-extrabold" /></dd></div>
+                <div className="mt-3"><NameSeal name={spot.name} type={spot.type} size="hero" palette={cardStyle === 'brand' ? 'brand' : 'standard'} /></div>
+                <dl className="mt-4 grid grid-cols-3 divide-x divide-line rtl:divide-x-reverse text-center">
+                  <div><dt className="text-[12.5px] font-medium text-muted">{tr('أعلى مزايدة', 'Top bid')}</dt><dd className="num text-[19px] font-extrabold">{num(spot.currentPrice)}</dd></div>
+                  <div><dt className="text-[12.5px] font-medium text-muted">{tr('المزايدات', 'Bids')}</dt><dd className="num text-[19px] font-extrabold">{num(spot.bidCount)}</dd></div>
+                  <div><dt className="text-[12.5px] font-medium text-muted">{tr('يُغلق بعد', 'Closes in')}</dt><dd><Countdown to={spot.endsAt} className="text-[15px] font-extrabold" /></dd></div>
                 </dl>
-                <span className={`${spot.type === 'bakkar' ? 'btn bg-[#1D5C2F] text-paper ring-1 ring-inset ring-[#E2C27E]/60 hover:bg-[#164A25]' : spot.type === 'qaadan' ? 'btn bg-[#5A3F7A] text-paper ring-1 ring-inset ring-[#E2C27E]/60 hover:bg-[#4A3366]' : 'btn-gold'} mt-6 w-full`}>{tr(`زايد على «${spot.name}»`, `Bid on “${spot.name}”`)}</span>
+                <span className={`${spot.type === 'bakkar' ? 'btn bg-[#1D5C2F] text-paper ring-1 ring-inset ring-[#E2C27E]/60 hover:bg-[#164A25]' : spot.type === 'qaadan' ? 'btn bg-[#5A3F7A] text-paper ring-1 ring-inset ring-[#E2C27E]/60 hover:bg-[#4A3366]' : 'btn-gold'} btn-sm mt-4 w-full py-2.5`}>{tr(`زايد على «${spot.name}»`, `Bid on “${spot.name}”`)}</span>
               </Link>
             ) : (
               <div className="rounded-xl border border-paper/15 p-8 text-center text-paper/70">{tr('لا يوجد مزاد جارٍ الآن', 'No live auction right now')}</div>

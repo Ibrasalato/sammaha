@@ -8,7 +8,8 @@ import { TYPE_LABEL, typeOptions } from '../../lib/config'
 import { date, num, sar } from '../../lib/format'
 import { RELATION_LABEL } from '../../lib/names'
 import { can } from '../../lib/permissions'
-import { downloadCsv, printReport } from '../../lib/print'
+import { downloadCsv } from '../../lib/print'
+import { usePrint } from '../../components/usePrint'
 import { api, useApp, useLoad } from '../../lib/store'
 import type { AuditRow, LogoRequest, NameType, RequestStatus, ReviewDecision } from '../../lib/types'
 
@@ -124,7 +125,7 @@ function RequestBlock({ r, audit, onDone }: { r: LogoRequest; audit: Map<string,
 
 /** printable audit of requested names */
 function AuditReport({ rows, status, type }: { rows: AuditRow[]; status: string; type: string }) {
-  const { user } = useApp()
+  const print = usePrint()
   const owners = useOwners()
   const ref = useRef<HTMLDivElement>(null)
   const [only, setOnly] = useState<'all' | 'flagged'>('flagged')
@@ -147,7 +148,7 @@ function AuditReport({ rows, status, type }: { rows: AuditRow[]; status: string;
           ...list.map((r) => [r.number, r.ownerName, ...ownerColumns(owners.get(r.ownerId)), TYPE_LABEL[r.type], r.name, r.verdict === 'exact' ? 'مطابق' : r.verdict === 'similar' ? 'مشابه' : 'لا تشابه',
             r.matches.map((m) => `${m.name} (${RELATION_LABEL[m.relation]} ${Math.round(m.score * 100)}%)`).join(' | '), r.topPrice?.price ?? '', r.topPrice ? `${r.topPrice.name} · ${TYPE_LABEL[r.topPrice.type]}` : '',
             r.status === 'accepted' ? 'مقبول' : r.status === 'rejected' ? `مرفوض: ${r.rejectReason ?? ''}` : 'بانتظار'])])}>تصدير Excel</button>
-        <button className="btn-primary btn-sm" onClick={() => printReport({ title: 'تقرير تدقيق الشعارات', subtitle, by: user?.fullName, el: ref.current, landscape: true })}><Icon name="file" className="h-4 w-4" />طباعة التقرير</button>
+        <button className="btn-primary btn-sm" onClick={() => print({ title: 'تقرير تدقيق الشعارات', subtitle, el: ref.current, landscape: true })}><Icon name="file" className="h-4 w-4" />طباعة التقرير</button>
       </header>
       <div ref={ref} className="overflow-x-auto">
         {list.length ? (

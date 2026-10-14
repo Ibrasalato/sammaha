@@ -7,7 +7,7 @@ import { ErrorBox } from '../components/ui'
 import { OtpForm } from '../components/OtpForm'
 import type { OtpChallenge, SignUpInput } from '../lib/api'
 import { CityField, CountrySelect, FormSection, GenderField, PhoneField, Req, maxBirthDate } from '../components/ProfileFields'
-import { IS_DEMO, SUPER_ADMIN_EMAIL } from '../lib/config'
+import { IS_DEMO, SLOGAN, SUPER_ADMIN_EMAIL } from '../lib/config'
 import { api, useApp } from '../lib/store'
 
 import type { User } from '../lib/types'
@@ -30,6 +30,7 @@ function AuthFrame({ title, children }: { title: string; children: React.ReactNo
           <div className="absolute inset-x-0 bottom-0 h-1 bg-gold" aria-hidden />
           <div className="relative"><Logo light className="h-24" /></div>
           <div className="relative mt-10">
+            <p className="mb-2 text-[18px] font-bold text-gold-light">{tr(SLOGAN.ar, SLOGAN.en)}</p>
             <h2 className="text-[28px] font-extrabold leading-snug text-paper">{tr('السجل الدولي لأسماء الإبل وشعاراتها', 'The international registry of camel names and marks')}</h2>
             <p className="mt-3 text-paper/70">{tr('اطلب أسماء إبلك، وتابع مزاداتها، واحصل على فواتيرك الإلكترونية من مكان واحد.', 'Request names for your camels, follow their auctions and get your e-invoices in one place.')}</p>
           </div>

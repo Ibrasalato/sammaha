@@ -122,7 +122,8 @@ export interface SammhaApi {
   rejectRequest(id: string, reason: string): Promise<LogoRequest>
   cancelRequest(id: string, reason: string): Promise<LogoRequest>
   awaitingSchedule(): Promise<(LogoRequest['candidates'][number] & { request: LogoRequest })[]>
-  scheduleAuctions(candidateIds: string[], startsAt: string, endsAt: string): Promise<Auction[]>
+  /** staggerMinutes > 0: each mark opens and closes that many minutes after the previous, in the order given */
+  scheduleAuctions(candidateIds: string[], startsAt: string, endsAt: string, staggerMinutes?: number): Promise<Auction[]>
   allInvoices(): Promise<Invoice[]>
   markInvoicePaid(id: string): Promise<Invoice>
   listUsers(): Promise<User[]>

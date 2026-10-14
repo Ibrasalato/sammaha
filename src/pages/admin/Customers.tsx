@@ -6,7 +6,8 @@ import { NAME_TYPES, TYPE_LABEL } from '../../lib/config'
 import { countryName } from '../../lib/countries'
 import { date, num, sar } from '../../lib/format'
 import { can } from '../../lib/permissions'
-import { downloadCsv, printReport } from '../../lib/print'
+import { downloadCsv } from '../../lib/print'
+import { usePrint } from '../../components/usePrint'
 import { api, useApp, useLoad } from '../../lib/store'
 import type { NameType, OwnerCrm } from '../../lib/types'
 
@@ -14,6 +15,7 @@ type Sort = 'recent' | 'names' | 'value' | 'name'
 const byType = (o: OwnerCrm, t: NameType) => o.names.filter((n) => n.type === t)
 
 export function AdminCustomers() {
+  const print = usePrint()
   const { user, toast } = useApp()
   const { data, loading, error } = useLoad(() => api.listOwners(), [])
   const [sort, setSort] = useState<Sort>('names')
@@ -39,7 +41,7 @@ export function AdminCustomers() {
 
   async function report(kind: 'print' | 'csv') {
     try { await api.logOwnersReport(kind, list.length, filterText || undefined) } catch (e) { toast((e as Error).message, 'bad'); return }
-    if (kind === 'print') printReport({ title: 'تقرير العملاء (ملاك الإبل) وشعاراتهم', subtitle: `${num(list.length)} عميل${filterText ? ` · ${filterText}` : ''}`, by: user?.fullName, el: ref.current, landscape: true })
+    if (kind === 'print') print({ title: 'تقرير العملاء (ملاك الإبل) وشعاراتهم', subtitle: `${num(list.length)} عميل${filterText ? ` · ${filterText}` : ''}`, el: ref.current, landscape: true })
     else downloadCsv(`العملاء-${new Date().toISOString().slice(0, 10)}.csv`, [
       ['رقم الهوية', 'الاسم', 'الجنسية', 'مدينة الإقامة', 'رقم الجوال', 'رقم آخر', 'البريد', ...NAME_TYPES.map((t) => `شعارات ${TYPE_LABEL[t]}`), 'عدد الشعارات', 'قيمة الشعارات', 'الطلبات', 'اكتمال الحساب', 'التسجيل'],
       ...list.map((o) => [o.nationalId ?? '', o.fullName, countryName(o.nationality), o.residenceCity ?? '', o.phone, o.altPhone ?? '', o.email,

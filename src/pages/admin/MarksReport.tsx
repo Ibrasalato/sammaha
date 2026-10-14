@@ -6,8 +6,9 @@ import { Empty, ErrorBox, Loading, PageHead, Segmented, TypeBadge } from '../../
 import { NoResults, TableTools, useTableFilter } from '../../components/TableTools'
 import { TYPE_LABEL, typeOptions } from '../../lib/config'
 import { date, num, sar } from '../../lib/format'
-import { downloadCsv, printReport } from '../../lib/print'
-import { api, useApp, useLoad } from '../../lib/store'
+import { downloadCsv } from '../../lib/print'
+import { usePrint } from '../../components/usePrint'
+import { api, useLoad } from '../../lib/store'
 import type { MarkRow, NameType } from '../../lib/types'
 
 const STATUS: Record<MarkRow['status'], [string, string]> = {
@@ -17,7 +18,7 @@ const STATUS: Record<MarkRow['status'], [string, string]> = {
 const KIND: Record<MarkRow['kind'], string> = { request: 'طلب شعار', investment: 'استثمار الاسم', resale: 'إعادة بيع' }
 
 export function AdminMarksReport() {
-  const { user } = useApp()
+  const print = usePrint()
   const owners = useOwners()
   const [state, setState] = useState('sold')
   const [type, setType] = useState<NameType | 'all'>('all')
@@ -49,7 +50,7 @@ export function AdminMarksReport() {
             ...list.map((r) => [r.number, r.name, TYPE_LABEL[r.type], KIND[r.kind], r.requestNumber ?? r.listingNumber ?? '', r.ownerName, ...ownerColumns(owners.get(r.ownerId)), STATUS[r.status][0], date(r.startsAt), date(r.endsAt), r.openingPrice, r.price, r.bidCount, r.bidders,
               r.winnerName ? `${r.winnerName}${r.wonByRequester ? ' (مقدم الطلب)' : ''}` : '', r.winnerId ? ownerColumns(owners.get(r.winnerId)).filter(Boolean).join(' · ') : '', r.invoiceNumber ?? '', r.invoiceStatus === 'paid' ? 'مدفوعة' : r.invoiceStatus === 'unpaid' ? 'غير مدفوعة' : '', r.vat ?? '', r.certCode ?? '', r.extensions]),
           ])}>تصدير Excel</button>
-          <button className="btn-primary" onClick={() => printReport({ title: 'تقرير الشعارات', subtitle, by: user?.fullName, el: ref.current, landscape: true })}><Icon name="file" className="h-4 w-4" />طباعة التقرير</button>
+          <button className="btn-primary" onClick={() => print({ title: 'تقرير الشعارات', subtitle, el: ref.current, landscape: true })}><Icon name="file" className="h-4 w-4" />طباعة التقرير</button>
         </div>} />
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <Segmented value={state} onChange={setState} options={[['sold', 'المُرساة'], ['live', 'جارية'], ['scheduled', 'قادمة'], ['paused', 'متوقفة'], ['cancelled', 'ملغاة'], ['all', 'الكل']]} />

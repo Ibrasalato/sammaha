@@ -7,7 +7,8 @@ import { NoResults, TableTools, useTableFilter } from '../../components/TableToo
 import { TYPE_LABEL } from '../../lib/config'
 import { date, dateTime, num, sar } from '../../lib/format'
 import { can } from '../../lib/permissions'
-import { downloadCsv, printReport } from '../../lib/print'
+import { downloadCsv } from '../../lib/print'
+import { usePrint } from '../../components/usePrint'
 import { api, useApp, useLoad } from '../../lib/store'
 import type { BankStatus, DepositRow, DocumentFile, StaffBankAccount, WalletRow, Withdrawal, WithdrawalStatus } from '../../lib/types'
 
@@ -187,6 +188,7 @@ function BanksTable({ list, onChange }: { list: StaffBankAccount[]; onChange: ()
 }
 
 export function AdminWallets() {
+  const print = usePrint()
   const { user } = useApp()
   const owners = useOwners()
   const [params, setParams] = useSearchParams()
@@ -217,7 +219,7 @@ export function AdminWallets() {
         action={tab === 'wallets' && <div className="flex gap-2">
           <button className="btn-ghost" onClick={() => downloadCsv(`المحافظ-${new Date().toISOString().slice(0, 10)}.csv`, [['المالك', ...OWNER_COLUMNS, 'الرصيد', 'الوارد', 'المصروف', 'استرداد قيد التنفيذ', 'عدد الحركات', 'آخر حركة', 'الحساب البنكي'],
             ...list.map((w) => [w.ownerName, ...ownerColumns(owners.get(w.userId)), w.balance, w.totalIn, w.totalOut, w.pendingWithdrawals, w.txCount, w.lastTxAt ? date(w.lastTxAt) : '', w.bankStatus ? `${w.bankName} (${BANK[w.bankStatus][0]})` : 'بدون'])])}>تصدير Excel</button>
-          <button className="btn-primary" onClick={() => printReport({ title: 'تقرير المحافظ', subtitle: `${num(list.length)} محفظة · إجمالي الأرصدة ${sar(total)}`, by: user?.fullName, el: ref.current, landscape: true })}><Icon name="file" className="h-4 w-4" />طباعة التقرير</button>
+          <button className="btn-primary" onClick={() => print({ title: 'تقرير المحافظ', subtitle: `${num(list.length)} محفظة · إجمالي الأرصدة ${sar(total)}`, el: ref.current, landscape: true })}><Icon name="file" className="h-4 w-4" />طباعة التقرير</button>
         </div>} />
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile icon="wallet" tone="pine" label="إجمالي أرصدة الملاك" value={sar((wallets.data ?? []).reduce((s, w) => s + w.balance, 0))} />
@@ -274,6 +276,7 @@ const DEP_STATE: Record<DepositRow['state'], [string, string]> = { held: ['مح�
 const CONTEXT: Record<string, string> = { under_review: 'تحت المراجعة', accepted: 'مقبول', rejected: 'مرفوض', cancelled: 'ملغى', open: 'المزاد مفتوح', ended: 'انتهى المزاد', settled: 'تمت الترسية' }
 
 export function AdminDeposits() {
+  const print = usePrint()
   const { user, toast } = useApp()
   const owners = useOwners()
   const [state, setState] = useState<'held' | 'all' | 'refunded' | 'applied'>('held')
@@ -292,7 +295,7 @@ export function AdminDeposits() {
         action={<div className="flex gap-2">
           <button className="btn-ghost" onClick={() => downloadCsv(`الضمانات-${new Date().toISOString().slice(0, 10)}.csv`, [['المالك', ...OWNER_COLUMNS, 'النوع', 'المرجع', 'رقم المزاد', 'الأسماء', 'الفئة', 'المبلغ', 'الحالة', 'الوضع', 'التاريخ'],
             ...list.map((d) => [d.ownerName, ...ownerColumns(owners.get(d.userId)), d.kind === 'request' ? 'ضمان طلب' : 'ضمان دخول مزاد', d.reference, d.auctionNumber ?? '', d.names, TYPE_LABEL[d.type], d.amount, DEP_STATE[d.state][0], CONTEXT[d.context] ?? d.context, date(d.at)])])}>تصدير Excel</button>
-          <button className="btn-primary" onClick={() => printReport({ title: 'تقرير الضمانات', subtitle: `${num(list.length)} ضمان · المحجوز ${sar(held.reduce((s, d) => s + d.amount, 0))}`, by: user?.fullName, el: ref.current, landscape: true })}><Icon name="file" className="h-4 w-4" />طباعة التقرير</button>
+          <button className="btn-primary" onClick={() => print({ title: 'تقرير الضمانات', subtitle: `${num(list.length)} ضمان · المحجوز ${sar(held.reduce((s, d) => s + d.amount, 0))}`, el: ref.current, landscape: true })}><Icon name="file" className="h-4 w-4" />طباعة التقرير</button>
         </div>} />
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-3">
         <StatTile icon="lock" tone="gold" label="ضمانات محجوزة" value={state === 'held' || state === 'all' ? sar(held.reduce((s, d) => s + d.amount, 0)) : '—'} />

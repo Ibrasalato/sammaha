@@ -293,7 +293,11 @@ export function AdminReview() {
 export function AdminSchedule() {
   const { toast } = useApp()
   const { data, loading, reload } = useLoad(() => api.awaitingSchedule(), [])
-  const [sel, setSel] = useState<Set<string>>(new Set())
+  // selection keeps its order: with a stagger, marks are released in this order
+  const [sel, setSelList] = useState<string[]>([])
+  const setSel = (s: Set<string>) => setSelList((prev) => [...prev.filter((x) => s.has(x)), ...[...s].filter((x) => !prev.includes(x))])
+  const [stagger, setStagger] = useState(false)
+  const [gap, setGap] = useState(10)
   const base = useMemo(() => { const d = new Date(); d.setMinutes(0, 0, 0); return d.getTime() + 3600_000 }, [])
   const [starts, setStarts] = useState(toLocalInput(base))
   const [ends, setEnds] = useState(toLocalInput(base + 3 * 86400_000))
@@ -303,7 +307,11 @@ export function AdminSchedule() {
     fields: (c) => [c.name, c.request.number, c.request.ownerName],
     filters: [{ key: 'type', label: 'النوع', options: typeOptions('', 'الكل'), test: (x, v) => x.request.type === v }],
   })
-  const toggle = (id: string) => { const s = new Set(sel); if (s.has(id)) s.delete(id); else s.add(id); setSel(s) }
+  const toggle = (id: string) => setSelList((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
+  const move = (i: number, d: -1 | 1) => setSelList((p) => { const n = [...p]; const j = i + d; if (j < 0 || j >= n.length) return p; [n[i], n[j]] = [n[j], n[i]]; return n })
+  const minutes = stagger ? gap : 0
+  const byId = new Map((data ?? []).map((c) => [c.id, c]))
+  const t0 = Date.parse(fromLocalInput(starts)), t1 = Date.parse(fromLocalInput(ends))
   const dur = (days: number) => setEnds(toLocalInput(Date.parse(fromLocalInput(starts)) + days * 86400_000))
 
   return (
@@ -315,12 +323,12 @@ export function AdminSchedule() {
           <TableTools t={tf} placeholder="بحث بالاسم أو الطلب أو المالك" />
           <div className="panel overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th><input type="checkbox" aria-label="تحديد الظاهر" checked={!!tf.list.length && tf.list.every((c) => sel.has(c.id))} onChange={(e) => { const s = new Set(sel); tf.list.forEach((c) => (e.target.checked ? s.add(c.id) : s.delete(c.id))); setSel(s) }} /></th><th>الاسم</th><th>النوع</th><th>الطلب</th><th>المالك</th></tr></thead>
+              <thead><tr><th><input type="checkbox" aria-label="تحديد الظاهر" checked={!!tf.list.length && tf.list.every((c) => sel.includes(c.id))} onChange={(e) => { const s = new Set(sel); tf.list.forEach((c) => (e.target.checked ? s.add(c.id) : s.delete(c.id))); setSel(s) }} /></th><th>الاسم</th><th>النوع</th><th>الطلب</th><th>المالك</th></tr></thead>
               <tbody>
                 {!tf.list.length && <NoResults cols={5} onReset={tf.reset} />}
                 {tf.list.map((c) => (
                   <tr key={c.id} className="cursor-pointer hover:bg-stone" onClick={() => toggle(c.id)}>
-                    <td><input type="checkbox" checked={sel.has(c.id)} onChange={() => toggle(c.id)} onClick={(e) => e.stopPropagation()} aria-label={c.name} /></td>
+                    <td>{stagger && sel.includes(c.id) && <span className="num me-1 inline-grid h-5 w-5 place-items-center rounded-full bg-pine text-[11px] text-paper">{sel.indexOf(c.id) + 1}</span>}<input type="checkbox" checked={sel.includes(c.id)} onChange={() => toggle(c.id)} onClick={(e) => e.stopPropagation()} aria-label={c.name} /></td>
                     <td className="font-extrabold text-lg">{c.name}</td>
                     <td><TypeBadge type={c.request.type} /></td>
                     <td className="num">{c.request.number}</td>
@@ -338,14 +346,40 @@ export function AdminSchedule() {
             <label className="label mt-3" htmlFor="en">النهاية</label>
             <input id="en" type="datetime-local" className="field num" value={ends} onChange={(e) => setEnds(e.target.value)} />
             <div className="mt-2 flex gap-2">{[1, 3, 7].map((d) => <button key={d} className="btn-ghost btn-sm flex-1" onClick={() => dur(d)}>{d === 1 ? 'يوم' : `${d} أيام`}</button>)}</div>
-            <button className="btn-gold mt-5 w-full" disabled={!sel.size || busy} onClick={async () => {
+
+            <div className="mt-5 border-t border-line pt-4">
+              <label className="flex cursor-pointer items-start gap-2">
+                <input type="checkbox" className="mt-1" checked={stagger} onChange={(e) => setStagger(e.target.checked)} />
+                <span><b>نزول الشعارات بالتدريج</b><span className="block text-[13px] text-muted">يبدأ كل شعار وينتهي بعد الذي قبله بفاصل محدد، بالترتيب أدناه.</span></span>
+              </label>
+              {stagger && <>
+                <label className="label mt-3" htmlFor="gap">الفاصل بين كل شعار (دقيقة)</label>
+                <input id="gap" type="number" min={1} max={1440} className="field num" value={gap} onChange={(e) => setGap(Math.max(1, Math.min(1440, Number(e.target.value) || 1)))} />
+                <div className="mt-2 flex flex-wrap gap-1.5">{[5, 10, 15, 30, 60].map((m) => <button key={m} type="button" className={`btn-sm rounded-lg border-2 px-2.5 ${gap === m ? 'border-pine bg-pine-soft' : 'border-line'}`} onClick={() => setGap(m)}>{m === 60 ? 'ساعة' : `${m} د`}</button>)}</div>
+                {sel.length > 0 && (
+                  <ol className="mt-3 max-h-64 space-y-1 overflow-y-auto text-[13px]">
+                    {sel.map((id, i) => (
+                      <li key={id} className="flex items-center gap-1.5 rounded-md bg-stone px-2 py-1.5">
+                        <span className="num w-5 text-center font-bold text-pine">{i + 1}</span>
+                        <span className="min-w-0 flex-1 truncate font-bold">{byId.get(id)?.name}</span>
+                        <span className="num whitespace-nowrap text-muted" dir="ltr">{t0 ? new Date(t0 + i * minutes * 60_000).toLocaleTimeString('ar-SA-u-nu-latn', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                        <button type="button" className="px-1 text-muted hover:text-ink disabled:opacity-30" disabled={i === 0} onClick={() => move(i, -1)} aria-label="تقديم">▲</button>
+                        <button type="button" className="px-1 text-muted hover:text-ink disabled:opacity-30" disabled={i === sel.length - 1} onClick={() => move(i, 1)} aria-label="تأخير">▼</button>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+                {sel.length > 1 && t1 > 0 && <p className="hint">آخر شعار يبدأ بعد {num((sel.length - 1) * minutes)} دقيقة، وينتهي {new Date(t1 + (sel.length - 1) * minutes * 60_000).toLocaleString('ar-SA-u-nu-latn-ca-gregory', { timeZone: 'Asia/Riyadh', dateStyle: 'medium', timeStyle: 'short' })}.</p>}
+              </>}
+            </div>
+            <button className="btn-gold mt-5 w-full" disabled={!sel.length || busy} onClick={async () => {
               setBusy(true)
               try {
-                const res = await api.scheduleAuctions([...sel], fromLocalInput(starts), fromLocalInput(ends))
+                const res = await api.scheduleAuctions(sel, fromLocalInput(starts), fromLocalInput(ends), minutes)
                 toast(`فُتح المزاد لـ${namesCount(res.length)}`)
-                setSel(new Set()); reload()
+                setSelList([]); reload()
               } catch (e) { toast((e as Error).message, 'bad') } finally { setBusy(false) }
-            }}>{sel.size ? `فتح المزاد لـ${namesCount(sel.size)}` : 'اختر الأسماء'}</button>
+            }}>{sel.length ? `${stagger ? 'فتح بالتدريج' : 'فتح المزاد'} لـ${namesCount(sel.length)}` : 'اختر الأسماء'}</button>
           </aside>
         </div>
       ) : <Empty title="لا توجد أسماء بانتظار فتح المزاد"><p className="text-muted">تظهر هنا الأسماء بعد قبولها من اللجنة.</p></Empty>}

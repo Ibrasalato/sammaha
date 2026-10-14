@@ -33,6 +33,9 @@ export const RULES = {
   instantCommission: 0.15,
 }
 
+/** the platform's slogan */
+export const SLOGAN = { ar: 'لأن الأسماء تصنع المجد', en: 'Because names make glory' }
+
 export const SELLER = {
   name: 'المنظمة الدولية للإبل',
   nameEn: 'International Camel Organization',
