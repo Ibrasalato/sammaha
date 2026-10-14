@@ -20,6 +20,8 @@ export const RULES = {
   timeZone: 'Asia/Riyadh',
   /** «استثمار الاسم»: non-refundable study fee per request (SAR) */
   investFee: 100,
+  /** «اسم مركب»: registration fee, paid by card (0 = free; the live value comes from the platform settings) */
+  compoundFee: 0,
   /** «استثمار الاسم»: the name owner's share of the auction proceeds (the organization keeps the rest) */
   investOwnerShare: 0.3,
   /** «استثمار الاسم»: names allowed in one request */

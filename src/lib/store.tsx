@@ -70,6 +70,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // the guarantee and the payment deadline are admin settings; texts across the site read them from RULES
       if (typeof s.depositAmount === 'number') RULES.depositAmount = s.depositAmount
       if (typeof s.paymentDeadlineHours === 'number') RULES.paymentDeadlineHours = s.paymentDeadlineHours
+      if (typeof s.investFee === 'number') RULES.investFee = s.investFee
+      if (typeof s.compoundFee === 'number') RULES.compoundFee = s.compoundFee
+      if (typeof s.resaleCommission === 'number') RULES.resaleCommission = s.resaleCommission
+      if (typeof s.instantCommission === 'number') RULES.instantCommission = s.instantCommission
       setSettings(s)
     } catch { /* keep the last known */ }
   }, [])

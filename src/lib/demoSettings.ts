@@ -12,7 +12,8 @@ export const DEFAULT_SETTINGS: Omit<AdminSettings, 'rules'> = {
   signupOpen: true, supportEmail: '', supportPhone: '', whatsApp: '',
   announcementOn: false, announcement: '', announcementTone: 'info', maintenance: false, maintenanceNote: '',
   passwordMinLength: 8, maxLoginAttempts: 5, lockoutMinutes: 15, staffIdleMinutes: 30,
-  depositAmount: RULES.depositAmount, paymentDeadlineHours: 72, transferFee: 0,
+  depositAmount: RULES.depositAmount, paymentDeadlineHours: 72, transferFee: 0, transferOpen: true, comingSoon: [],
+  investFee: RULES.investFee, compoundFee: 0, resaleCommission: RULES.resaleCommission, instantCommission: RULES.instantCommission, serviceTexts: {},
 }
 
 export function demoRules(): AdminSettings['rules'] {
@@ -47,6 +48,12 @@ export function writeSettings(patch: SettingsPatch, by: string): Omit<AdminSetti
   range(patch.staffIdleMinutes, 0, 480, tr('مهلة الخمول بالدقائق', 'Idle timeout (minutes)'))
   range(patch.paymentDeadlineHours, 1, 720, tr('مهلة سداد قيمة الشعار بالساعات', 'Payment deadline (hours)'))
   if (patch.depositAmount != null && !(patch.depositAmount >= 0 && patch.depositAmount <= 1_000_000)) throw new ApiError(tr('مبلغ الضمان بين 0 و1,000,000 ريال', 'The guarantee must be between 0 and 1,000,000 riyals'))
+  for (const [k, max, label] of [['investFee', 100_000, tr('رسوم دراسة الاستثمار', 'Investment study fee')], ['compoundFee', 100_000, tr('رسوم الاسم المركب', 'Compound name fee')]] as const)
+    if (patch[k] != null && !(patch[k]! >= 0 && patch[k]! <= max)) throw new ApiError(tr(`${label} بين 0 و100,000 ريال`, `${label} must be between 0 and 100,000 riyals`))
+  for (const k of ['resaleCommission', 'instantCommission'] as const)
+    if (patch[k] != null && !(patch[k]! >= 0 && patch[k]! <= 0.5)) throw new ApiError(tr('العمولة بين 0% و50%', 'The commission must be between 0% and 50%'))
+  if (patch.serviceTexts) patch = { ...patch, serviceTexts: { ...(readSettings().serviceTexts ?? {}), ...patch.serviceTexts } }
+  if (patch.comingSoon && patch.comingSoon.some((k) => !(k in LABEL))) throw new ApiError(tr('خدمة غير معروفة', 'Unknown service'))
   if (patch.transferFee != null && !(patch.transferFee >= 0 && patch.transferFee <= 100_000)) throw new ApiError(tr('رسوم نقل الملكية بين 0 و100,000 ريال', 'The transfer fee must be between 0 and 100,000 riyals'))
   if (patch.supportEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patch.supportEmail.trim())) throw new ApiError(tr('بريد الدعم غير صحيح', 'The support email is not valid'))
   const cur = readSettings()
@@ -78,13 +85,15 @@ const LABEL = {
   resale: ['resaleAuctionOpen', 'saleClosedNote', 'عرض الأسماء في مزاد إعادة البيع', 'Listing names in resale auctions'],
   instant: ['instantSaleOpen', 'saleClosedNote', 'البيع الفوري للأسماء', 'Instant sale of names'],
   investment: ['investmentOpen', 'investmentClosedNote', 'استقبال طلبات استثمار الاسم', 'Accepting name investment requests'],
+  transfer: ['transferOpen', 'transferClosedNote', 'نقل ملكية الأسماء', 'Name ownership transfers'],
 } as const
 export type Intake = keyof typeof LABEL
 
 /** the message owners see when an intake is closed (same wording as the API) */
 export function closedMessage(intake: Intake, s: PublicSettings): string | null {
   const [flag, noteKey, label, labelEn] = LABEL[intake]
-  if (s[flag]) return null
+  if ((s.comingSoon ?? []).includes(intake)) return tr(`${label}: الخدمة قريبًا، تابعنا لمعرفة موعد الإطلاق`, `${labelEn}: coming soon. Follow us to know when it launches`)
+  if (s[flag] !== false) return null
   const note = s[noteKey]
   return note ? tr(`${label} متوقف مؤقتًا: ${note}`, `${labelEn} is temporarily paused: ${note}`) : tr(`${label} متوقف مؤقتًا، تابعنا لمعرفة موعد الفتح`, `${labelEn} is temporarily paused. Follow us to know when it reopens`)
 }

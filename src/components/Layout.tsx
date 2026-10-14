@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { LangSwitch, tr } from '../lib/i18n'
 import type { ReactNode } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { IS_DEMO, SELLER, SLOGAN } from '../lib/config'
 import { resetDemo } from '../lib/demoApi'
 import { api, useApp } from '../lib/store'
@@ -19,7 +19,7 @@ const PUBLIC_NAV = (): [string, string][] => [
   ['/events', tr('المواعيد', 'Calendar')],
   ['/names', tr('سجل الأسماء', 'Registry')],
   ['/market', tr('سوق الأسماء', 'Name market')],
-  ['/invest', tr('استثمار الاسم', 'Name investment')],
+  ['/services', tr('الخدمات الإلكترونية', 'E-services')],
   ['/about', tr('عن المنصة', 'About')],
 ]
 
@@ -169,12 +169,15 @@ function FooterCol({ title, links }: { title: string; links: [string, string][] 
   )
 }
 
-export interface NavItem { to: string; label: string; icon: IconName; end?: boolean; short?: string }
+/** also: other pages that belong to this entry (it stays highlighted on them) */
+export interface NavItem { to: string; label: string; icon: IconName; end?: boolean; short?: string; also?: string[] }
 
 export function Shell({ nav, title, children }: { nav: NavItem[]; title: string; children?: ReactNode }) {
   const { user, setUser } = useApp()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const { pathname } = useLocation()
+  const on = (also?: string[]) => !!also?.some((p) => pathname === p || pathname.startsWith(p + '/'))
   useStaffIdle()
   const roleLabel = user?.role === 'owner' ? tr('مالك إبل', 'Camel owner') : user?.role === 'committee' ? tr('لجنة الاعتماد', 'Accreditation Committee') : tr('مدير المنصة', 'Platform administrator')
   return (
@@ -215,11 +218,11 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
           <nav className="h-full w-64 shrink-0 border-e border-line bg-paper px-3 py-5" onClick={(e) => e.stopPropagation()} aria-label={title}>
             <p className="mb-2 px-3 text-[12.5px] font-medium text-muted">{title}</p>
             <ul className="flex flex-col gap-0.5">
-              {nav.map(({ to, label, end, icon }) => (
+              {nav.map(({ to, label, end, icon, also }) => (
                 <li key={to}>
                   <NavLink to={to} end={end} onClick={() => setOpen(false)}
-                    className={({ isActive }) => `relative flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium transition-colors ${isActive ? 'bg-pine text-paper' : 'text-ink/75 hover:bg-stone hover:text-pine'}`}>
-                    {({ isActive }) => <><Icon name={icon} className={`h-[18px] w-[18px] ${isActive ? 'text-gold-light' : 'text-muted'}`} />{label}</>}
+                    className={({ isActive }) => `relative flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium transition-colors ${isActive || on(also) ? 'bg-pine text-paper' : 'text-ink/75 hover:bg-stone hover:text-pine'}`}>
+                    {({ isActive }) => <><Icon name={icon} className={`h-[18px] w-[18px] ${isActive || on(also) ? 'text-gold-light' : 'text-muted'}`} />{label}</>}
                   </NavLink>
                 </li>
               ))}
@@ -239,10 +242,10 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
       {/* mobile: the main sections stay one tap away */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden" aria-label={tr('التنقل السريع', 'Quick navigation')}>
         <ul className="grid grid-cols-5">
-          {nav.slice(0, 4).map(({ to, label, short, end, icon }) => (
+          {nav.slice(0, 4).map(({ to, label, short, end, icon, also }) => (
             <li key={to}>
-              <NavLink to={to} end={end} className={({ isActive }) => `flex flex-col items-center gap-1 px-1 py-2.5 text-[11.5px] font-bold ${isActive ? 'text-pine' : 'text-muted'}`}>
-                {({ isActive }) => <><span className={`grid h-7 w-12 place-items-center rounded-full ${isActive ? 'bg-pine-soft' : ''}`}><Icon name={icon} className="h-5 w-5" /></span><span className="max-w-full truncate">{short ?? label}</span></>}
+              <NavLink to={to} end={end} className={({ isActive }) => `flex flex-col items-center gap-1 px-1 py-2.5 text-[11.5px] font-bold ${isActive || on(also) ? 'text-pine' : 'text-muted'}`}>
+                {({ isActive }) => <><span className={`grid h-7 w-12 place-items-center rounded-full ${isActive || on(also) ? 'bg-pine-soft' : ''}`}><Icon name={icon} className="h-5 w-5" /></span><span className="max-w-full truncate">{short ?? label}</span></>}
               </NavLink>
             </li>
           ))}

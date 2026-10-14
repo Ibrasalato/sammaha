@@ -333,7 +333,7 @@ function CompoundName({ base, onClose }: { base: ReservedName; onClose: () => vo
   }, [full, base.type])
   async function submit() {
     setBusy(true); setErr('')
-    try { const r = await api.createCompoundRequest(base.id, full); toast(tr('أُرسل طلب الاسم المركب إلى لجنة الاعتماد', 'Compound name request sent to the Accreditation Committee')); nav(`/dashboard/requests/${r.id}`) } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
+    try { const r = await api.createCompoundRequest(base.id, full); toast(r.status === 'pending_payment' ? tr('أُنشئ الطلب، سدّد الرسوم ليصل إلى لجنة الاعتماد', 'Request created; pay the fee to send it to the Accreditation Committee') : tr('أُرسل طلب الاسم المركب إلى لجنة الاعتماد', 'Compound name request sent to the Accreditation Committee')); nav(`/dashboard/requests/${r.id}`) } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
   }
   const closed = useClosed('compound')
   const blocked = check?.verdict === 'exact' || check?.verdict === 'invalid' || !!closed

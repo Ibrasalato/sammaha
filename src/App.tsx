@@ -53,6 +53,7 @@ const AdminTransfers = pick(() => import('./pages/admin/Transfers'), 'AdminTrans
 const AdminLogos = pick(() => import('./pages/admin/Logos'), 'AdminLogos')
 const TransfersPage = pick(() => import('./pages/owner/Transfers'), 'TransfersPage')
 const ServicesPage = pick(() => import('./pages/owner/Services'), 'ServicesPage')
+const PublicServices = pick(() => import('./pages/owner/Services'), 'PublicServices')
 const AdminTickets = pick(() => import('./pages/admin/Tickets'), 'AdminTickets'), AdminTicket = pick(() => import('./pages/admin/Tickets'), 'AdminTicket')
 const AdminRoles = pick(() => import('./pages/admin/Roles'), 'AdminRoles')
 const AdminCustomers = pick(() => import('./pages/admin/Customers'), 'AdminCustomers')
@@ -65,7 +66,7 @@ const TITLES: [RegExp, string, string][] = [
   [/^\/$/, '', ''], [/^\/auctions$/, 'المزادات', 'Auctions'], [/^\/names/, 'سجل الأسماء', 'Name registry'], [/^\/events/, 'المواعيد والمهرجانات', 'Events'],
   [/^\/verify/, 'التحقق من شهادة', 'Verify a certificate'], [/^\/faq/, 'الأسئلة الشائعة', 'FAQ'], [/^\/terms/, 'الشروط والأحكام', 'Terms'],
   [/^\/privacy/, 'سياسة الخصوصية', 'Privacy'], [/^\/refund/, 'سياسة الاسترداد', 'Refunds'], [/^\/contact\/track/, 'متابعة طلب', 'Track a request'],
-  [/^\/contact/, 'تواصل معنا', 'Contact'], [/^\/about/, 'عن المنصة', 'About'], [/^\/invest/, 'استثمار الاسم', 'Name investment'], [/^\/market/, 'سوق الأسماء', 'Name market'], [/^\/login/, 'تسجيل الدخول', 'Sign in'], [/^\/signup/, 'إنشاء حساب', 'Sign up'],
+  [/^\/contact/, 'تواصل معنا', 'Contact'], [/^\/about/, 'عن المنصة', 'About'], [/^\/invest/, 'استثمار الاسم', 'Name investment'], [/^\/services/, 'الخدمات الإلكترونية', 'E-services'], [/^\/market/, 'سوق الأسماء', 'Name market'], [/^\/login/, 'تسجيل الدخول', 'Sign in'], [/^\/signup/, 'إنشاء حساب', 'Sign up'],
   [/^\/dashboard/, 'لوحة التحكم', 'Dashboard'], [/^\/admin/, 'لجنة الاعتماد', 'Committee'], [/^\/ico-staff/, 'بوابة الموظفين', 'Staff'],
 ]
 function RouteTitle() {
@@ -88,14 +89,10 @@ function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
 
 const OWNER_NAV: NavItem[] = [
   { to: '/dashboard', get label() { return tr('الرئيسية', 'Home') }, icon: 'home', end: true },
-  { to: '/dashboard/services', get label() { return tr('الخدمات الإلكترونية', 'E-services') }, get short() { return tr('الخدمات', 'Services') }, icon: 'list' },
-  { to: '/dashboard/requests', get label() { return tr('طلبات الشعارات', 'Mark requests') }, get short() { return tr('طلباتي', 'My requests') }, icon: 'file' },
-  { to: '/dashboard/invest', get label() { return tr('استثمار الاسم', 'Name investment') }, get short() { return tr('استثمار', 'Invest') }, icon: 'coins' },
-  { to: '/dashboard/sell', get label() { return tr('بيع اسم', 'Sell a name') }, icon: 'tag' },
+  { to: '/dashboard/services', get label() { return tr('الخدمات الإلكترونية', 'E-services') }, get short() { return tr('الخدمات', 'Services') }, icon: 'list', also: ['/dashboard/requests', '/dashboard/invest', '/dashboard/sell', '/dashboard/transfers'] },
   { to: '/dashboard/bids', get label() { return tr('مزايداتي', 'My bids') }, icon: 'gavel' },
   { to: '/dashboard/watchlist', get label() { return tr('قائمة المتابعة', 'Watchlist') }, get short() { return tr('المتابعة', 'Watchlist') }, icon: 'clock' },
   { to: '/dashboard/names', get label() { return tr('أسمائي', 'My names') }, icon: 'tag' },
-  { to: '/dashboard/transfers', get label() { return tr('نقل الملكية', 'Ownership transfer') }, icon: 'users' },
   { to: '/dashboard/certificates', get label() { return tr('شهاداتي', 'My certificates') }, icon: 'file' },
   { to: '/dashboard/wallet', get label() { return tr('المحفظة', 'Wallet') }, icon: 'wallet' },
   { to: '/dashboard/invoices', get label() { return tr('الفواتير', 'Invoices') }, icon: 'receipt' },
@@ -183,6 +180,7 @@ function AppRoutes() {
             <Route path="about" element={<About />} />
             <Route path="invest" element={<Invest />} />
             <Route path="market" element={<Market />} />
+            <Route path="services" element={<PublicServices />} />
             <Route path="login" element={<Login />} />
             <Route path="signup" element={<Signup />} />
           </Route>

@@ -3,7 +3,7 @@ import { Icon } from './dash'
 import type { IconName } from './dash'
 import { RULES } from '../lib/config'
 import { sar } from '../lib/format'
-import { tr } from '../lib/i18n'
+import { getLang, tr } from '../lib/i18n'
 import { useApp } from '../lib/store'
 
 export type ServiceKey = 'mark' | 'invest' | 'resale' | 'transfer' | 'compound'
@@ -19,10 +19,14 @@ export interface EService {
   priceNote?: string
   free: boolean
   open: boolean
+  /** «قريبًا»: announced, not accepting yet (set by the admin) */
+  soon?: boolean
   /** why the service is closed, shown only while it is closed */
   closedNote?: string
   /** where an owner applies for it */
   to: string
+  /** where an owner follows what they already submitted */
+  mine?: string
 }
 
 const pct = (r: number) => Math.round(r * 100)
@@ -34,9 +38,23 @@ export function useServices(): EService[] {
   const closed = (note?: string) => note || tr('الخدمة متوقفة مؤقتًا، تابعنا لمعرفة موعد الفتح.', 'The service is temporarily paused. Follow us to know when it reopens.')
   const deposit = s.depositAmount ?? RULES.depositAmount
   const fee = s.transferFee ?? 0
-  return [
+  const investFee = s.investFee ?? RULES.investFee
+  const compoundFee = s.compoundFee ?? 0
+  const resalePct = s.resaleCommission ?? RULES.resaleCommission
+  const instantPct = s.instantCommission ?? RULES.instantCommission
+  const lang = getLang()
+  const own: Record<string, string> = { mark: 'requests', invest: 'investment', resale: 'resale', transfer: 'transfer', compound: 'compound' }
+  const textOf = (key: string, fallback: string) => {
+    const t = s.serviceTexts?.[own[key] as keyof NonNullable<typeof s.serviceTexts>]
+    return (lang === 'en' ? t?.en || t?.ar : t?.ar || t?.en) || fallback
+  }
+  const soon = new Set(s.comingSoon ?? [])
+  const soonOf: Record<string, boolean> = {
+    mark: soon.has('requests'), invest: soon.has('investment'), resale: soon.has('resale') && soon.has('instant'), transfer: soon.has('transfer'), compound: soon.has('compound'),
+  }
+  return ([
     {
-      key: 'mark', icon: 'file', to: '/dashboard/requests/new',
+      key: 'mark', icon: 'file', to: '/dashboard/requests/new', mine: '/dashboard/requests',
       title: tr('طلب شعار', 'Request a mark'),
       desc: tr(`سجّل حتى ${RULES.namesPerRequest} أسماء مقترحة، تراجعها اللجنة ثم يُطرح المعتمد منها في مزاد علني.`, `Submit up to ${RULES.namesPerRequest} proposed names; the committee reviews them and the approved one goes to a public auction.`),
       price: deposit ? tr(`ضمان مسترد ${sar(deposit)}`, `Refundable guarantee ${sar(deposit)}`) : FREE(),
@@ -47,17 +65,17 @@ export function useServices(): EService[] {
       key: 'invest', icon: 'coins', to: '/dashboard/invest',
       title: tr('طلب شعار للاستثمار', 'Name investment'),
       desc: tr(`اقترح أسماء جديدة، تطرحها المنظمة في مزاد عام ولك ${pct(RULES.investOwnerShare)}٪ من قيمة بيعها.`, `Propose new names; the organization auctions them and you get ${pct(RULES.investOwnerShare)}% of the sale.`),
-      price: RULES.investFee ? tr(`رسوم دراسة ${sar(RULES.investFee)}`, `Study fee ${sar(RULES.investFee)}`) : FREE(),
-      priceNote: RULES.investFee ? tr('غير مستردة.', 'Non-refundable.') : undefined,
-      free: !RULES.investFee, open: s.investmentOpen, closedNote: s.investmentOpen ? undefined : closed(s.investmentClosedNote),
+      price: investFee ? tr(`رسوم دراسة ${sar(investFee)}`, `Study fee ${sar(investFee)}`) : FREE(),
+      priceNote: investFee ? tr('غير مستردة، تُدفع بالبطاقة.', 'Non-refundable, paid by card.') : undefined,
+      free: !investFee, open: s.investmentOpen, closedNote: s.investmentOpen ? undefined : closed(s.investmentClosedNote),
     },
     {
       key: 'resale', icon: 'tag', to: '/dashboard/sell',
       title: tr('إعادة بيع', 'Resell a name'),
       desc: tr('اعرض اسمًا تملكه في مزاد إعادة البيع، أو للبيع الفوري بسعر ثابت تحدده.', 'List a name you own in a resale auction, or for instant sale at a fixed price you set.'),
-      price: tr(`عمولة ${pct(RULES.resaleCommission)}٪ من قيمة البيع`, `${pct(RULES.resaleCommission)}% commission on the sale`),
-      priceNote: tr(`العرض مجاني، وعمولة البيع الفوري ${pct(RULES.instantCommission)}٪.`, `Listing is free; instant sale commission is ${pct(RULES.instantCommission)}%.`),
-      free: false, open: s.resaleAuctionOpen || s.instantSaleOpen, closedNote: s.resaleAuctionOpen || s.instantSaleOpen ? undefined : closed(s.saleClosedNote),
+      price: resalePct ? tr(`عمولة ${pct(resalePct)}٪ من قيمة البيع`, `${pct(resalePct)}% commission on the sale`) : FREE(),
+      priceNote: tr(`العرض مجاني، وعمولة البيع الفوري ${instantPct ? `${pct(instantPct)}٪` : 'مجانًا'}.`, `Listing is free; instant sale commission is ${instantPct ? `${pct(instantPct)}%` : 'free'}.`),
+      free: !resalePct && !instantPct, open: s.resaleAuctionOpen || s.instantSaleOpen, closedNote: s.resaleAuctionOpen || s.instantSaleOpen ? undefined : closed(s.saleClosedNote),
     },
     {
       key: 'transfer', icon: 'users', to: '/dashboard/transfers',
@@ -65,17 +83,17 @@ export function useServices(): EService[] {
       desc: tr('انقل اسمًا تملكه إلى مالك مسجّل آخر (بيع خارج المنصة، هبة، إرث)، يقبله المستلم وتعتمده اللجنة.', 'Move a name you own to another registered owner (outside sale, gift, inheritance); the recipient accepts and the committee approves.'),
       price: fee ? sar(fee) : FREE(),
       priceNote: fee ? tr('تُدفع بالبطاقة، شاملة الضريبة.', 'Paid by card, VAT included.') : undefined,
-      free: !fee, open: true,
+      free: !fee, open: s.transferOpen !== false, closedNote: s.transferOpen !== false ? undefined : closed(s.transferClosedNote),
     },
     {
-      key: 'compound', icon: 'plus', to: '/dashboard/names',
+      key: 'compound', icon: 'plus', to: '/dashboard/names', mine: '/dashboard/requests',
       title: tr('طلب اسم مركب', 'Compound name'),
       desc: tr('أضف اسمًا إلى اسم تملكه، مثل «الفاخر الأول»، ويُعتمد بعد مراجعة اللجنة.', 'Add a name to one you own, such as “Al-Fakher Al-Awwal”, approved after committee review.'),
-      price: FREE(),
-      priceNote: tr('يُطلب من بطاقة الاسم في «أسمائي».', 'Requested from the name card in “My names”.'),
-      free: true, open: s.compoundOpen, closedNote: s.compoundOpen ? undefined : closed(s.compoundClosedNote),
+      price: compoundFee ? tr(`رسوم تسجيل ${sar(compoundFee)}`, `Registration fee ${sar(compoundFee)}`) : FREE(),
+      priceNote: compoundFee ? tr('تُدفع بالبطاقة، ويُطلب من بطاقة الاسم في «أسمائي».', 'Paid by card; requested from the name card in “My names”.') : tr('يُطلب من بطاقة الاسم في «أسمائي».', 'Requested from the name card in “My names”.'),
+      free: !compoundFee, open: s.compoundOpen, closedNote: s.compoundOpen ? undefined : closed(s.compoundClosedNote),
     },
-  ]
+  ] as EService[]).map((x) => ({ ...x, desc: textOf(x.key, x.desc) })).map((x) => (soonOf[x.key] ? { ...x, open: false, soon: true, closedNote: undefined } : x))
 }
 
 /** Grid of e-service cards. Public: links go through sign-in unless an owner is signed in. */
@@ -100,7 +118,9 @@ function ServiceCard({ s, isOwner, signedIn }: { s: EService; isOwner: boolean; 
         <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl ${s.open ? 'bg-pine text-gold-light' : 'bg-stone-deep text-muted'}`}>
           <Icon name={s.icon} className="h-6 w-6" />
         </span>
-        {!s.open && <span className="pill bg-stone-deep text-muted"><Icon name="lock" className="h-3.5 w-3.5" />{tr('مغلقة حاليًا', 'Closed now')}</span>}
+        {s.soon
+          ? <span className="pill bg-gold-soft text-gold-deep"><Icon name="clock" className="h-3.5 w-3.5" />{tr('قريبًا', 'Coming soon')}</span>
+          : !s.open && <span className="pill bg-stone-deep text-muted"><Icon name="lock" className="h-3.5 w-3.5" />{tr('مغلقة حاليًا', 'Closed now')}</span>}
       </div>
       <h3 className="mt-4 text-[18px] font-extrabold">{s.title}</h3>
       <p className="mt-1.5 flex-1 text-[14.5px] leading-7 text-muted">{s.desc}</p>
@@ -122,8 +142,9 @@ function ServiceCard({ s, isOwner, signedIn }: { s: EService; isOwner: boolean; 
           ? <Link to={s.to} className="btn-primary mt-4 w-full">{label}<Icon name="arrow" className="h-4 w-4 rtl:rotate-180" /></Link>
           : <Link to="/login" state={{ from: s.to }} className="btn-primary mt-4 w-full">{signedIn ? label : tr('سجّل الدخول للتقديم', 'Sign in to apply')}<Icon name="arrow" className="h-4 w-4 rtl:rotate-180" /></Link>
       ) : (
-        <button type="button" disabled className="btn-ghost mt-4 w-full">{label}</button>
+        <button type="button" disabled className="btn-ghost mt-4 w-full">{s.soon ? tr('قريبًا', 'Coming soon') : label}</button>
       )}
+      {isOwner && signedIn && s.mine && !s.soon && <Link to={s.mine} className="mt-2 text-center text-[13.5px] font-bold text-pine hover:underline">{tr('متابعة طلباتي', 'Track my requests')}</Link>}
     </li>
   )
 }

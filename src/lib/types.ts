@@ -596,7 +596,20 @@ export interface PublicSettings {
   paymentDeadlineHours: number
   /** fee for moving a name to another owner (VAT included), paid by card */
   transferFee: number
+  transferOpen: boolean
+  transferClosedNote?: string
+  /** e-services shown as «قريبًا» (not accepting yet) */
+  comingSoon: ServiceKey[]
+  /** service prices set by the admin */
+  investFee: number
+  compoundFee: number
+  resaleCommission: number
+  instantCommission: number
+  /** the admin's description of each e-service (empty = the built-in text) */
+  serviceTexts?: Partial<Record<ServiceKey, { ar?: string; en?: string }>>
 }
+
+export type ServiceKey = 'requests' | 'compound' | 'resale' | 'instant' | 'investment' | 'transfer'
 
 /** fees and rules from the server configuration (read-only in the dashboard) */
 export interface PlatformRules {

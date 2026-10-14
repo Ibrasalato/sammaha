@@ -10,3 +10,13 @@ export function ServicesPage() {
     </>
   )
 }
+
+/** the public page: the same cards; applying asks visitors to sign in first */
+export function PublicServices() {
+  return (
+    <div className="wrap py-10">
+      <PageHead title={tr('الخدمات الإلكترونية', 'E-services')} sub={tr('كل خدمات سمّها في مكان واحد. للتقدّم لأي خدمة سجّل الدخول بحساب مالك الإبل.', 'Every Sammha service in one place. Sign in with your camel owner account to apply.')} />
+      <ServicesGrid audience="public" />
+    </div>
+  )
+}

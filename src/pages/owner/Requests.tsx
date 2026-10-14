@@ -156,7 +156,7 @@ export function MyRequests() {
               </div>
               <div className="mt-3 flex flex-wrap gap-2">{r.candidates.map((c) => <CandidateChip key={c.id} c={c} type={r.type} />)}</div>
               <div className="mt-3 flex flex-wrap gap-2">
-                {r.status === 'pending_payment' && <button className="btn-gold btn-sm" onClick={() => setPaying(r)}>{r.kind === 'investment' ? tr('سداد الرسوم', 'Pay fee') : tr('سداد الضمان', 'Pay guarantee')} {sar(r.depositAmount)}</button>}
+                {r.status === 'pending_payment' && <button className="btn-gold btn-sm" onClick={() => setPaying(r)}>{r.kind === 'investment' || r.kind === 'compound' ? tr('سداد الرسوم', 'Pay fee') : tr('سداد الضمان', 'Pay guarantee')} {sar(r.depositAmount)}</button>}
                 <Link to={`/dashboard/requests/${r.id}`} className="btn-ghost btn-sm">{tr('التفاصيل', 'Details')}</Link>
                 {r.cancellable && <button className="btn-danger btn-sm" onClick={() => setCancelling(r)}>{r.depositState === 'held' ? tr('إلغاء كل الأسماء واسترداد الضمان', 'Cancel all names and refund the guarantee') : tr('إلغاء الطلب', 'Cancel request')}</button>}
                 {r.candidates.some((c) => c.withdrawable) && r.candidates.filter((c) => c.status === 'pending' || c.status === 'accepted').length > 1 && <Link to={`/dashboard/requests/${r.id}`} className="btn-ghost btn-sm">{tr('سحب اسم معيّن', 'Withdraw a specific name')}</Link>}
@@ -173,7 +173,7 @@ export function MyRequests() {
       )}
       {cancelling && <CancelRequest r={cancelling} onClose={() => setCancelling(null)} onDone={() => { setCancelling(null); reload() }} />}
       {paying && (
-        <PayModal open title={paying.kind === 'investment' ? tr(`رسوم دراسة الطلب ${paying.number}`, `Review fee for request ${paying.number}`) : tr(`سداد ضمان الطلب ${paying.number}`, `Pay guarantee for request ${paying.number}`)} amount={paying.depositAmount} onClose={() => setPaying(null)}
+        <PayModal open cardOnly={paying.kind === 'investment' || paying.kind === 'compound'} title={paying.kind === 'compound' ? tr(`رسوم تسجيل الاسم المركب ${paying.number}`, `Compound name fee ${paying.number}`) : paying.kind === 'investment' ? tr(`رسوم دراسة الطلب ${paying.number}`, `Review fee for request ${paying.number}`) : tr(`سداد ضمان الطلب ${paying.number}`, `Pay guarantee for request ${paying.number}`)} amount={paying.depositAmount} onClose={() => setPaying(null)}
           onPay={async (m) => {
             try { await api.payDeposit(paying.id, m); toast(tr('تم السداد، طلبك الآن تحت المراجعة', 'Payment received. Your request is now under review')); reload() } catch (e) { toast((e as Error).message, 'bad'); throw e }
           }} />
@@ -345,7 +345,7 @@ export function RequestDetail() {
 
       {r.status === 'pending_payment' && (
         <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-gold bg-gold-soft p-4">
-          <p className="flex-1 font-semibold">{invest ? tr('سدّد رسوم الدراسة ليصل اسمك إلى اللجنة المختصة.', 'Pay the review fee to send your name to the specialist committee.') : tr('سدّد ضمان المزاد ليصل طلبك إلى لجنة الاعتماد.', 'Pay the auction guarantee to send your request to the Accreditation Committee.')}</p>
+          <p className="flex-1 font-semibold">{r.kind === 'compound' ? tr('سدّد رسوم تسجيل الاسم المركب بالبطاقة ليصل طلبك إلى لجنة الاعتماد.', 'Pay the compound name fee by card to send your request to the Accreditation Committee.') : invest ? tr('سدّد رسوم الدراسة ليصل اسمك إلى اللجنة المختصة.', 'Pay the review fee to send your name to the specialist committee.') : tr('سدّد ضمان المزاد ليصل طلبك إلى لجنة الاعتماد.', 'Pay the auction guarantee to send your request to the Accreditation Committee.')}</p>
           <button className="btn-gold" onClick={() => setPaying(true)}>{tr('سداد', 'Pay')} {sar(r.depositAmount)}</button>
         </div>
       )}
@@ -379,7 +379,7 @@ export function RequestDetail() {
       {cancelling && <CancelRequest r={r} onClose={() => setCancelling(false)} onDone={() => { setCancelling(false); reload() }} />}
       {withdrawing && <WithdrawName r={r} c={withdrawing} onClose={() => setWithdrawing(null)} onDone={() => { setWithdrawing(null); reload() }} />}
       {paying && (
-        <PayModal open title={invest ? tr(`رسوم دراسة الطلب ${r.number}`, `Review fee for request ${r.number}`) : tr(`سداد ضمان الطلب ${r.number}`, `Pay guarantee for request ${r.number}`)} amount={r.depositAmount} onClose={() => setPaying(false)}
+        <PayModal open cardOnly={invest || r.kind === 'compound'} title={r.kind === 'compound' ? tr(`رسوم تسجيل الاسم المركب ${r.number}`, `Compound name fee ${r.number}`) : invest ? tr(`رسوم دراسة الطلب ${r.number}`, `Review fee for request ${r.number}`) : tr(`سداد ضمان الطلب ${r.number}`, `Pay guarantee for request ${r.number}`)} amount={r.depositAmount} onClose={() => setPaying(false)}
           onPay={async (m) => { try { await api.payDeposit(r.id, m); toast(tr('تم السداد، طلبك الآن تحت المراجعة', 'Payment received. Your request is now under review')); reload() } catch (e) { toast((e as Error).message, 'bad'); throw e } }} />
       )}
     </>

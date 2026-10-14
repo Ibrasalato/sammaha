@@ -1473,7 +1473,7 @@ const rawApi: SammhaApi = {
     const check = checkNamesIn(db, [name])[0]
     if (check.verdict === 'invalid') throw new ApiError(check.message || 'الاسم غير صالح')
     if (check.verdict === 'exact') throw new ApiError(`«${name}» مسجل أو مطلوب مسبقًا`)
-    if (db.requests.some((r) => r.kind === 'compound' && r.baseReservedId === base.id && r.status === 'under_review'))
+    if (db.requests.some((r) => r.kind === 'compound' && r.baseReservedId === base.id && (r.status === 'under_review' || r.status === 'pending_payment')))
       throw new ApiError(`لديك طلب اسم مركب لـ«${base.name}» تحت المراجعة`)
     const r: LogoRequest = {
       id: uid(db, 'q'), number: `SM-${1000 + db.requests.length + 1}`, userId: u.id, ownerName: u.fullName, type: base.type, kind: 'compound',
@@ -1481,6 +1481,9 @@ const rawApi: SammhaApi = {
       candidates: [{ id: uid(db, 'c'), name, normalized: n, status: 'pending', similar: check.hits.filter((h) => normalizeName(h.name) !== base.normalized) }],
       status: 'under_review', depositAmount: 0, depositPaid: false, depositState: 'none', createdAt: iso(now()), submittedAt: iso(now()),
     }
+    // with a registration fee the request waits for the card payment
+    const fee = readSettings().compoundFee ?? 0
+    if (fee > 0) Object.assign(r, { status: 'pending_payment', depositAmount: fee, submittedAt: undefined })
     db.requests.push(r)
     return withCancel(db, r)
   }),
@@ -1530,16 +1533,16 @@ const rawApi: SammhaApi = {
     const checks = checkNamesIn(db, r.candidates.map((c) => c.name), r.id)
     const taken = checks.filter((c) => c.verdict === 'exact')
     if (taken.length) throw new ApiError(`أصبح الاسم «${taken[0].name}» محجوزًا، ألغِ الطلب وأنشئ طلبًا جديدًا`)
-    if (method === 'wallet' && r.kind === 'investment') throw new ApiError(CARD_ONLY)
+    if (method === 'wallet' && (r.kind === 'investment' || r.kind === 'compound')) throw new ApiError(CARD_ONLY)
     if (method === 'wallet') {
       if (balanceOf(db, u.id) < r.depositAmount) throw new ApiError('رصيد المحفظة لا يكفي، اشحن المحفظة أو ادفع بالبطاقة')
     } else {
       // card: demo simulates a successful Moyasar payment that tops up then debits
       db.txs.push({ id: uid(db, 't'), userId: u.id, amount: r.depositAmount, kind: 'topup', note: `دفع بالبطاقة للطلب ${r.number}`, createdAt: iso(now()) })
     }
-    const fee = r.kind === 'investment'
-    db.txs.push({ id: uid(db, 't'), userId: u.id, amount: -r.depositAmount, kind: fee ? 'service_fee' : 'deposit', note: fee ? `رسوم دراسة طلب استثمار الاسم ${r.number}` : `ضمان مزاد الطلب ${r.number}`, createdAt: iso(now()) })
-    r.candidates.forEach((c, i) => { c.similar = checks[i].hits })
+    const fee = r.kind === 'investment' || r.kind === 'compound'
+    db.txs.push({ id: uid(db, 't'), userId: u.id, amount: -r.depositAmount, kind: fee ? 'service_fee' : 'deposit', note: r.kind === 'compound' ? `رسوم تسجيل الاسم المركب ${r.number}` : fee ? `رسوم دراسة طلب استثمار الاسم ${r.number}` : `ضمان مزاد الطلب ${r.number}`, createdAt: iso(now()) })
+    if (r.kind !== 'compound') r.candidates.forEach((c, i) => { c.similar = checks[i].hits })
     Object.assign(r, { status: 'under_review', depositPaid: true, depositState: fee ? 'fee' : 'held', submittedAt: iso(now()) })
     return r
   }),
@@ -1646,6 +1649,7 @@ const rawApi: SammhaApi = {
   createTransfer: ({ reservedId, phone, reason, note }) => tx((db) => {
     const u = transferOwner(db)
     ensureWritable(u.role)
+    ensureOpen('transfer')
     if (!['sale', 'gift', 'inheritance', 'other'].includes(reason)) throw new ApiError('اختر سبب النقل')
     const n = (note ?? '').trim()
     if (n.length > 500) throw new ApiError('الملاحظة طويلة (500 حرف كحد أقصى)')

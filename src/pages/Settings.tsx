@@ -8,11 +8,11 @@ const BankAccountCard = lazy(() => import('./owner/Bank').then((m) => ({ default
 import { Icon } from '../components/dash'
 import type { IconName } from '../components/dash'
 import { SettingRow, Switch } from '../components/SettingsUi'
-import { ErrorBox, Loading, Modal, PageHead } from '../components/ui'
+import { ErrorBox, Loading, Modal, PageHead, Segmented } from '../components/ui'
 import { STAFF_LOGIN_PATH } from '../lib/config'
 import { dateTime, num, sar } from '../lib/format'
 import { api, useApp, useLoad } from '../lib/store'
-import type { AdminSettings, AuctionScope, NameType, Preferences, SessionInfo, SettingsPatch, TicketKind, TicketRouting } from '../lib/types'
+import type { AdminSettings, AuctionScope, NameType, Preferences, ServiceKey, SessionInfo, SettingsPatch, TicketKind, TicketRouting } from '../lib/types'
 import { AuctionActionDialog, useAuctionRights } from '../components/AuctionControls'
 import type { AuctionAction } from '../components/AuctionControls'
 import { can, canAny } from '../lib/permissions'
@@ -211,33 +211,90 @@ export function OwnerSettings() {
 
 type Draft = Omit<AdminSettings, 'rules' | 'updatedAt' | 'updatedBy'>
 
-const INTAKES: { flag: 'requestsOpen' | 'compoundOpen' | 'resaleAuctionOpen' | 'instantSaleOpen' | 'investmentOpen'; note: 'requestsClosedNote' | 'compoundClosedNote' | 'saleClosedNote' | 'investmentClosedNote'; title: string; desc: string; icon: IconName }[] = [
-  { flag: 'requestsOpen', note: 'requestsClosedNote', get title() { return tr('طلبات الشعارات', 'Mark requests') }, get desc() { return tr('طلبات تسجيل أسماء جديدة (ثلاثة أسماء مقترحة بضمان، يُقبل منها اسم واحد) تُراجعها اللجنة ثم تُطرح في المزاد.', 'Requests to register new names (three proposed names with a guarantee, one accepted), reviewed by the committee and then auctioned.') }, icon: 'file' },
-  { flag: 'compoundOpen', note: 'compoundClosedNote', get title() { return tr('الأسماء المركبة', 'Compound names') }, get desc() { return tr('إضافة كلمة إلى اسم يملكه المالك، تُسجَّل بعد اعتماد اللجنة دون مزاد.', 'Adding a word to a name the owner holds; registered after committee approval without an auction.') }, icon: 'plus' },
-  { flag: 'resaleAuctionOpen', note: 'saleClosedNote', get title() { return tr('إعادة البيع بالمزاد', 'Resale by auction') }, get desc() { return tr('«بيع اسم»: يعرض المالك اسمه في مزاد إعادة بيع بحد أدنى يحدده.', '"Sell a name": the owner lists their name in a resale auction with a reserve price they set.') }, icon: 'gavel' },
-  { flag: 'instantSaleOpen', note: 'saleClosedNote', get title() { return tr('البيع الفوري', 'Instant sale') }, get desc() { return tr('«بيع اسم»: يعرض المالك اسمه بسعر ثابت في سوق الأسماء.', '"Sell a name": the owner lists their name at a fixed price in the names market.') }, icon: 'tag' },
-  { flag: 'investmentOpen', note: 'investmentClosedNote', get title() { return tr('استثمار الاسم', 'Name investment') }, get desc() { return tr('اقتراح أسماء جديدة برسوم دراسة، تُطرح في مزاد عام ولصاحبها نسبة من البيع.', 'Proposing new names for a study fee; they go to a public auction and the proposer gets a share of the sale.') }, icon: 'coins' },
+type IntakeFlag = 'requestsOpen' | 'compoundOpen' | 'resaleAuctionOpen' | 'instantSaleOpen' | 'investmentOpen' | 'transferOpen'
+type IntakeNote = 'requestsClosedNote' | 'compoundClosedNote' | 'saleClosedNote' | 'investmentClosedNote' | 'transferClosedNote'
+const INTAKES: { key: ServiceKey; flag: IntakeFlag; note: IntakeNote; title: string; desc: string; icon: IconName }[] = [
+  { key: 'requests', flag: 'requestsOpen', note: 'requestsClosedNote', get title() { return tr('طلب شعار', 'Request a mark') }, get desc() { return tr('طلبات تسجيل أسماء جديدة (ثلاثة أسماء مقترحة بضمان، يُقبل منها اسم واحد) تُراجعها اللجنة ثم تُطرح في المزاد.', 'Requests to register new names (three proposed names with a guarantee, one accepted), reviewed by the committee and then auctioned.') }, icon: 'file' },
+  { key: 'investment', flag: 'investmentOpen', note: 'investmentClosedNote', get title() { return tr('طلب شعار للاستثمار', 'Name investment') }, get desc() { return tr('اقتراح أسماء جديدة برسوم دراسة، تُطرح في مزاد عام ولصاحبها نسبة من البيع.', 'Proposing new names for a study fee; they go to a public auction and the proposer gets a share of the sale.') }, icon: 'coins' },
+  { key: 'resale', flag: 'resaleAuctionOpen', note: 'saleClosedNote', get title() { return tr('إعادة البيع بالمزاد', 'Resale by auction') }, get desc() { return tr('«بيع اسم»: يعرض المالك اسمه في مزاد إعادة بيع بحد أدنى يحدده.', '"Sell a name": the owner lists their name in a resale auction with a reserve price they set.') }, icon: 'gavel' },
+  { key: 'instant', flag: 'instantSaleOpen', note: 'saleClosedNote', get title() { return tr('البيع الفوري', 'Instant sale') }, get desc() { return tr('«بيع اسم»: يعرض المالك اسمه بسعر ثابت في سوق الأسماء.', '"Sell a name": the owner lists their name at a fixed price in the names market.') }, icon: 'tag' },
+  { key: 'transfer', flag: 'transferOpen', note: 'transferClosedNote', get title() { return tr('نقل ملكية', 'Ownership transfer') }, get desc() { return tr('نقل اسم يملكه المالك إلى مالك آخر: يوافق المستلم ثم تعتمده اللجنة.', 'Moving a name the owner holds to another owner: the recipient accepts, then the committee approves.') }, icon: 'users' },
+  { key: 'compound', flag: 'compoundOpen', note: 'compoundClosedNote', get title() { return tr('طلب اسم مركب', 'Compound name') }, get desc() { return tr('إضافة كلمة إلى اسم يملكه المالك، تُسجَّل بعد اعتماد اللجنة دون مزاد.', 'Adding a word to a name the owner holds; registered after committee approval without an auction.') }, icon: 'plus' },
 ]
+type ServiceState = 'open' | 'closed' | 'soon'
+/** the price field each service row edits: an amount in riyals or a commission in percent */
+const PRICE: Record<ServiceKey, { field: 'depositAmount' | 'investFee' | 'resaleCommission' | 'instantCommission' | 'transferFee' | 'compoundFee'; pct?: boolean; label: () => string; hint: () => string }> = {
+  requests: { field: 'depositAmount', label: () => tr('مبلغ الضمان (ريال، مسترد)', 'Guarantee (SAR, refundable)'), hint: () => tr('يُعاد للمالك إن لم يرسُ عليه المزاد.', 'Returned to the owner if they do not win.') },
+  investment: { field: 'investFee', label: () => tr('رسوم الدراسة (ريال)', 'Study fee (SAR)'), hint: () => tr('غير مستردة، تُدفع بالبطاقة.', 'Non-refundable, paid by card.') },
+  resale: { field: 'resaleCommission', pct: true, label: () => tr('العمولة من قيمة البيع (%)', 'Commission on the sale (%)'), hint: () => tr('تُخصم من قيمة البيع قبل تحويلها للبائع.', 'Deducted from the sale before paying the seller.') },
+  instant: { field: 'instantCommission', pct: true, label: () => tr('العمولة من قيمة البيع (%)', 'Commission on the sale (%)'), hint: () => tr('تُخصم من قيمة البيع قبل تحويلها للبائع.', 'Deducted from the sale before paying the seller.') },
+  transfer: { field: 'transferFee', label: () => tr('رسوم النقل (ريال، شاملة الضريبة)', 'Transfer fee (SAR, VAT incl.)'), hint: () => tr('تُدفع بالبطاقة، وتُعاد إن لم يكتمل النقل.', 'Paid by card; returned if the transfer does not complete.') },
+  compound: { field: 'compoundFee', label: () => tr('رسوم التسجيل (ريال)', 'Registration fee (SAR)'), hint: () => tr('تُدفع بالبطاقة عند تقديم الطلب.', 'Paid by card when applying.') },
+}
+
+/** price (or free) and the description owners read on the service card */
+function ServiceDetails({ i, d, set }: { i: (typeof INTAKES)[number]; d: Draft; set: (p: SettingsPatch) => void }) {
+  const p = PRICE[i.key]
+  const raw = (d[p.field] as number | undefined) ?? 0
+  const shown = p.pct ? Math.round(raw * 10000) / 100 : raw
+  const free = raw === 0
+  const text = d.serviceTexts?.[i.key] ?? {}
+  const setText = (patch: { ar?: string; en?: string }) => set({ serviceTexts: { ...(d.serviceTexts ?? {}), [i.key]: { ...text, ...patch } } })
+  return (
+    <div className="mt-3 grid gap-3 rounded-lg bg-stone/60 p-3 sm:grid-cols-2">
+      <div>
+        <label className="label" htmlFor={`p-${i.key}`}>{p.label()}</label>
+        <div className="flex items-center gap-3">
+          <input id={`p-${i.key}`} type="number" min={0} max={p.pct ? 50 : 100000} step={p.pct ? 0.5 : 1} className="field num w-32" dir="ltr" disabled={free} value={free ? '' : shown}
+            onChange={(e) => set({ [p.field]: p.pct ? Number(e.target.value) / 100 : Number(e.target.value) })} />
+          <label className="flex cursor-pointer items-center gap-2 text-[14px] font-bold">
+            <input type="checkbox" checked={free} onChange={(e) => set({ [p.field]: e.target.checked ? 0 : p.pct ? 0.1 : 50 })} />{tr('مجانًا', 'Free')}
+          </label>
+        </div>
+        <p className="hint">{p.hint()}</p>
+      </div>
+      {i.key !== 'instant' && (
+        <div className="space-y-2 sm:col-span-2">
+          <label className="label" htmlFor={`d-${i.key}`}>{tr('وصف الخدمة', 'Service description')} <span className="font-normal text-muted">({tr('يظهر في صفحة الخدمات والصفحة الرئيسية؛ اتركه فارغًا للنص الافتراضي', 'shown on the services page and the home page; leave empty for the default text')})</span></label>
+          <textarea id={`d-${i.key}`} className="field min-h-[70px]" maxLength={300} placeholder={tr('الوصف بالعربية', 'Arabic description')} value={text.ar ?? ''} onChange={(e) => setText({ ar: e.target.value })} />
+          <textarea className="field min-h-[60px]" dir="ltr" maxLength={300} placeholder="English description (optional)" value={text.en ?? ''} onChange={(e) => setText({ en: e.target.value })} />
+        </div>
+      )}
+    </div>
+  )
+}
 
 function IntakePanel({ d, set }: { d: Draft; set: (p: SettingsPatch) => void }) {
-  const closed = INTAKES.filter((i) => !d[i.flag]).length
+  const soon = d.comingSoon ?? []
+  const stateOf = (i: (typeof INTAKES)[number]): ServiceState => (soon.includes(i.key) ? 'soon' : d[i.flag] === false ? 'closed' : 'open')
+  const change = (i: (typeof INTAKES)[number], v: ServiceState) => {
+    const rest = soon.filter((k) => k !== i.key)
+    set({ comingSoon: v === 'soon' ? [...rest, i.key] : rest, ...(v === 'soon' ? {} : { [i.flag]: v === 'open' }) })
+  }
+  const off = INTAKES.filter((i) => stateOf(i) !== 'open').length
+  const PILL: Record<ServiceState, [string, string]> = {
+    open: [tr('مفتوحة', 'Open'), 'bg-[#E2F0E8] text-ok'],
+    closed: [tr('مغلقة', 'Closed'), 'bg-stone-deep text-muted'],
+    soon: [tr('قريبًا', 'Coming soon'), 'bg-gold-soft text-gold-deep'],
+  }
   return (
     <div className="space-y-6">
-      <div className={`flex items-center gap-3 rounded-xl border p-4 ${closed ? 'border-gold/40 bg-gold-soft text-gold-deep' : 'border-ok/20 bg-[#E2F0E8] text-ok'}`}>
-        <Icon name={closed ? 'lock' : 'check'} className="h-5 w-5 shrink-0" />
-        <b>{closed ? tr(`${num(closed)} من ${num(INTAKES.length)} خدمات متوقفة عن استقبال الطلبات`, `${num(closed)} of ${num(INTAKES.length)} services are not accepting requests`) : tr('كل الخدمات تستقبل طلبات الملاك', 'All services are accepting owner requests')}</b>
+      <div className={`flex items-center gap-3 rounded-xl border p-4 ${off ? 'border-gold/40 bg-gold-soft text-gold-deep' : 'border-ok/20 bg-[#E2F0E8] text-ok'}`}>
+        <Icon name={off ? 'lock' : 'check'} className="h-5 w-5 shrink-0" />
+        <b>{off ? tr(`${num(off)} من ${num(INTAKES.length)} خدمات لا تستقبل طلبات الآن`, `${num(off)} of ${num(INTAKES.length)} services are not accepting requests now`) : tr('كل الخدمات الإلكترونية مفتوحة', 'All e-services are open')}</b>
       </div>
-      <Card icon="file" title={tr('استقبال طلبات الملاك', 'Accepting owner requests')} sub={tr('عند الإيقاف يرى المالك رسالتك على صفحة الخدمة ولا يستطيع تقديم طلب جديد. الطلبات القائمة والمزادات الجارية لا تتأثر.', 'When paused, owners see your message on the service page and cannot submit new requests. Existing requests and running auctions are not affected.')}>
+      <Card icon="list" title={tr('الخدمات الإلكترونية', 'E-services')} sub={tr('افتح الخدمة أو أغلقها أو اجعلها «قريبًا». المغلقة والقريبة تظهر للملاك في صفحة الخدمات والصفحة الرئيسية دون زر تقديم. الطلبات القائمة والمزادات الجارية لا تتأثر.', 'Open or close each service, or mark it "coming soon". Closed and coming-soon services show on the services page and the home page without an apply button. Existing requests and running auctions are not affected.')}>
         <div className="divide-y divide-line/70">
           {INTAKES.map((i) => {
-            const open = d[i.flag]
+            const st = stateOf(i)
             const sharedNote = i.note === 'saleClosedNote'
-            const showNote = !open && !(sharedNote && i.flag === 'instantSaleOpen' && !d.resaleAuctionOpen)
+            const showNote = st === 'closed' && !(sharedNote && i.flag === 'instantSaleOpen' && d.resaleAuctionOpen === false)
             return (
-              <SettingRow key={i.flag}
-                title={<span className="flex flex-wrap items-center gap-2"><Icon name={i.icon} className="h-4 w-4 text-muted" />{i.title}<span className={`pill ${open ? 'bg-[#E2F0E8] text-ok' : 'bg-gold-soft text-gold-deep'}`}>{open ? tr('مفتوح', 'Open') : tr('متوقف', 'Paused')}</span></span>}
+              <SettingRow key={i.key}
+                title={<span className="flex flex-wrap items-center gap-2"><Icon name={i.icon} className="h-4 w-4 text-muted" />{i.title}<span className={`pill ${PILL[st][1]}`}>{PILL[st][0]}</span></span>}
                 desc={i.desc}
-                control={<Switch checked={open} onChange={(v) => set({ [i.flag]: v })} label={`${tr('استقبال', 'Accept')} ${i.title}`} />}>
+                control={<Segmented value={st} onChange={(v) => change(i, v)} options={[['open', tr('مفتوحة', 'Open')], ['closed', tr('مغلقة', 'Closed')], ['soon', tr('قريبًا', 'Soon')]]} />}>
+                <ServiceDetails i={i} d={d} set={set} />
                 {showNote && (
                   <div className="mt-3">
                     <label className="label" htmlFor={`n-${i.flag}`}>{tr('رسالة للملاك', 'Message to owners')} {sharedNote ? tr('(مشتركة بين نوعي البيع)', '(shared by both sale types)') : ''} <span className="font-normal text-muted">({tr('اختياري', 'optional')})</span></label>
@@ -609,7 +666,7 @@ function IntakeStatus() {
 
 /** every tab and the permission that opens it; each staff member sees only what their role allows */
 const STAFF_TABS: (Tab & { perms?: Permission[] })[] = [
-  { id: 'intake', get label() { return tr('استقبال الطلبات', 'Accepting requests') }, icon: 'file', perms: ['settings.manage'] },
+  { id: 'intake', get label() { return tr('الخدمات الإلكترونية', 'E-services') }, icon: 'file', perms: ['settings.manage'] },
   { id: 'auctions', get label() { return tr('المزادات', 'Auctions') }, icon: 'gavel', perms: ['auctions.manage', 'auctions.cancel'] },
   { id: 'tickets', get label() { return tr('الشكاوى والبلاغات', 'Complaints & reports') }, icon: 'alert', perms: ['settings.manage'] },
   { id: 'general', get label() { return tr('الإعدادات العامة', 'General settings') }, icon: 'settings', perms: ['settings.manage'] },
