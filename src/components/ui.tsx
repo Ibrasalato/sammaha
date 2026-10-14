@@ -37,6 +37,13 @@ export function TypeBadge({ type }: { type: NameType }) {
   )
 }
 
+/** cancelled and paused auctions take precedence over the time-based phase */
+export function AuctionStatePill({ a, phase }: { a: { paused?: boolean; cancelled?: boolean }; phase: AuctionPhase }) {
+  if (a.cancelled) return <span className="pill bg-bad/10 text-bad">{tr('ملغى', 'Cancelled')}</span>
+  if (a.paused) return <span className="pill bg-info-soft text-info-deep"><span aria-hidden>❚❚</span>{tr('متوقف مؤقتًا', 'Paused')}</span>
+  return <PhasePill phase={phase} />
+}
+
 export function PhasePill({ phase }: { phase: AuctionPhase }) {
   const m = {
     live: ['bg-[#E2F0E8] text-ok', tr('جارٍ الآن', 'Live')],

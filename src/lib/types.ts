@@ -16,7 +16,78 @@ export interface User {
   showAvatar?: boolean
   /** false = account suspended by the super admin */
   active?: boolean
+  /** staff: the permission keys this account holds, and its staff role */
+  permissions?: string[]
+  staffRoleId?: string
+  staffRoleName?: string
+  /** owners: personal details, address and how complete the profile is */
+  profile?: OwnerProfile
 }
+
+export interface OwnerProfile {
+  firstName?: string
+  fatherName?: string
+  grandfatherName?: string
+  familyName?: string
+  birthDate?: string
+  gender?: 'male' | 'female'
+  nationality?: string
+  residenceCountry?: string
+  residenceCity?: string
+  altPhone?: string
+  addressCountry?: string
+  addressCity?: string
+  district?: string
+  postalCode?: string
+  street?: string
+  emailVerified: boolean
+  /** 0–100 */
+  completion: number
+  missing: ('personal' | 'email' | 'address')[]
+}
+
+export interface AddressInput {
+  addressCountry: string
+  addressCity: string
+  district: string
+  postalCode: string
+  street?: string
+  altPhone?: string
+  altPhoneCountry?: string
+}
+
+export interface PersonalInput {
+  firstName: string
+  fatherName: string
+  grandfatherName: string
+  familyName: string
+  birthDate: string
+  gender: 'male' | 'female' | ''
+  nationality: string
+  residenceCountry: string
+  residenceCity: string
+  nationalId?: string
+}
+
+export interface StaffRole {
+  id: string
+  name: string
+  description?: string
+  permissions: string[]
+  isSystem: boolean
+  members: number
+}
+
+export interface TicketRouting {
+  restrictToHandlers: boolean
+  handlers: Record<TicketKind, string[]>
+  emails: Record<TicketKind, string>
+  staff: { id: string; fullName: string; role: Role; staffRoleName?: string; canReply: boolean; active: boolean }[]
+}
+
+/** which auctions an action applies to */
+export interface AuctionScope { ids?: string[]; all?: boolean; type?: NameType }
+export interface AuctionActionResult { affected: number; skipped: { id: string; name: string; reason: string }[] }
 
 export interface StaffInput {
   fullName: string
@@ -24,6 +95,8 @@ export interface StaffInput {
   email: string
   password: string
   role: 'committee' | 'admin'
+  /** committee members: the staff role that sets their permissions */
+  staffRoleId?: string
 }
 
 export type RequestStatus =
@@ -116,6 +189,13 @@ export interface Auction {
   listingId?: string
   /** resale auctions: every bidder pays this participation guarantee first */
   bidDeposit?: number
+  /** paused by the administration: no bids; resuming adds the paused time back */
+  paused?: boolean
+  pausedAt?: string
+  pauseReason?: string
+  /** cancelled by the administration: closed with no sale */
+  cancelled?: boolean
+  cancelReason?: string
 }
 
 export interface Bid {
@@ -307,7 +387,7 @@ export interface CamelEvent {
 export interface AppNotification {
   id: string
   userId: string
-  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'refund' | 'ticket' | 'reminder'
+  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'auction_update' | 'refund' | 'ticket' | 'reminder'
   title: string
   body: string
   link?: string
@@ -350,6 +430,8 @@ export interface Ticket extends TicketInput {
   messages: TicketMessage[]
   createdAt: string
   updatedAt: string
+  /** staff view: the staff member it is assigned to */
+  assigneeId?: string
 }
 
 // ───────────── platform settings (super admin) and personal settings ─────────────

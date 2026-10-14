@@ -1,13 +1,24 @@
 import type {
   AppNotification, CamelEvent, AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
-  AdminSettings, AuctionView, InvestmentItem, ListingMode, NameListing, Preferences, PublicSettings, PublicStats, SecuritySummary, SessionInfo, SettingsChange, SettingsPatch, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
+  AddressInput, AdminSettings, AuctionActionResult, AuctionScope, AuctionView, PersonalInput, StaffRole, TicketRouting, InvestmentItem, ListingMode, NameListing, Preferences, PublicSettings, PublicStats, SecuritySummary, SessionInfo, SettingsChange, SettingsPatch, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
 } from './types'
 
+/** owner sign-up (the address is completed later in the dashboard) */
 export interface SignUpInput {
-  fullName: string
+  nationalId: string
+  firstName: string
+  fatherName: string
+  grandfatherName: string
+  familyName: string
+  birthDate: string
+  gender: 'male' | 'female' | ''
+  nationality: string
+  residenceCountry: string
+  residenceCity: string
+  /** dialling code without +, e.g. 966 */
+  phoneCountry: string
   phone: string
   email: string
-  nationalId?: string
   password: string
 }
 
@@ -141,6 +152,29 @@ export interface SammhaApi {
   mySessions(): Promise<SessionInfo[]>
   revokeMySession(id: string): Promise<SessionInfo[]>
   mySecurity(): Promise<SecuritySummary>
+
+  // owner profile completion (dashboard)
+  updateMyAddress(input: AddressInput): Promise<User>
+  updateMyPersonal(input: PersonalInput): Promise<User>
+  /** sends a code to the account email; confirming it marks the email verified */
+  requestEmailVerification(): Promise<OtpChallenge>
+  confirmEmailVerification(challenge: string, code: string): Promise<User>
+
+  // staff roles and permissions
+  listRoles(): Promise<StaffRole[]>
+  saveRole(id: string | null, input: { name: string; description?: string; permissions: string[] }): Promise<StaffRole>
+  deleteRole(id: string): Promise<void>
+  setUserStaffRole(userId: string, roleId: string): Promise<User>
+  // who handles complaints, reports, enquiries and suggestions, and their inboxes
+  ticketRouting(): Promise<TicketRouting>
+  saveTicketRouting(input: { restrictToHandlers: boolean; handlers: TicketRouting['handlers']; emails: TicketRouting['emails'] }): Promise<TicketRouting>
+
+  // auction controls (one auction, a selection, or all of them)
+  adminAuctions(state?: 'active' | 'live' | 'scheduled' | 'paused' | 'cancelled' | 'ended' | 'all', type?: NameType | 'all'): Promise<Auction[]>
+  pauseAuctions(scope: AuctionScope, reason?: string): Promise<AuctionActionResult>
+  resumeAuctions(scope: AuctionScope): Promise<AuctionActionResult>
+  extendAuctions(scope: AuctionScope, minutes: number): Promise<AuctionActionResult>
+  cancelAuctions(scope: AuctionScope, reason: string): Promise<AuctionActionResult>
 }
 
 export class ApiError extends Error {}

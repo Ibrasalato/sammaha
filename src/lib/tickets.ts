@@ -80,7 +80,7 @@ const WEBHOOK = (import.meta.env.VITE_TICKET_WEBHOOK_URL as string | undefined) 
  * webhook (Integrations:TicketWebhookUrl), so the browser only does this in demo mode.
  * Fire-and-forget: a failed email never blocks the ticket.
  */
-export function emailTicketEvent(event: 'created' | 'reply' | 'status', t: Ticket, reply?: string) {
+export function emailTicketEvent(event: 'created' | 'reply' | 'status', t: Ticket, reply?: string, teamTo: string[] = []) {
   if (!WEBHOOK) return
   const base = `${location.origin}${location.pathname}`
   const body = {
@@ -91,6 +91,9 @@ export function emailTicketEvent(event: 'created' | 'reply' | 'status', t: Ticke
       status: t.status, statusLabel: STATUS_LABEL[t.status][0], trackUrl: `${base}#/contact/track/${t.number}`,
     },
     reply: reply ?? '',
+    /** Settings → complaints and enquiries: the team inboxes for this kind */
+    teamTo,
+    assignee: t.assignee ?? '',
   }
   try {
     fetch(WEBHOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive: true }).catch(() => {})

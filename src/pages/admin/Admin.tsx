@@ -1,14 +1,16 @@
+import { AuctionActionDialog, useAuctionRights } from '../../components/AuctionControls'
+import type { AuctionAction } from '../../components/AuctionControls'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Icon, SectionCard, StatTile } from '../../components/dash'
 import { NoResults, TableTools, useTableFilter } from '../../components/TableTools'
 import { InvoiceDoc } from '../../components/InvoiceDoc'
-import { Countdown, Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, PhasePill, RequestStatusPill, Segmented, TypeBadge } from '../../components/ui'
+import { Countdown, Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, AuctionStatePill, RequestStatusPill, Segmented, TypeBadge } from '../../components/ui'
 import { RULES, TYPE_LABEL, typeOptions } from '../../lib/config'
 import { phaseOf } from '../../lib/demoApi'
 import { date, dateTime, fromLocalInput, namesCount, num, sar, toLocalInput } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
-import type { AuctionPhase, CamelEvent, EventKind, Invoice, NameType, RequestStatus, ReviewDecision } from '../../lib/types'
+import type { Auction, AuctionScope, CamelEvent, EventKind, Invoice, NameType, RequestStatus, ReviewDecision } from '../../lib/types'
 import { EVENT_KIND } from '../../lib/events'
 
 export function AdminHome() {
@@ -347,41 +349,82 @@ export function AdminSchedule() {
   )
 }
 
+type AdminState = 'active' | 'live' | 'scheduled' | 'paused' | 'ended' | 'cancelled' | 'all'
+
 export function AdminAuctions() {
-  const [phase, setPhase] = useState<AuctionPhase | 'all'>('live')
+  const [state, setState] = useState<AdminState>('active')
   const [type, setType] = useState<NameType | 'all'>('all')
-  const { data, loading } = useLoad(() => api.listAuctions({ phase, type }), [phase, type], 10000)
+  const { data, loading, reload } = useLoad(() => api.adminAuctions(state, type), [state, type], 10000)
+  const rights = useAuctionRights()
+  const [sel, setSel] = useState<Set<string>>(new Set())
+  const [dialog, setDialog] = useState<{ action: AuctionAction; scope: AuctionScope; label: string } | null>(null)
   const tf = useTableFilter(data, {
     fields: (a) => [a.name, a.winnerName, a.leaderLabel],
     filters: [
       { key: 'bids', label: 'المزايدات', options: [['', 'الكل'], ['some', 'عليها مزايدات'], ['none', 'بلا مزايدات']], test: (a, v) => (v === 'some' ? a.bidCount > 0 : a.bidCount === 0) },
-      { key: 'settle', label: 'الترسية', options: [['', 'الكل'], ['requester', 'رست على مقدم الطلب'], ['bidder', 'رست على مزايد'], ['open', 'لم تُرسَ']], test: (a, v) => (v === 'open' ? !a.settled : a.settled && (v === 'requester') === !!a.wonByRequester) },
+      { key: 'settle', label: 'الترسية', options: [['', 'الكل'], ['requester', 'رست على مقدم الطلب'], ['bidder', 'رست على مزايد'], ['open', 'لم تُرسَ']], test: (a, v) => (v === 'open' ? !a.settled : a.settled && !a.cancelled && (v === 'requester') === !!a.wonByRequester) },
     ],
   })
+  const open = (a: Auction) => !a.settled && !a.cancelled
+  const showAward = state === 'ended' || state === 'cancelled' || state === 'all'
+  const selectable = tf.list.filter(open)
+  const chosen = (data ?? []).filter((a) => sel.has(a.id))
+  const ask = (action: AuctionAction, list: Auction[]) => setDialog({ action, scope: { ids: list.map((a) => a.id) }, label: list.length === 1 ? `«${list[0].name}»` : `${num(list.length)} مزادات` })
+  const toggle = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+
   return (
     <>
-      <PageHead title="متابعة المزادات" />
+      <PageHead title="التحكم في المزادات" sub="أوقف مؤقتًا أو استأنف أو مدّد أو ألغِ مزادًا محددًا، أو حدّد عدة مزادات. للتطبيق على كل الشعارات مرة واحدة استخدم «الإعدادات ← المزادات»." />
       <div className="mb-4 flex flex-wrap gap-3">
-        <Segmented value={phase} onChange={setPhase} options={[['live', 'جارية'], ['scheduled', 'قادمة'], ['ended', 'منتهية'], ['all', 'الكل']]} />
-        <Segmented value={type} onChange={setType} options={typeOptions('all', 'الكل')} />
+        <Segmented value={state} onChange={(v) => { setState(v); setSel(new Set()) }} options={[['active', 'الحالية'], ['live', 'جارية'], ['scheduled', 'قادمة'], ['paused', 'متوقفة'], ['ended', 'منتهية'], ['cancelled', 'ملغاة'], ['all', 'الكل']]} />
+        <Segmented value={type} onChange={(v) => { setType(v); setSel(new Set()) }} options={typeOptions('all', 'الكل')} />
       </div>
       <TableTools t={tf} placeholder="بحث باسم الشعار أو الفائز" />
+
+      {chosen.length > 0 && (rights.manage || rights.cancel) && (
+        <div className="sticky top-2 z-10 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-pine/30 bg-pine-soft px-4 py-3 shadow-card">
+          <b className="me-2">{num(chosen.length)} محدد</b>
+          {rights.manage && <>
+            <button className="btn-ghost btn-sm" onClick={() => ask('pause', chosen)}>إيقاف مؤقت</button>
+            <button className="btn-ghost btn-sm" onClick={() => ask('resume', chosen)}>استئناف</button>
+            <button className="btn-ghost btn-sm" onClick={() => ask('extend', chosen)}>تمديد</button>
+          </>}
+          {rights.cancel && <button className="btn-danger btn-sm" onClick={() => ask('cancel', chosen)}>إلغاء</button>}
+          <button className="ms-auto text-sm text-muted underline" onClick={() => setSel(new Set())}>إلغاء التحديد</button>
+        </div>
+      )}
+
       {loading && !data ? <Loading /> : data?.length ? (
         <div className="panel overflow-x-auto">
           <table className="tbl">
-            <thead><tr><th>الاسم</th><th>الحالة</th><th>السعر</th><th>المزايدات</th><th>الوقت</th><th>الترسية</th></tr></thead>
+            <thead><tr>
+              <th className="w-8">{selectable.length > 0 && <input type="checkbox" aria-label="تحديد الكل" checked={selectable.every((a) => sel.has(a.id))} onChange={(e) => setSel(e.target.checked ? new Set(selectable.map((a) => a.id)) : new Set())} />}</th>
+              <th>الاسم</th><th>الحالة</th><th>السعر</th><th>المزايدات</th><th>الوقت</th>{showAward && <th>الترسية</th>}<th></th>
+            </tr></thead>
             <tbody>
-              {!tf.list.length && <NoResults cols={6} onReset={tf.reset} />}
+              {!tf.list.length && <NoResults cols={showAward ? 8 : 7} onReset={tf.reset} />}
               {tf.list.map((a) => {
                 const p = phaseOf(a)
                 return (
-                  <tr key={a.id}>
+                  <tr key={a.id} className={a.cancelled ? 'opacity-60' : ''}>
+                    <td>{open(a) && <input type="checkbox" aria-label={`تحديد ${a.name}`} checked={sel.has(a.id)} onChange={() => toggle(a.id)} />}</td>
                     <td><Link to={`/auctions/${a.id}`} className="flex items-center gap-2 font-extrabold text-lg hover:text-gold-deep"><TypeBadge type={a.type} />{a.name}</Link></td>
-                    <td><PhasePill phase={p} /></td>
-                    <td className="num font-semibold">{sar(a.finalPrice ?? a.currentPrice)}</td>
+                    <td><AuctionStatePill a={a} phase={p} />{(a.pauseReason || a.cancelReason) && <span className="mt-1 block max-w-[14rem] truncate text-[12.5px] text-muted" title={a.cancelReason || a.pauseReason}>{a.cancelReason || a.pauseReason}</span>}</td>
+                    <td className="num whitespace-nowrap font-semibold">{sar(a.finalPrice ?? a.currentPrice)}</td>
                     <td className="num">{num(a.bidCount)}</td>
-                    <td className="whitespace-nowrap text-sm">{p === 'live' ? <Countdown to={a.endsAt} /> : p === 'scheduled' ? dateTime(a.startsAt) : dateTime(a.endsAt)}</td>
-                    <td className="text-sm">{a.settled ? `${a.winnerName}${a.wonByRequester ? ' (مقدم الطلب)' : ''}` : '—'}</td>
+                    <td className="whitespace-nowrap text-sm">{a.paused ? <span className="text-muted">متوقف منذ {dateTime(a.pausedAt!)}</span> : p === 'live' && !a.cancelled ? <Countdown to={a.endsAt} /> : p === 'scheduled' ? dateTime(a.startsAt) : dateTime(a.endsAt)}</td>
+                    {showAward && <td className="text-sm">{a.cancelled ? 'لا ترسية' : a.settled ? `${a.winnerName}${a.wonByRequester ? ' (مقدم الطلب)' : ''}` : '—'}</td>}
+                    <td className="whitespace-nowrap">
+                      {open(a) && (rights.manage || rights.cancel) && (
+                        <select className="field w-auto py-1.5 text-[14px]" value="" aria-label={`إجراء على مزاد ${a.name}`}
+                          onChange={(e) => { const v = e.target.value as AuctionAction; if (v) ask(v, [a]) }}>
+                          <option value="">إجراء…</option>
+                          {rights.manage && (a.paused ? <option value="resume">استئناف</option> : <option value="pause">إيقاف مؤقت</option>)}
+                          {rights.manage && <option value="extend">تمديد</option>}
+                          {rights.cancel && <option value="cancel">إلغاء المزاد</option>}
+                        </select>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
@@ -389,6 +432,7 @@ export function AdminAuctions() {
           </table>
         </div>
       ) : <Empty title="لا توجد مزادات بهذه التصفية" />}
+      <AuctionActionDialog action={dialog?.action ?? null} scope={dialog?.scope ?? {}} label={dialog?.label ?? ''} onClose={() => setDialog(null)} onDone={() => { setSel(new Set()); reload() }} />
     </>
   )
 }

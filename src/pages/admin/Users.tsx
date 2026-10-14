@@ -6,16 +6,12 @@ import { TableTools, useTableFilter } from '../../components/TableTools'
 import { STAFF_LOGIN_PATH, SUPER_ADMIN_EMAIL } from '../../lib/config'
 import { date, num } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
-import type { Role, StaffInput, User } from '../../lib/types'
+import type { Role, StaffInput, StaffRole, User } from '../../lib/types'
+import { Link } from 'react-router-dom'
+import { COMMITTEE_ROLE_ID, can } from '../../lib/permissions'
 
 export const ROLE_LABEL: Record<Role, string> = { owner: 'مالك إبل', committee: 'لجنة الاعتماد', admin: 'مدير النظام' }
 const ROLE_TONE: Record<Role, string> = { owner: 'bg-stone-deep text-muted', committee: 'bg-info-soft text-info-deep', admin: 'bg-gold-soft text-gold-deep' }
-
-const ROLE_RIGHTS: [Role, string[]][] = [
-  ['admin', ['كل صلاحيات لجنة الاعتماد', 'إضافة الموظفين وتعديل صلاحياتهم', 'إيقاف الحسابات وإعادة تفعيلها']],
-  ['committee', ['مراجعة طلبات الشعارات وقبولها أو رفضها', 'فتح المزادات ومتابعتها والفواتير', 'الشكاوى والبلاغات والمواعيد']],
-  ['owner', ['طلب الشعارات والمزايدة', 'المحفظة والفواتير والشهادات', 'لا يدخل لوحة اللجنة']],
-]
 
 const isSuper = (u: User) => u.email.toLowerCase() === SUPER_ADMIN_EMAIL
 
@@ -26,8 +22,9 @@ function tempPassword() {
   return [...a].map((n) => abc[n % abc.length]).join('')
 }
 
-function AddStaff({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (u: User, password: string) => void }) {
-  const blank = (): StaffInput => ({ fullName: '', phone: '', email: '', password: tempPassword(), role: 'committee' })
+function AddStaff({ open, onClose, onDone, roles }: { open: boolean; onClose: () => void; onDone: (u: User, password: string) => void; roles: StaffRole[] }) {
+  const { user: me } = useApp()
+  const blank = (): StaffInput => ({ fullName: '', phone: '', email: '', password: tempPassword(), role: 'committee', staffRoleId: COMMITTEE_ROLE_ID })
   const [f, setF] = useState<StaffInput>(blank)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -47,16 +44,24 @@ function AddStaff({ open, onClose, onDone }: { open: boolean; onClose: () => voi
           <div><label className="label" htmlFor="sem">البريد الإلكتروني</label><input id="sem" type="email" className="field" dir="ltr" value={f.email} onChange={set('email')} required /></div>
         </div>
         <div>
-          <span className="label">الصلاحية</span>
+          <span className="label">الدور</span>
           <div className="grid gap-2 sm:grid-cols-2">
-            {(['committee', 'admin'] as const).map((r) => (
-              <label key={r} className={`cursor-pointer rounded-lg border-2 p-3 ${f.role === r ? 'border-pine bg-pine-soft' : 'border-line'}`}>
-                <input type="radio" name="role" className="sr-only" checked={f.role === r} onChange={() => setF({ ...f, role: r })} />
-                <b className="block">{ROLE_LABEL[r]}</b>
-                <span className="text-[13px] text-muted">{r === 'committee' ? 'المراجعة والمزادات والفواتير والبلاغات' : 'كل ما سبق مع إدارة الموظفين'}</span>
+            {roles.map((r) => (
+              <label key={r.id} className={`cursor-pointer rounded-lg border-2 p-3 ${f.role === 'committee' && f.staffRoleId === r.id ? 'border-pine bg-pine-soft' : 'border-line'}`}>
+                <input type="radio" name="role" className="sr-only" checked={f.role === 'committee' && f.staffRoleId === r.id} onChange={() => setF({ ...f, role: 'committee', staffRoleId: r.id })} />
+                <b className="block">{r.name}</b>
+                <span className="text-[13px] text-muted">{r.permissions.length} صلاحية{r.description ? ` · ${r.description}` : ''}</span>
               </label>
             ))}
+            {me?.role === 'admin' && (
+              <label className={`cursor-pointer rounded-lg border-2 p-3 ${f.role === 'admin' ? 'border-pine bg-pine-soft' : 'border-line'}`}>
+                <input type="radio" name="role" className="sr-only" checked={f.role === 'admin'} onChange={() => setF({ ...f, role: 'admin', staffRoleId: undefined })} />
+                <b className="block">{ROLE_LABEL.admin}</b>
+                <span className="text-[13px] text-muted">كل الصلاحيات</span>
+              </label>
+            )}
           </div>
+          {can(me, 'roles.manage') && <p className="hint"><Link to="/admin/roles" className="underline">إدارة الأدوار وصلاحياتها</Link></p>}
         </div>
         <div>
           <label className="label" htmlFor="spw">كلمة مرور مؤقتة</label>
@@ -79,7 +84,10 @@ export function AdminUsers() {
   const [adding, setAdding] = useState(false)
   const [created, setCreated] = useState<{ u: User; password: string } | null>(null)
   const [busyId, setBusyId] = useState('')
-  const canManage = me?.role === 'admin'
+  const roles = useLoad(() => (can(me, 'roles.manage') || can(me, 'users.view') ? api.listRoles() : Promise.resolve([])), []).data ?? []
+  const canCreate = can(me, 'users.create'), canRole = can(me, 'users.roles'), canSuspend = can(me, 'users.suspend')
+  const canManage = canCreate || canRole || canSuspend
+  const roleName = (u: User) => (u.role === 'committee' ? u.staffRoleName || roles.find((r) => r.id === (u.staffRoleId ?? COMMITTEE_ROLE_ID))?.name || ROLE_LABEL.committee : ROLE_LABEL[u.role])
   const all = data ?? []
   const staff = all.filter((u) => u.role !== 'owner')
   const rows = useMemo(() => (tab === 'staff' ? all.filter((u) => u.role !== 'owner') : all.filter((u) => u.role === 'owner'))
@@ -87,7 +95,7 @@ export function AdminUsers() {
   const tf = useTableFilter(rows, {
     fields: (u) => [u.fullName, u.phone, u.email],
     filters: [
-      ...(tab === 'staff' ? [{ key: 'role', label: 'الصلاحية', options: [['', 'الكل'], ['admin', 'مدير النظام'], ['committee', 'لجنة الاعتماد']] as [string, string][], test: (u: User, v: string) => u.role === v }] : []),
+      ...(tab === 'staff' ? [{ key: 'role', label: 'الصلاحية', options: [['', 'الكل'], ['admin', 'مدير النظام'], ...roles.map((x) => [x.id, x.name] as [string, string])] as [string, string][], test: (u: User, v: string) => (v === 'admin' ? u.role === 'admin' : u.role === 'committee' && (u.staffRoleId ?? COMMITTEE_ROLE_ID) === v) }] : []),
       { key: 'active', label: 'الحالة', options: [['', 'الكل'], ['yes', 'نشط'], ['no', 'موقوف']], test: (u, v) => (u.active !== false) === (v === 'yes') },
     ],
   })
@@ -101,12 +109,12 @@ export function AdminUsers() {
 
   return (
     <>
-      <PageHead title="المستخدمون والصلاحيات" sub={canManage ? 'أضف موظفي لجنة الاعتماد وحدّد صلاحياتهم، وأوقف أي حساب عند الحاجة.' : 'عرض فقط. إدارة الحسابات لمدير النظام.'}
-        action={canManage && <button className="btn-primary" onClick={() => setAdding(true)}><Icon name="plus" className="h-4 w-4" />إضافة موظف</button>} />
+      <PageHead title="المستخدمون والصلاحيات"  sub={canManage ? 'أضف الموظفين وأسند لكل واحد دوره، وأوقف أي حساب عند الحاجة.' : 'عرض فقط.'}
+        action={canCreate && <button className="btn-primary" onClick={() => setAdding(true)}><Icon name="plus" className="h-4 w-4" />إضافة موظف</button>} />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile icon="shield" tone="gold" label="مديرو النظام" value={num(all.filter((u) => u.role === 'admin').length)} />
-        <StatTile icon="users" tone="blue" label="لجنة الاعتماد" value={num(all.filter((u) => u.role === 'committee').length)} />
+        <StatTile icon="users" tone="blue" label="الموظفون" value={num(all.filter((u) => u.role === 'committee').length)} />
         <StatTile icon="tag" tone="pine" label="ملاك الإبل" value={num(all.filter((u) => u.role === 'owner').length)} />
         <StatTile icon="alert" tone="red" label="حسابات موقوفة" value={num(all.filter((u) => u.active === false).length)} />
       </div>
@@ -128,10 +136,10 @@ export function AdminUsers() {
       {loading && !data ? <Loading /> : list.length ? (
         <div className="panel overflow-x-auto">
           <table className="tbl">
-            <thead><tr><th>الاسم</th><th>الجوال</th><th>البريد</th><th>الصلاحية</th><th>الحالة</th><th>التسجيل</th></tr></thead>
+            <thead><tr><th>الاسم</th><th>الجوال</th><th>البريد</th><th>الدور</th><th>الحالة</th><th>التسجيل</th></tr></thead>
             <tbody>
               {list.map((u) => {
-                const locked = !canManage || isSuper(u) || u.id === me?.id
+                const protectedRow = isSuper(u) || u.id === me?.id || (u.role === 'admin' && me?.role !== 'admin')
                 return (
                   <tr key={u.id} className={u.active === false ? 'opacity-60' : ''}>
                     <td className="font-semibold">
@@ -142,15 +150,23 @@ export function AdminUsers() {
                     <td className="num" dir="ltr" style={{ textAlign: 'right' }}>{u.phone}</td>
                     <td className="text-muted" dir="ltr" style={{ textAlign: 'right' }}>{u.email}</td>
                     <td>
-                      {locked ? <span className={`pill ${ROLE_TONE[u.role]}`}>{ROLE_LABEL[u.role]}</span> : (
-                        <select className="field w-auto py-1.5 text-[14px]" value={u.role} disabled={busyId === u.id} aria-label={`صلاحية ${u.fullName}`}
-                          onChange={(e) => change(u, api.setUserRole(u.id, e.target.value as Role), 'تم تحديث الصلاحية')}>
-                          {(['committee', 'admin', 'owner'] as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+                      {protectedRow || !canRole || u.role === 'owner' ? <span className={`pill ${ROLE_TONE[u.role]}`}>{roleName(u)}</span> : (
+                        <select className="field w-auto py-1.5 text-[14px]" disabled={busyId === u.id} aria-label={`دور ${u.fullName}`}
+                          value={u.role === 'admin' ? 'admin' : u.staffRoleId ?? COMMITTEE_ROLE_ID}
+                          onChange={(e) => {
+                            const v = e.target.value
+                            if (v === 'admin') change(u, api.setUserRole(u.id, 'admin'), 'رُقّي إلى مدير النظام')
+                            else if (v === 'owner') change(u, api.setUserRole(u.id, 'owner'), 'أصبح الحساب حساب مالك')
+                            else change(u, (u.role === 'committee' ? Promise.resolve(u) : api.setUserRole(u.id, 'committee')).then(() => api.setUserStaffRole(u.id, v)), 'تم تحديث الدور')
+                          }}>
+                          {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                          {me?.role === 'admin' && <option value="admin">{ROLE_LABEL.admin}</option>}
+                          {me?.role === 'admin' && <option value="owner">تحويل إلى حساب مالك</option>}
                         </select>
                       )}
                     </td>
                     <td>
-                      {locked ? <span className={`pill ${u.active === false ? 'bg-bad/10 text-bad' : 'bg-[#E2F0E8] text-ok'}`}>{u.active === false ? 'موقوف' : 'نشط'}</span> : (
+                      {protectedRow || !canSuspend ? <span className={`pill ${u.active === false ? 'bg-bad/10 text-bad' : 'bg-[#E2F0E8] text-ok'}`}>{u.active === false ? 'موقوف' : 'نشط'}</span> : (
                         <button className={`btn-sm ${u.active === false ? 'btn-ghost' : 'btn-danger'}`} disabled={busyId === u.id}
                           onClick={() => change(u, api.setUserActive(u.id, u.active === false), u.active === false ? 'أُعيد تفعيل الحساب' : 'أُوقف الحساب')}>
                           {u.active === false ? 'إعادة تفعيل' : 'إيقاف'}
@@ -166,16 +182,15 @@ export function AdminUsers() {
         </div>
       ) : <Empty title="لا يوجد مستخدمون بهذا البحث"><button className="btn-ghost btn-sm" onClick={tf.reset}>مسح التصفية</button></Empty>}
 
-      <section className="mt-8 grid gap-4 lg:grid-cols-3">
-        {ROLE_RIGHTS.map(([r, rights]) => (
-          <div key={r} className="panel p-5">
-            <span className={`pill ${ROLE_TONE[r]}`}>{ROLE_LABEL[r]}</span>
-            <ul className="mt-3 space-y-1.5 text-[14.5px]">{rights.map((x) => <li key={x} className="flex gap-2"><span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />{x}</li>)}</ul>
-          </div>
-        ))}
-      </section>
+      {can(me, 'roles.manage') && (
+        <Link to="/admin/roles" className="panel mt-6 flex items-center gap-3 px-5 py-4 hover:border-pine/40">
+          <Icon name="shield" className="h-5 w-5 text-gold-deep" />
+          <span className="flex-1"><b>الأدوار والصلاحيات</b><span className="block text-sm text-muted">حدّد ما يقدر يعمله كل دور: مراجعة الطلبات، التحكم في المزادات، إنشاء المستخدمين، الرد على الشكاوى…</span></span>
+          <span className="text-gold-deep">←</span>
+        </Link>
+      )}
 
-      {canManage && <AddStaff open={adding} onClose={() => setAdding(false)} onDone={(u, password) => { setData([u, ...all]); setAdding(false); setCreated({ u, password }) }} />}
+      {canCreate && <AddStaff roles={roles} open={adding} onClose={() => setAdding(false)} onDone={(u, password) => { setData([u, ...all]); setAdding(false); setCreated({ u, password }) }} />}
       <Modal open={!!created} onClose={() => setCreated(null)} title="تم إنشاء حساب الموظف">
         {created && (
           <div className="space-y-4">
@@ -184,7 +199,7 @@ export function AdminUsers() {
               <div className="flex justify-between gap-3"><dt className="text-muted">رابط الدخول</dt><dd className="num break-all" dir="ltr">{staffUrl}</dd></div>
               <div className="flex justify-between gap-3"><dt className="text-muted">البريد</dt><dd className="num" dir="ltr">{created.u.email}</dd></div>
               <div className="flex justify-between gap-3"><dt className="text-muted">كلمة المرور المؤقتة</dt><dd className="num font-bold" dir="ltr">{created.password}</dd></div>
-              <div className="flex justify-between gap-3"><dt className="text-muted">الصلاحية</dt><dd>{ROLE_LABEL[created.u.role]}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-muted">الدور</dt><dd>{roleName(created.u)}</dd></div>
             </dl>
             <button className="btn-primary w-full" onClick={() => {
               navigator.clipboard?.writeText(`منصة سمّها، دخول الموظفين\n${staffUrl}\nالبريد: ${created.u.email}\nكلمة المرور المؤقتة: ${created.password}`).then(() => toast('نُسخت البيانات')).catch(() => {})
@@ -213,7 +228,7 @@ export function StaffAccount() {
       <PageHead title="حسابي" />
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="panel divide-y divide-line/70">
-          {([['الاسم', user.fullName], ['البريد', user.email], ['الجوال', user.phone], ['الصلاحية', ROLE_LABEL[user.role]]] as [string, string][]).map(([l, v]) => (
+          {([['الاسم', user.fullName], ['البريد', user.email], ['الجوال', user.phone], ['الدور', user.role === 'committee' ? user.staffRoleName || ROLE_LABEL.committee : ROLE_LABEL[user.role]]] as [string, string][]).map(([l, v]) => (
             <div key={l} className="flex justify-between gap-3 px-5 py-3.5"><span className="text-muted">{l}</span><b dir="auto">{v}</b></div>
           ))}
         </div>

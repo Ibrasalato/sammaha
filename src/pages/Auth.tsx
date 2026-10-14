@@ -5,7 +5,8 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Logo } from '../components/Layout'
 import { ErrorBox } from '../components/ui'
 import { OtpForm } from '../components/OtpForm'
-import type { OtpChallenge } from '../lib/api'
+import type { OtpChallenge, SignUpInput } from '../lib/api'
+import { CityField, CountrySelect, FormSection, GenderField, PhoneField, Req, maxBirthDate } from '../components/ProfileFields'
 import { IS_DEMO, SUPER_ADMIN_EMAIL } from '../lib/config'
 import { api, useApp } from '../lib/store'
 
@@ -71,7 +72,7 @@ export function Login() {
     <AuthFrame title={tr('تسجيل الدخول', 'Sign in')}>
       <form onSubmit={submit} className="space-y-4">
         {err && <ErrorBox text={err} />}
-        <div><label className="label" htmlFor="l">{tr('رقم الجوال أو البريد الإلكتروني', 'Mobile number or email')}</label><input id="l" className="field" dir="ltr" autoComplete="username" value={login} onChange={(e) => setLogin(e.target.value)} required /></div>
+        <div><label className="label" htmlFor="l">{tr('رقم الهوية أو الجوال أو البريد الإلكتروني', 'ID, mobile number or email')}</label><input id="l" className="field" dir="ltr" autoComplete="username" value={login} onChange={(e) => setLogin(e.target.value)} required /></div>
         <div><label className="label" htmlFor="p">{tr('كلمة المرور', 'Password')}</label><input id="p" type="password" className="field" dir="ltr" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
         <button className="btn-primary w-full" disabled={busy}>{tr('دخول', 'Sign in')}</button>
       </form>
@@ -145,16 +146,26 @@ export function StaffLogin() {
 export function Signup() {
   const { setUser, settings } = useApp()
   const done = useAfterAuth()
-  const [f, setF] = useState({ fullName: '', phone: '', email: '', nationalId: '', password: '' })
+  const [f, setF] = useState<SignUpInput>({
+    nationalId: '', firstName: '', fatherName: '', grandfatherName: '', familyName: '', birthDate: '', gender: '',
+    nationality: 'SA', residenceCountry: 'SA', residenceCity: '', phoneCountry: '966', phone: '', email: '', password: '',
+  })
+  const [confirm, setConfirm] = useState('')
   const [agree, setAgree] = useState(false)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
-  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value })
+  const put = <K extends keyof SignUpInput>(k: K, v: SignUpInput[K]) => setF((x) => ({ ...x, [k]: v }))
+  const text = (k: keyof SignUpInput) => (e: React.ChangeEvent<HTMLInputElement>) => put(k, e.target.value as never)
+  const idHint = f.nationality === 'SA' ? tr('10 أرقام تبدأ بـ 1', '10 digits starting with 1')
+    : f.residenceCountry === 'SA' ? tr('رقم الإقامة: 10 أرقام تبدأ بـ 2', 'Iqama: 10 digits starting with 2')
+    : tr('رقم الهوية الوطنية أو جواز السفر', 'National ID or passport number')
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    setBusy(true); setErr('')
-    try { const u = await api.signUp(f); setUser(u); done(u) } catch (x) { setErr((x as Error).message) } finally { setBusy(false) }
+    setErr('')
+    if (f.password !== confirm) { setErr(tr('كلمتا المرور غير متطابقتين', 'The passwords do not match')); return }
+    setBusy(true)
+    try { const u = await api.signUp(f); setUser(u); done(u) } catch (x) { setErr((x as Error).message); window.scrollTo({ top: 0, behavior: 'smooth' }) } finally { setBusy(false) }
   }
 
   if (!settings.signupOpen) return (
@@ -169,15 +180,46 @@ export function Signup() {
 
   return (
     <AuthFrame title={tr('حساب مالك إبل جديد', 'New camel owner account')}>
-      <form onSubmit={submit} className="space-y-4">
+      <form onSubmit={submit} className="space-y-7">
         {err && <ErrorBox text={err} />}
-        <div><label className="label" htmlFor="n">{tr('الاسم الرباعي', 'Full name')}</label><input id="n" className="field" autoComplete="name" value={f.fullName} onChange={set('fullName')} required minLength={6} /></div>
-        <div><label className="label" htmlFor="ph">{tr('رقم الجوال', 'Mobile number')}</label><input id="ph" className="field" dir="ltr" inputMode="tel" placeholder="05xxxxxxxx" value={f.phone} onChange={set('phone')} required /></div>
-        <div><label className="label" htmlFor="em">{tr('البريد الإلكتروني', 'Email')}</label><input id="em" type="email" className="field" dir="ltr" value={f.email} onChange={set('email')} required /><p className="hint">{tr('تصلك عليه الفواتير الإلكترونية.', 'Your e-invoices are sent here.')}</p></div>
-        <div><label className="label" htmlFor="id">{tr('رقم الهوية أو الإقامة (اختياري)', 'National ID or Iqama (optional)')}</label><input id="id" className="field" dir="ltr" inputMode="numeric" value={f.nationalId} onChange={set('nationalId')} /></div>
-        <div><label className="label" htmlFor="pw">{tr('كلمة المرور', 'Password')}</label><input id="pw" type="password" className="field" dir="ltr" autoComplete="new-password" value={f.password} onChange={set('password')} required minLength={settings.passwordMinLength} /><p className="hint">{tr(`${settings.passwordMinLength} أحرف على الأقل`, `At least ${settings.passwordMinLength} characters`)}</p></div>
-        <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1.5" checked={agree} onChange={(e) => setAgree(e.target.checked)} required /><span>{tr('أوافق على', 'I agree to the')} <Link to="/terms" className="underline">{tr('شروط المزاد وضوابط ربط الأسماء', 'auction terms and name-linking rules')}</Link></span></label>
-        <button className="btn-primary w-full" disabled={busy || !agree}>{tr('إنشاء الحساب', 'Create account')}</button>
+        <FormSection title={tr('البيانات الشخصية', 'Personal details')}>
+          <div>
+            <Req htmlFor="id">{tr('رقم الهوية / الإقامة', 'National ID / Iqama')}</Req>
+            <input id="id" className="field" dir="ltr" autoComplete="off" value={f.nationalId} onChange={text('nationalId')} required minLength={5} maxLength={20} />
+            <p className="hint">{tr('سيتم استخدام رقم الهوية للدخول لحسابك', 'Your ID number is used to sign in to your account')} · {idHint}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Req htmlFor="fn">{tr('الاسم الأول', 'First name')}</Req><input id="fn" className="field" autoComplete="given-name" value={f.firstName} onChange={text('firstName')} required /></div>
+            <div><Req htmlFor="fa">{tr('اسم الأب', "Father's name")}</Req><input id="fa" className="field" value={f.fatherName} onChange={text('fatherName')} required /></div>
+            <div><Req htmlFor="gf">{tr('اسم الجد', "Grandfather's name")}</Req><input id="gf" className="field" value={f.grandfatherName} onChange={text('grandfatherName')} required /></div>
+            <div><Req htmlFor="fm">{tr('اسم العائلة', 'Family name')}</Req><input id="fm" className="field" autoComplete="family-name" value={f.familyName} onChange={text('familyName')} required /></div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><Req htmlFor="bd">{tr('تاريخ الميلاد', 'Date of birth')}</Req><input id="bd" type="date" className="field" dir="ltr" max={maxBirthDate()} value={f.birthDate} onChange={text('birthDate')} required /></div>
+            <div><span className="label">{tr('الجنس', 'Gender')}<span className="ms-0.5 text-bad" aria-hidden>*</span></span><GenderField value={f.gender} onChange={(v) => put('gender', v)} /></div>
+          </div>
+          <div><Req htmlFor="nat">{tr('الجنسية', 'Nationality')}</Req><CountrySelect id="nat" value={f.nationality} onChange={(v) => put('nationality', v)} /></div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><Req htmlFor="rc">{tr('بلد الإقامة', 'Country of residence')}</Req><CountrySelect id="rc" value={f.residenceCountry} onChange={(v) => setF((x) => ({ ...x, residenceCountry: v, residenceCity: '' }))} /></div>
+            <div><Req htmlFor="rcity">{tr('مدينة الإقامة', 'City of residence')}</Req><CityField id="rcity" country={f.residenceCountry} value={f.residenceCity} onChange={(v) => put('residenceCity', v)} /></div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><Req htmlFor="pw">{tr('كلمة المرور', 'Password')}</Req><input id="pw" type="password" className="field" dir="ltr" autoComplete="new-password" value={f.password} onChange={text('password')} required minLength={settings.passwordMinLength} /><p className="hint">{tr(`${settings.passwordMinLength} أحرف على الأقل`, `At least ${settings.passwordMinLength} characters`)}</p></div>
+            <div><Req htmlFor="pw2">{tr('تأكيد كلمة المرور', 'Confirm password')}</Req><input id="pw2" type="password" className="field" dir="ltr" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required aria-invalid={!!confirm && confirm !== f.password} />{confirm && confirm !== f.password && <p className="hint text-bad">{tr('غير مطابقة', 'Does not match')}</p>}</div>
+          </div>
+        </FormSection>
+
+        <FormSection title={tr('بيانات التواصل', 'Contact details')}>
+          <div><Req htmlFor="ph">{tr('رقم الجوال', 'Mobile number')}</Req><PhoneField id="ph" dial={f.phoneCountry} onDial={(v) => put('phoneCountry', v)} value={f.phone} onChange={(v) => put('phone', v)} /><p className="hint">{tr('يصلك عليه رمز التحقق عند الدخول.', 'Your sign-in code is sent here.')}</p></div>
+          <div><Req htmlFor="em">{tr('البريد الإلكتروني', 'Email')}</Req><input id="em" type="email" className="field" dir="ltr" autoComplete="email" value={f.email} onChange={text('email')} required /><p className="hint">{tr('تصلك عليه الفواتير الإلكترونية، وتوثّقه من لوحة حسابك.', 'Your e-invoices are sent here; verify it from your dashboard.')}</p></div>
+        </FormSection>
+
+        <p className="rounded-lg bg-stone px-4 py-3 text-sm leading-6 text-muted">{tr('العنوان الوطني ورقم التواصل الآخر تكملها لاحقًا من لوحة حسابك، ليكون التسجيل سريعًا.', 'You add your national address and a second number later from your dashboard, so sign-up stays quick.')}</p>
+
+        <div className="space-y-4">
+          <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1.5" checked={agree} onChange={(e) => setAgree(e.target.checked)} required /><span>{tr('أوافق على', 'I agree to the')} <Link to="/terms" className="underline">{tr('شروط المزاد وضوابط ربط الأسماء', 'auction terms and name-linking rules')}</Link></span></label>
+          <button className="btn-primary w-full" disabled={busy || !agree}>{busy ? tr('جارٍ إنشاء الحساب…', 'Creating…') : tr('إنشاء الحساب', 'Create account')}</button>
+        </div>
       </form>
       <p className="mt-5 text-center text-sm text-muted">{tr('لديك حساب؟', 'Have an account?')} <Link to="/login" className="font-semibold text-gold-deep underline underline-offset-4">{tr('سجّل الدخول', 'Sign in')}</Link></p>
     </AuthFrame>

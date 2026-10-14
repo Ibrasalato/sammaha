@@ -10,6 +10,8 @@ import { Loading } from './components/ui'
 import { LangProvider, useLang } from './lib/i18n'
 import { AppProvider, useApp } from './lib/store'
 import type { Role } from './lib/types'
+import { canAny } from './lib/permissions'
+import type { Permission } from './lib/permissions'
 import About from './pages/About'
 import AuctionDetail from './pages/AuctionDetail'
 import Auctions from './pages/Auctions'
@@ -43,6 +45,7 @@ const AdminHome = pick(adminMod, 'AdminHome'), AdminRequests = pick(adminMod, 'A
 const AdminSchedule = pick(adminMod, 'AdminSchedule'), AdminAuctions = pick(adminMod, 'AdminAuctions'), AdminInvoices = pick(adminMod, 'AdminInvoices')
 const AdminEvents = pick(adminMod, 'AdminEvents')
 const AdminTickets = pick(() => import('./pages/admin/Tickets'), 'AdminTickets'), AdminTicket = pick(() => import('./pages/admin/Tickets'), 'AdminTicket')
+const AdminRoles = pick(() => import('./pages/admin/Roles'), 'AdminRoles')
 const AdminUsers = pick(() => import('./pages/admin/Users'), 'AdminUsers'), StaffAccount = pick(() => import('./pages/admin/Users'), 'StaffAccount')
 
 /** Tab titles per page (the auction page sets its own with the name). */
@@ -91,24 +94,37 @@ const OWNER_NAV: NavItem[] = [
   { to: '/dashboard/settings', label: 'الإعدادات', icon: 'settings' },
 ]
 
-const ADMIN_NAV: NavItem[] = [
+/** each staff page and what opens it: a role sees only the pages its permissions allow */
+const ADMIN_NAV: (NavItem & { perms?: Permission[] })[] = [
   { to: '/admin', label: 'نظرة عامة', icon: 'home', end: true },
-  { to: '/admin/requests', label: 'مراجعة الطلبات', short: 'المراجعة', icon: 'shield' },
-  { to: '/admin/schedule', label: 'فتح المزادات', short: 'فتح مزاد', icon: 'calendar' },
-  { to: '/admin/auctions', label: 'متابعة المزادات', short: 'المزادات', icon: 'gavel' },
-  { to: '/admin/invoices', label: 'الفواتير', icon: 'receipt' },
-  { to: '/admin/tickets', label: 'الشكاوى والبلاغات', icon: 'alert' },
-  { to: '/admin/events', label: 'المواعيد والفعاليات', icon: 'list' },
-  { to: '/admin/users', label: 'المستخدمون والصلاحيات', icon: 'users' },
+  { to: '/admin/requests', label: 'مراجعة الطلبات', short: 'المراجعة', icon: 'shield', perms: ['requests.view'] },
+  { to: '/admin/schedule', label: 'فتح المزادات', short: 'فتح مزاد', icon: 'calendar', perms: ['auctions.schedule'] },
+  { to: '/admin/auctions', label: 'التحكم في المزادات', short: 'المزادات', icon: 'gavel', perms: ['auctions.manage', 'auctions.cancel', 'auctions.schedule'] },
+  { to: '/admin/invoices', label: 'الفواتير', icon: 'receipt', perms: ['invoices.view'] },
+  { to: '/admin/tickets', label: 'الشكاوى والبلاغات', icon: 'alert', perms: ['tickets.view'] },
+  { to: '/admin/events', label: 'المواعيد والفعاليات', icon: 'list', perms: ['events.manage'] },
+  { to: '/admin/users', label: 'المستخدمون', icon: 'users', perms: ['users.view'] },
+  { to: '/admin/roles', label: 'الأدوار والصلاحيات', short: 'الأدوار', icon: 'shield', perms: ['roles.manage'] },
   { to: '/admin/settings', label: 'الإعدادات', icon: 'settings' },
   { to: '/admin/account', label: 'حسابي', icon: 'shield' },
 ]
 
-/** The users and permissions page is for the super admin only. */
 function AdminShell() {
   const { user } = useApp()
-  const nav = user?.role === 'admin' ? ADMIN_NAV : ADMIN_NAV.filter((n) => n.to !== '/admin/users')
-  return <Shell nav={nav} title={user?.role === 'admin' ? 'إدارة المنصة' : 'لجنة الاعتماد'} />
+  const nav = ADMIN_NAV.filter((n) => !n.perms || canAny(user, n.perms))
+  return <Shell nav={nav} title={user?.role === 'admin' ? 'إدارة المنصة' : user?.staffRoleName || 'لجنة الاعتماد'} />
+}
+
+/** a staff page the role cannot open shows a short notice instead of failing on every call */
+function Can({ perms, children }: { perms: Permission[]; children: ReactNode }) {
+  const { user } = useApp()
+  if (canAny(user, perms)) return <>{children}</>
+  return (
+    <div className="rounded-xl border border-line bg-paper p-8 text-center">
+      <p className="text-lg font-bold">ليست لديك صلاحية لهذه الصفحة</p>
+      <p className="mt-2 text-muted">اطلب من مدير النظام إضافة الصلاحية إلى دورك.</p>
+    </div>
+  )
 }
 
 export default function App() {
@@ -173,17 +189,18 @@ function AppRoutes() {
           <Route path={STAFF_LOGIN_PATH.slice(1)} element={<StaffLogin />} />
           <Route path="admin" element={<Guard roles={['committee', 'admin']}><AdminShell /></Guard>}>
             <Route index element={<AdminHome />} />
-            <Route path="requests" element={<AdminRequests />} />
-            <Route path="requests/:id" element={<AdminReview />} />
-            <Route path="schedule" element={<AdminSchedule />} />
-            <Route path="auctions" element={<AdminAuctions />} />
-            <Route path="invoices" element={<AdminInvoices />} />
-            <Route path="users" element={<Guard roles={['admin']}><AdminUsers /></Guard>} />
+            <Route path="requests" element={<Can perms={['requests.view']}><AdminRequests /></Can>} />
+            <Route path="requests/:id" element={<Can perms={['requests.view']}><AdminReview /></Can>} />
+            <Route path="schedule" element={<Can perms={['auctions.schedule']}><AdminSchedule /></Can>} />
+            <Route path="auctions" element={<Can perms={['auctions.manage', 'auctions.cancel', 'auctions.schedule']}><AdminAuctions /></Can>} />
+            <Route path="invoices" element={<Can perms={['invoices.view']}><AdminInvoices /></Can>} />
+            <Route path="users" element={<Can perms={['users.view']}><AdminUsers /></Can>} />
+            <Route path="roles" element={<Can perms={['roles.manage']}><AdminRoles /></Can>} />
             <Route path="account" element={<StaffAccount />} />
             <Route path="settings" element={<StaffSettings />} />
-            <Route path="events" element={<AdminEvents />} />
-            <Route path="tickets" element={<AdminTickets />} />
-            <Route path="tickets/:id" element={<AdminTicket />} />
+            <Route path="events" element={<Can perms={['events.manage']}><AdminEvents /></Can>} />
+            <Route path="tickets" element={<Can perms={['tickets.view']}><AdminTickets /></Can>} />
+            <Route path="tickets/:id" element={<Can perms={['tickets.view']}><AdminTicket /></Can>} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

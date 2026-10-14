@@ -375,6 +375,18 @@ function RibbonCard({ a }: { a: Auction }) {
 }
 
 export function AuctionCard({ a, style }: { a: Auction; style?: CardStyle }) {
+  const card = <CardOf a={a} style={style} />
+  if (!a.paused) return card
+  // paused by the administration: the card stays, marked and greyed
+  return (
+    <div className="relative">
+      <div className="opacity-70 grayscale-[35%]">{card}</div>
+      <span className="pointer-events-none absolute inset-x-0 top-1/2 z-10 mx-auto w-fit -translate-y-1/2 rounded-full bg-info-deep px-3 py-1 text-[12px] font-bold text-paper shadow-lift">❚❚ {tr('متوقف مؤقتًا', 'Paused')}</span>
+    </div>
+  )
+}
+
+function CardOf({ a, style }: { a: Auction; style?: CardStyle }) {
   const chosen = useCardStyle()
   switch (style ?? chosen) {
     case 'brand': return <BrandCard a={a} />

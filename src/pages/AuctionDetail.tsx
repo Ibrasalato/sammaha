@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { locale, tr } from '../lib/i18n'
-import { Countdown, ErrorBox, NameSeal, PhasePill, TypeBadge } from '../components/ui'
+import { AuctionStatePill, Countdown, ErrorBox, NameSeal, TypeBadge } from '../components/ui'
 import { Skeleton } from '../components/Skeleton'
 import { PriceChart } from '../components/PriceChart'
 import { CountdownBoxes } from '../components/AuctionCard'
@@ -47,7 +47,8 @@ export default function AuctionDetail() {
   if (loading && !data) return <AuctionSkeleton />
   if (error || !a) return <div className="mx-auto max-w-3xl px-4 py-10"><ErrorBox text={error || tr('المزاد غير موجود', 'Auction not found')} /></div>
 
-  const phase = phaseOf(a, now)
+  // a paused auction takes no bids until it resumes; a cancelled one is closed
+  const phase = a.paused ? 'paused' as const : phaseOf(a, now)
   const mine = data.mine
   const min = a.currentPrice + a.minIncrement
   const isRequester = user?.id === a.requesterId
@@ -88,7 +89,7 @@ export default function AuctionDetail() {
           <div className="mt-6 flex flex-col items-start gap-6 sm:flex-row sm:items-center">
             <NameSeal name={a.name} type={a.type} size="lg" />
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2"><TypeBadge type={a.type} />{a.investment && <Link to="/invest" className="pill bg-gold text-pine hover:bg-gold-light">{tr('استثمار الاسم', 'Name investment')}</Link>}{resale && <Link to="/market" className="pill bg-gold text-pine hover:bg-gold-light">{tr('إعادة بيع من مالكه', 'Resale by its owner')}</Link>}<PhasePill phase={phase} />{(a.extensions ?? 0) > 0 && phase === 'live' && <span className="pill bg-gold text-paper">{tr(`مُدّد ${num(a.extensions!)} مرة`, `Extended ${num(a.extensions!)}×`)}</span>}</div>
+              <div className="flex flex-wrap items-center gap-2"><TypeBadge type={a.type} />{a.investment && <Link to="/invest" className="pill bg-gold text-pine hover:bg-gold-light">{tr('استثمار الاسم', 'Name investment')}</Link>}{resale && <Link to="/market" className="pill bg-gold text-pine hover:bg-gold-light">{tr('إعادة بيع من مالكه', 'Resale by its owner')}</Link>}<AuctionStatePill a={a} phase={phase === 'paused' ? 'live' : phase} />{(a.extensions ?? 0) > 0 && phase === 'live' && <span className="pill bg-gold text-paper">{tr(`مُدّد ${num(a.extensions!)} مرة`, `Extended ${num(a.extensions!)}×`)}</span>}</div>
               <h1 className="mt-3 text-[40px] font-extrabold leading-none text-paper sm:text-[48px]">{a.name}</h1>
               <p className="mt-2 text-paper/65">{TYPE_HINT[a.type]}</p>
             </div>
@@ -177,7 +178,19 @@ export default function AuctionDetail() {
               <div className="mt-4">
                 {phase === 'live' && <><span className="mb-1.5 block text-sm text-muted">{tr('الوقت المتبقي', 'Time left')}</span><CountdownBoxes to={a.endsAt} tone={endsSoon ? 'urgent' : 'ink'} /></>}
                 {phase === 'scheduled' && <><span className="mb-1.5 block text-sm text-muted">{tr('يبدأ بعد', 'Starts in')}</span><CountdownBoxes to={a.startsAt} /></>}
-                {phase === 'ended' && (
+                {phase === 'paused' && (
+                  <div role="status" className="rounded-lg border border-info-deep/30 bg-info-soft px-4 py-3 text-info-deep">
+                    <b className="block">{tr('المزاد متوقف مؤقتًا', 'This auction is paused')}</b>
+                    <span className="text-[14.5px]">{a.pauseReason || tr('أوقفته إدارة المنصة مؤقتًا. يُضاف وقت التوقف إلى مدته عند الاستئناف، ويصلك إشعار.', 'Paused by the platform. The paused time is added back when it resumes, and you will be notified.')}</span>
+                  </div>
+                )}
+                {phase === 'ended' && a.cancelled && (
+                  <div className="rounded-lg border border-bad/30 bg-bad/5 px-4 py-3 text-bad">
+                    <b className="block">{tr('أُلغي المزاد', 'This auction was cancelled')}</b>
+                    <span className="text-[14.5px] text-ink/80">{tr('لم تُحتسب المزايدات ولم يُرسَ الاسم.', 'Bids were not counted and the name was not awarded.')}{a.cancelReason ? ` ${a.cancelReason}` : ''}</span>
+                  </div>
+                )}
+                {phase === 'ended' && !a.cancelled && (
                   <p className="rounded-lg bg-stone px-4 py-3 font-semibold">
                     {a.settled
                       ? a.wonByRequester

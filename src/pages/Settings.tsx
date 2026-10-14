@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { CardStylePicker } from '../components/AuctionCard'
 import { Icon } from '../components/dash'
 import type { IconName } from '../components/dash'
@@ -9,7 +9,13 @@ import { ErrorBox, Loading, Modal, PageHead } from '../components/ui'
 import { STAFF_LOGIN_PATH } from '../lib/config'
 import { dateTime, num, sar } from '../lib/format'
 import { api, useApp, useLoad } from '../lib/store'
-import type { AdminSettings, Preferences, SessionInfo, SettingsPatch } from '../lib/types'
+import type { AdminSettings, AuctionScope, NameType, Preferences, SessionInfo, SettingsPatch, TicketKind, TicketRouting } from '../lib/types'
+import { AuctionActionDialog, useAuctionRights } from '../components/AuctionControls'
+import type { AuctionAction } from '../components/AuctionControls'
+import { can, canAny } from '../lib/permissions'
+import type { Permission } from '../lib/permissions'
+import { KIND_LABEL, TICKET_KINDS } from '../lib/tickets'
+import { NAME_TYPES, TYPE_LABEL } from '../lib/config'
 
 // ───────────────────────── shared pieces ─────────────────────────
 
@@ -333,6 +339,10 @@ const FIELD_LABEL: Record<string, string> = {
   AnnouncementOn: 'شريط الإعلان', Announcement: 'نص الإعلان', AnnouncementTone: 'لون الإعلان', Maintenance: 'وضع الصيانة',
   MaintenanceNote: 'رسالة الصيانة', PasswordMinLength: 'أقل طول لكلمة المرور', MaxLoginAttempts: 'محاولات الدخول قبل القفل',
   LockoutMinutes: 'مدة قفل الدخول', StaffIdleMinutes: 'مهلة خمول الموظفين', SignOutEveryone: 'تسجيل خروج جميع المستخدمين',
+  AuctionPause: 'إيقاف مزادات مؤقتًا', AuctionResume: 'استئناف مزادات', AuctionExtend: 'تمديد مزادات', AuctionCancel: 'إلغاء مزادات',
+  StaffRole: 'تعديل دور', StaffRoleCreated: 'إنشاء دور', StaffRoleDeleted: 'حذف دور', UserStaffRole: 'تغيير دور موظف',
+  TicketRouting: 'مسؤولو الشكاوى والبلاغات', TicketsRestrictToHandlers: 'قصر التذاكر على المسؤولين',
+  'TicketEmails:complaint': 'بريد الشكاوى', 'TicketEmails:report': 'بريد البلاغات', 'TicketEmails:inquiry': 'بريد الاستفسارات', 'TicketEmails:suggestion': 'بريد الاقتراحات',
 }
 
 const TONE_LABEL: Record<string, string> = { info: 'معلومة', warn: 'تنبيه', ok: 'خبر سار' }
@@ -365,6 +375,131 @@ function HistoryPanel() {
   )
 }
 
+
+// ───────────────────────── complaints, reports and enquiries: who handles them ─────────────────────────
+
+const INBOX_LABEL: Record<TicketKind, string> = { complaint: 'الشكاوى', report: 'البلاغات', inquiry: 'الاستفسارات', suggestion: 'الاقتراحات' }
+
+function TicketsPanel() {
+  const { toast } = useApp()
+  const { data, setData, loading, error } = useLoad(() => api.ticketRouting(), [])
+  const [d, setD] = useState<{ restrictToHandlers: boolean; handlers: TicketRouting['handlers']; emails: TicketRouting['emails'] } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  useEffect(() => { if (data) setD({ restrictToHandlers: data.restrictToHandlers, handlers: { ...data.handlers }, emails: { ...data.emails } }) }, [data])
+  if (error) return <ErrorBox text={error} />
+  if (loading || !data || !d) return <Loading />
+  const repliers = data.staff.filter((s) => s.canReply && s.active)
+  const dirty = JSON.stringify(d) !== JSON.stringify({ restrictToHandlers: data.restrictToHandlers, handlers: data.handlers, emails: data.emails })
+  const toggle = (k: TicketKind, id: string) => setD({ ...d, handlers: { ...d.handlers, [k]: d.handlers[k]?.includes(id) ? d.handlers[k].filter((x) => x !== id) : [...(d.handlers[k] ?? []), id] } })
+
+  async function save() {
+    if (!d) return
+    setBusy(true); setErr('')
+    try { setData(await api.saveTicketRouting(d)); toast('حُفظ توزيع الشكاوى والبلاغات') } catch (x) { setErr((x as Error).message) } finally { setBusy(false) }
+  }
+
+  return (
+    <div className={`space-y-6 ${dirty ? 'pb-24' : ''}`}>
+      {err && <ErrorBox text={err} />}
+      <Card icon="users" title="مين يرد ويعالج كل نوع" sub="تُسند كل تذكرة جديدة تلقائيًا لأقل موظف عنده تذاكر مفتوحة من المسؤولين عن نوعها، ويصل إشعار لكل المسؤولين. إن لم تحدد أحدًا يتولاها كل من لديه صلاحية «الرد على التذاكر».">
+        <div className="divide-y divide-line/70">
+          {TICKET_KINDS.map((k) => {
+            const chosen = d.handlers[k] ?? []
+            return (
+              <div key={k} className="px-5 py-4">
+                <div className="mb-2.5 flex flex-wrap items-center gap-2">
+                  <b className="text-[15.5px]">{KIND_LABEL[k].ar}</b>
+                  <span className="text-[13px] text-muted">{KIND_LABEL[k].hintAr}</span>
+                  <span className={`pill ms-auto ${chosen.length ? 'bg-pine-soft text-pine' : 'bg-stone text-muted'}`}>{chosen.length ? `${num(chosen.length)} مسؤول` : 'كل فريق الدعم'}</span>
+                </div>
+                {repliers.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {repliers.map((s) => {
+                      const on = chosen.includes(s.id)
+                      return (
+                        <button key={s.id} type="button" aria-pressed={on} onClick={() => toggle(k, s.id)}
+                          className={`rounded-full border px-3 py-1.5 text-[13.5px] transition ${on ? 'border-pine bg-pine text-paper' : 'border-line bg-paper hover:border-pine/40'}`}>
+                          {on && '✓ '}{s.fullName}<span className={`ms-1 text-[12px] ${on ? 'text-paper/70' : 'text-muted'}`}>· {s.staffRoleName}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : <p className="text-sm text-muted">لا يوجد موظفون لديهم صلاحية «الرد على التذاكر». أضفها لدور من «الأدوار والصلاحيات».</p>}
+                <div className="mt-3">
+                  <label className="label" htmlFor={`em-${k}`}>البريد الذي تصل عليه {INBOX_LABEL[k]} <span className="font-normal text-muted">(اختياري، أكثر من بريد بفاصلة)</span></label>
+                  <input id={`em-${k}`} className="field" dir="ltr" placeholder={`${k}@sammha.sa`} value={d.emails[k] ?? ''} onChange={(e) => setD({ ...d, emails: { ...d.emails, [k]: e.target.value } })} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </Card>
+      <Card icon="lock" title="من يرى التذاكر">
+        <SettingRow title="كل موظف يرى تذاكر الأنواع المسؤول عنها فقط" desc="عند التفعيل لا يرى الموظف إلا تذاكر الأنواع التي أُسند إليها والتذاكر المسندة له. مدير النظام يرى الجميع."
+          control={<Switch checked={d.restrictToHandlers} onChange={(v) => setD({ ...d, restrictToHandlers: v })} label="قصر التذاكر على المسؤولين" />} />
+      </Card>
+      {dirty && (
+        <div className="fixed inset-x-0 bottom-[72px] z-30 px-4 lg:bottom-4 lg:ps-72" role="region" aria-label="حفظ التغييرات">
+          <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 rounded-xl bg-pine px-5 py-3 text-paper shadow-lift">
+            <span className="flex-1 font-bold">تغييرات في توزيع التذاكر لم تُحفظ</span>
+            <button className="btn-on-dark btn-sm" disabled={busy} onClick={() => setD({ restrictToHandlers: data.restrictToHandlers, handlers: { ...data.handlers }, emails: { ...data.emails } })}>تراجع</button>
+            <button className="btn-gold btn-sm" disabled={busy} onClick={save}>{busy ? 'جارٍ الحفظ…' : 'حفظ'}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ───────────────────────── auctions: global controls ─────────────────────────
+
+function AuctionsPanel() {
+  const rights = useAuctionRights()
+  const { data, loading, reload, error } = useLoad(() => api.adminAuctions('active'), [], 15000)
+  const [dialog, setDialog] = useState<{ action: AuctionAction; scope: AuctionScope; label: string } | null>(null)
+  if (error) return <ErrorBox text={error} />
+  if (loading && !data) return <Loading />
+  const list = data ?? []
+  const t = Date.now()
+  const stats = (type?: NameType) => {
+    const a = type ? list.filter((x) => x.type === type) : list
+    return { total: a.length, live: a.filter((x) => !x.paused && Date.parse(x.startsAt) <= t && Date.parse(x.endsAt) > t).length, scheduled: a.filter((x) => !x.paused && Date.parse(x.startsAt) > t).length, paused: a.filter((x) => x.paused).length }
+  }
+  const rows: { type?: NameType; label: string }[] = [{ label: 'كل الشعارات' }, ...NAME_TYPES.map((x) => ({ type: x, label: `مزادات ${TYPE_LABEL[x]}` }))]
+  return (
+    <div className="space-y-6">
+      <Card icon="gavel" title="التحكم في كل المزادات" sub={<>يُطبَّق على كل المزادات الجارية والقادمة (أو نوع واحد). لمزاد محدد أو عدة مزادات افتح <Link to="/admin/auctions" className="underline">التحكم في المزادات</Link>. كل إجراء يصل إشعاره للمزايدين ويُسجَّل في سجل التغييرات.</>}>
+        <div className="divide-y divide-line/70">
+          {rows.map((r) => {
+            const st = stats(r.type)
+            const scope: AuctionScope = { all: true, type: r.type }
+            return (
+              <div key={r.label} className={`flex flex-wrap items-center gap-3 px-5 py-4 ${!r.type ? 'bg-stone/50' : ''}`}>
+                <div className="min-w-[12rem] flex-1">
+                  <b className="text-[15.5px]">{r.label}</b>
+                  <p className="mt-0.5 text-[13px] text-muted">
+                    <span className="num">{num(st.live)}</span> جارٍ · <span className="num">{num(st.scheduled)}</span> قادم{st.paused ? <> · <span className="num font-bold text-info-deep">{num(st.paused)}</span> متوقف</> : null}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {rights.manage && <>
+                    <button className="btn-ghost btn-sm" disabled={!(st.live + st.scheduled)} onClick={() => setDialog({ action: 'pause', scope, label: r.label })}>إيقاف مؤقت</button>
+                    <button className="btn-ghost btn-sm" disabled={!st.paused} onClick={() => setDialog({ action: 'resume', scope, label: r.label })}>استئناف</button>
+                    <button className="btn-ghost btn-sm" disabled={!st.total} onClick={() => setDialog({ action: 'extend', scope, label: r.label })}>تمديد</button>
+                  </>}
+                  {rights.cancel && <button className="btn-danger btn-sm" disabled={!st.total} onClick={() => setDialog({ action: 'cancel', scope, label: r.label })}>إلغاء</button>}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </Card>
+      <AuctionActionDialog action={dialog?.action ?? null} scope={dialog?.scope ?? {}} label={dialog?.label ?? ''} onClose={() => setDialog(null)} onDone={() => reload()} />
+    </div>
+  )
+}
+
 /** Read-only view of which services are open, for committee members. */
 function IntakeStatus() {
   const { settings } = useApp()
@@ -384,38 +519,29 @@ function IntakeStatus() {
 
 // ───────────────────────── staff settings page ─────────────────────────
 
-const ADMIN_TABS: Tab[] = [
-  { id: 'intake', label: 'استقبال الطلبات', icon: 'file' },
-  { id: 'general', label: 'الإعدادات العامة', icon: 'settings' },
-  { id: 'policy', label: 'سياسة الأمان', icon: 'lock' },
-  { id: 'history', label: 'سجل التغييرات', icon: 'history' },
-  { id: 'account', label: 'حسابي والأمان', icon: 'shield' },
-]
-const COMMITTEE_TABS: Tab[] = [
-  { id: 'account', label: 'حسابي والأمان', icon: 'shield' },
+/** every tab and the permission that opens it; each staff member sees only what their role allows */
+const STAFF_TABS: (Tab & { perms?: Permission[] })[] = [
+  { id: 'intake', label: 'استقبال الطلبات', icon: 'file', perms: ['settings.manage'] },
+  { id: 'auctions', label: 'المزادات', icon: 'gavel', perms: ['auctions.manage', 'auctions.cancel'] },
+  { id: 'tickets', label: 'الشكاوى والبلاغات', icon: 'alert', perms: ['settings.manage'] },
+  { id: 'general', label: 'الإعدادات العامة', icon: 'settings', perms: ['settings.manage'] },
+  { id: 'policy', label: 'سياسة الأمان', icon: 'lock', perms: ['security.manage'] },
+  { id: 'history', label: 'سجل التغييرات', icon: 'history', perms: ['audit.view'] },
   { id: 'status', label: 'حالة الخدمات', icon: 'file' },
+  { id: 'account', label: 'حسابي والأمان', icon: 'shield' },
 ]
 
 export function StaffSettings() {
   const { user } = useApp()
-  return user?.role === 'admin' ? <AdminSettingsPage /> : <CommitteeSettings />
+  const tabs = STAFF_TABS.filter((t) => (!t.perms || canAny(user, t.perms)) && !(t.id === 'status' && can(user, 'settings.manage')))
+  return <AdminSettingsPage tabs={tabs} />
 }
 
-function CommitteeSettings() {
-  const [tab, setTab] = useTab(COMMITTEE_TABS)
-  return (
-    <>
-      <PageHead title="الإعدادات" sub="كلمة المرور والأجهزة المسجّل دخولها، وحالة استقبال طلبات الملاك." />
-      <Tabs tabs={COMMITTEE_TABS} value={tab} onChange={setTab} />
-      {tab === 'account' ? <SecuritySettings /> : <IntakeStatus />}
-    </>
-  )
-}
-
-function AdminSettingsPage() {
-  const { toast, reloadSettings } = useApp()
-  const [tab, setTab] = useTab(ADMIN_TABS)
-  const { data, setData, loading, error } = useLoad(() => api.adminSettings(), [])
+function AdminSettingsPage({ tabs }: { tabs: Tab[] }) {
+  const { toast, reloadSettings, user } = useApp()
+  const [tab, setTab] = useTab(tabs)
+  const canSettings = canAny(user, ['settings.manage', 'security.manage'])
+  const { data, setData, loading, error } = useLoad(() => (canSettings ? api.adminSettings() : Promise.resolve(null)), [])
   const [draft, setDraft] = useState<Draft | null>(null)
   const [busy, setBusy] = useState(false)
   useEffect(() => { if (data && !draft) setDraft(strip(data)) }, [data, draft])
@@ -445,11 +571,11 @@ function AdminSettingsPage() {
   }
 
   const set = (p: SettingsPatch) => setDraft((d) => (d ? { ...d, ...p } : d))
-  const needsData = tab !== 'account' && tab !== 'history'
+  const needsData = tab === 'intake' || tab === 'general' || tab === 'policy'
   return (
     <>
-      <PageHead title="إعدادات المنصة" sub={data?.updatedBy ? `آخر تعديل: ${data.updatedBy}${data.updatedAt ? `، ${dateTime(data.updatedAt)}` : ''}` : 'استقبال طلبات الملاك، والإعدادات العامة، وسياسة الأمان، وحسابك.'} />
-      <Tabs tabs={ADMIN_TABS} value={tab} onChange={setTab} />
+      <PageHead title={canSettings ? 'إعدادات المنصة' : 'الإعدادات'} sub={data?.updatedBy ? `آخر تعديل: ${data.updatedBy}${data.updatedAt ? `، ${dateTime(data.updatedAt)}` : ''}` : 'حسب صلاحيات دورك.'} />
+      <Tabs tabs={tabs} value={tab} onChange={setTab} />
       {needsData && (error ? <ErrorBox text={error} /> : loading || !draft || !data ? <Loading /> : (
         <div className={dirty ? 'pb-24' : ''}>
           {tab === 'intake' && <IntakePanel d={draft} set={set} />}
@@ -458,6 +584,9 @@ function AdminSettingsPage() {
         </div>
       ))}
       {tab === 'history' && <HistoryPanel key={data?.updatedAt} />}
+      {tab === 'auctions' && <AuctionsPanel />}
+      {tab === 'tickets' && <TicketsPanel />}
+      {tab === 'status' && <IntakeStatus />}
       {tab === 'account' && <SecuritySettings />}
 
       {dirty > 0 && (

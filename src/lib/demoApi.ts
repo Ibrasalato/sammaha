@@ -5,8 +5,10 @@
  */
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'
-import type { AuctionView, NameListing, Preferences } from './types'
-import { demoRules, ensureOpen, ensureWritable, logAction, publicOf, readLog, readSettings, writeSettings } from './demoSettings'
+import type { AuctionActionResult, AuctionScope, AuctionView, NameListing, OwnerProfile, Preferences, StaffRole, TicketRouting } from './types'
+import { ALL_PERMISSIONS, COMMITTEE_DEFAULT, COMMITTEE_ROLE_ID, permissionLabel } from './permissions'
+import type { Permission } from './permissions'
+import { demoRules, ensureOpen, ensureWritable, logAction, publicOf, readLog, readRouting, readSettings, writeRouting, writeSettings } from './demoSettings'
 import { NAME_TYPES, OTP, RULES, SUPER_ADMIN_EMAIL } from './config'
 import { maskEmail, maskPhone, otpDigits } from './otp'
 import { namesCount } from './format'
@@ -28,6 +30,9 @@ interface DemoUser extends User {
   lastLoginAt?: string
   /** bumped by "sign out everyone"; a demo session started before it ends */
   stamp?: number
+  /** owner profile (sign-up and the dashboard) */
+  p?: Omit<OwnerProfile, 'emailVerified' | 'completion' | 'missing'>
+  emailVerifiedAt?: string
 }
 interface AutoBid { auctionId: string; userId: string; max: number; createdAt: string }
 interface Watch { auctionId: string; userId: string; notifiedStart?: boolean; notifiedEnd?: boolean }
@@ -48,6 +53,8 @@ interface DB {
   watches?: Watch[]
   listings?: NameListing[]
   bidDeposits?: BidDeposit[]
+  /** staff roles (the built-in committee role is added on first use) */
+  roles?: StaffRole[]
 }
 interface BidDeposit { auctionId: string; userId: string; amount: number; state: 'held' | 'refunded' | 'applied'; createdAt: string }
 
@@ -66,7 +73,8 @@ function uid(db: DB, prefix: string) {
   return `${prefix}${db.seq.toString(36)}${Math.random().toString(36).slice(2, 6)}`
 }
 
-export function phaseOf(a: Pick<Auction, 'startsAt' | 'endsAt'>, t = now()): AuctionPhase {
+export function phaseOf(a: Pick<Auction, 'startsAt' | 'endsAt'> & { cancelled?: boolean }, t = now()): AuctionPhase {
+  if (a.cancelled) return 'ended'
   if (t < Date.parse(a.startsAt)) return 'scheduled'
   if (t < Date.parse(a.endsAt)) return 'live'
   return 'ended'
@@ -270,12 +278,12 @@ function seedTickets(db: DB, t: number) {
 
 // ───────────────────────── one-time codes ─────────────────────────
 // Demo: the code is OTP.fixedCode until an SMS provider is connected.
-interface Challenge { userId: string; purpose: 'login' | 'phone' | 'email'; phone: string; expires: number; attempts: number }
+interface Challenge { userId: string; purpose: 'login' | 'phone' | 'email' | 'verify_email'; phone: string; expires: number; attempts: number }
 const challenges = new Map<string, Challenge>()
 function issueOtp(userId: string, purpose: Challenge['purpose'], phone: string, id = `otp${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`): OtpChallenge {
   const expires = now() + OTP.ttlMinutes * 60_000
   challenges.set(id, { userId, purpose, phone, expires, attempts: 0 })
-  return { challenge: id, phoneMasked: purpose === 'email' ? maskEmail(phone) : maskPhone(phone), expiresAt: iso(expires), length: OTP.length }
+  return { challenge: id, phoneMasked: purpose === 'email' || purpose === 'verify_email' ? maskEmail(phone) : maskPhone(phone), expiresAt: iso(expires), length: OTP.length }
 }
 function consumeOtp(id: string, code: string, purpose: Challenge['purpose']): Challenge {
   const c = challenges.get(id)
@@ -680,11 +688,11 @@ function remind(db: DB) {
 
 function sweep(db: DB) {
   let changed = remind(db) || sweepListings(db)
-  for (const a of db.auctions) if (!a.settled && phaseOf(a) === 'live' && db.autobids?.some((x) => x.auctionId === a.id)) {
+  for (const a of db.auctions) if (!a.settled && !a.paused && phaseOf(a) === 'live' && db.autobids?.some((x) => x.auctionId === a.id)) {
     const before = a.bidCount; resolveAuto(db, a); if (a.bidCount !== before) changed = true
   }
   for (const a of db.auctions) {
-    if (a.settled || phaseOf(a) !== 'ended') continue
+    if (a.settled || a.paused || a.cancelled || phaseOf(a) !== 'ended') continue
     if (a.listingId) { settleResale(db, a); changed = true; continue }
     const r = db.requests.find((x) => x.id === a.requestId)!
     if (r.kind === 'investment') { settleInvestment(db, a, r); changed = true; continue }
@@ -715,6 +723,7 @@ function sweep(db: DB) {
 
 function tx<T>(fn: (db: DB) => T): Promise<T> {
   const db = load()
+  currentDb = db
   if (sweep(db)) save(db)
   try {
     const out = fn(db)
@@ -735,6 +744,35 @@ function me(db: DB): DemoUser {
   if (String(u.stamp ?? 0) !== mine) { setSession(null); throw new ApiError('انتهت الجلسة، سجّل الدخول من جديد') }
   return u
 }
+function routingView(db: DB): TicketRouting {
+  const r = readRouting()
+  return {
+    ...r, handlers: r.handlers as TicketRouting['handlers'], emails: r.emails as TicketRouting['emails'],
+    staff: db.users.filter((x) => x.role !== 'owner').map((x) => ({ id: x.id, fullName: x.fullName, role: x.role, staffRoleName: x.role === 'admin' ? 'مدير النظام' : roleOf(db, x)?.name, canReply: permsOf(db, x).includes('tickets.reply'), active: x.active !== false })),
+  }
+}
+
+/** runs an auction action on the chosen auctions (or all running and upcoming ones); returns what was done and skipped */
+function control(db: DB, scope: AuctionScope, perm: Permission, field: string, note: string | undefined, change: (a: Auction) => string | null): AuctionActionResult {
+  const u = need(db, perm)
+  const list = scope.all
+    ? db.auctions.filter((a) => !a.settled && !a.cancelled && (!scope.type || a.type === scope.type))
+    : (scope.ids ?? []).map((id) => db.auctions.find((a) => a.id === id)).filter((a): a is Auction => !!a)
+  if (!scope.all && !list.length) throw new ApiError('اختر مزادًا واحدًا على الأقل')
+  const done: string[] = [], skipped: AuctionActionResult['skipped'] = []
+  for (const a of list) {
+    const why = change(a)
+    if (why) skipped.push({ id: a.id, name: a.name, reason: why })
+    else done.push(a.name)
+  }
+  if (done.length) logAction(field, u.fullName, `${scope.all ? 'كل المزادات' : done.slice(0, 8).join('، ')}${note ? ` · ${note}` : ''}`)
+  return { affected: done.length, skipped }
+}
+const closedWhy = (a: Auction) => (a.cancelled ? 'ملغى' : a.settled ? 'انتهى وتمت الترسية' : !a.paused && now() >= Date.parse(a.endsAt) ? 'انتهى وجارٍ الترسية' : null)
+function followers(db: DB, a: Auction, title: string, body: string) {
+  const users = new Set([...db.bids.filter((b) => b.auctionId === a.id).map((b) => b.userId), ...(db.watches ?? []).filter((w) => w.auctionId === a.id).map((w) => w.userId)])
+  for (const u of users) notify(db, u, 'auction_update', title, body, `/auctions/${a.id}`)
+}
 /** owner write actions: closed during maintenance */
 function writer(db: DB): DemoUser {
   const u = me(db)
@@ -746,19 +784,86 @@ function staff(db: DB): DemoUser {
   if (u.role === 'owner') throw new ApiError('هذه الصفحة للجنة الاعتماد فقط')
   return u
 }
-function superOnly(db: DB): DemoUser {
-  const u = me(db)
-  if (u.role !== 'admin') throw new ApiError('هذه العملية لمدير النظام فقط')
-  return u
-}
 function targetUser(db: DB, id: string, actor: DemoUser) {
   const t = db.users.find((x) => x.id === id)
   if (!t) throw new ApiError('المستخدم غير موجود')
   if (isSuper(t)) throw new ApiError('لا يمكن تعديل حساب مدير النظام الرئيسي')
   if (t.id === actor.id) throw new ApiError('لا يمكنك تعديل صلاحيات حسابك')
+  if (t.role === 'admin' && actor.role !== 'admin') throw new ApiError('حسابات مديري النظام يعدّلها مدير النظام فقط')
   return t
 }
-const publicUser = ({ password: _p, prefs: _q, failedLogins: _f, lockedUntil: _l, lastLoginAt: _a, stamp: _s, ...u }: DemoUser): User => u
+function rolesOf(db: DB): StaffRole[] {
+  db.roles ??= []
+  if (!db.roles.some((r) => r.id === COMMITTEE_ROLE_ID))
+    db.roles.unshift({ id: COMMITTEE_ROLE_ID, name: 'لجنة الاعتماد', description: 'مراجعة الطلبات وفتح المزادات والرد على الشكاوى', permissions: [...COMMITTEE_DEFAULT], isSystem: true, members: 0 })
+  return db.roles
+}
+function roleOf(db: DB, u: DemoUser): StaffRole | undefined {
+  if (u.role !== 'committee') return undefined
+  const roles = rolesOf(db)
+  return roles.find((r) => r.id === (u.staffRoleId ?? COMMITTEE_ROLE_ID)) ?? roles.find((r) => r.id === COMMITTEE_ROLE_ID)
+}
+function permsOf(db: DB, u: DemoUser): string[] {
+  return u.role === 'admin' ? [...ALL_PERMISSIONS] : u.role === 'committee' ? [...(roleOf(db, u)?.permissions ?? COMMITTEE_DEFAULT)] : []
+}
+function profileOf(u: DemoUser): OwnerProfile {
+  const p = u.p ?? {}
+  const missing: OwnerProfile['missing'] = []
+  if (!p.firstName || !p.familyName || !u.nationalId || !p.birthDate || !p.gender || !p.nationality || !p.residenceCountry) missing.push('personal')
+  if (!u.emailVerifiedAt) missing.push('email')
+  if (!p.addressCountry || !p.addressCity || !p.district || !p.postalCode) missing.push('address')
+  return { ...p, emailVerified: !!u.emailVerifiedAt, completion: Math.round(((3 - missing.length) * 100) / 3), missing }
+}
+/** Saudi numbers keep 05xxxxxxxx; others become +{code}{number} (same rule as the API) */
+function normalizeIntl(dial: string, raw: string): string | null {
+  const d = (dial || '').replace(/\D/g, '')
+  let n = otpDigits(raw)
+  const t = raw.trim()
+  if (!d) {
+    if (t.startsWith('+') || n.startsWith('00')) { n = n.replace(/^0+/, ''); return n.startsWith('966') ? normalizeIntl('966', n.slice(3)) : n.length >= 8 && n.length <= 15 ? `+${n}` : null }
+    if (n.length === 9 && n.startsWith('5')) n = '0' + n
+    return /^05\d{8}$/.test(n) ? n : null
+  }
+  if (d === '966') {
+    if (n.startsWith('966')) n = n.slice(3)
+    if (n.length === 9 && n.startsWith('5')) n = '0' + n
+    return /^05\d{8}$/.test(n) ? n : null
+  }
+  if (n.startsWith(d) && n.length > d.length + 6) n = n.slice(d.length)
+  n = n.replace(/^0+/, '')
+  return n.length >= 6 && n.length <= 12 ? `+${d}${n}` : null
+}
+function identityError(id: string, nationality: string, residence: string): string | null {
+  if (!id) return 'أدخل رقم الهوية'
+  if (residence === 'SA' || nationality === 'SA') {
+    if (!/^\d{10}$/.test(id)) return 'رقم الهوية أو الإقامة 10 أرقام'
+    if (nationality === 'SA' && id[0] !== '1') return 'رقم الهوية الوطنية يبدأ بـ 1'
+    if (nationality !== 'SA' && id[0] !== '2') return 'رقم الإقامة يبدأ بـ 2'
+    return null
+  }
+  return /^[A-Z0-9]{5,20}$/.test(id) ? null : 'رقم الهوية أو الجواز من 5 إلى 20 حرفًا ورقمًا'
+}
+let currentDb: DB | null = null
+const publicUser = (full: DemoUser): User => {
+  const { password: _p, prefs: _q, failedLogins: _f, lockedUntil: _l, lastLoginAt: _a, stamp: _s, p: _pr, emailVerifiedAt: _e, ...u } = full
+  if (u.role === 'owner') return { ...u, profile: profileOf(full) }
+  const db = currentDb
+  return db ? { ...u, permissions: permsOf(db, full), staffRoleName: u.role === 'admin' ? 'مدير النظام' : roleOf(db, full)?.name } : u
+}
+const teamInboxes = (kind: string) => (readRouting().emails[kind] ?? '').split(',').map((e) => e.trim()).filter(Boolean)
+/** with «الرد يقتصر على المسؤولين» on, only that kind's handlers, the assignee and admins may act on a ticket */
+function ensureHandler(u: DemoUser, k: Ticket) {
+  if (u.role === 'admin' || k.assigneeId === u.id) return
+  const routing = readRouting()
+  const list = routing.handlers[k.kind] ?? []
+  if (routing.restrictToHandlers && list.length && !list.includes(u.id)) throw new ApiError('هذا النوع يعالجه الموظفون المسؤولون عنه فقط')
+}
+/** the signed-in staff member, if they hold this permission */
+function need(db: DB, perm: Permission): DemoUser {
+  const u = staff(db)
+  if (!permsOf(db, u).includes(perm)) throw new ApiError(`ليست لديك صلاحية «${permissionLabel(perm)}»، تواصل مع مدير النظام`)
+  return u
+}
 const DEFAULT_PREFS: Preferences = { notifyOutbid: true, notifyReminders: true, notifyResults: true, notifyRequests: true }
 
 // ───────────────────────── API ─────────────────────────
@@ -769,22 +874,44 @@ export const demoApi: SammhaApi = {
   }),
 
   signUp: (input: SignUpInput) => tx((db) => {
-    const phone = input.phone.replace(/\s/g, '')
-    if (!/^05\d{8}$/.test(phone)) throw new ApiError('رقم الجوال يبدأ بـ 05 ويتكون من 10 أرقام')
-    if (db.users.some((u) => u.phone === phone)) throw new ApiError('رقم الجوال مسجل مسبقًا، سجّل الدخول')
-    if (db.users.some((u) => u.email.toLowerCase() === input.email.toLowerCase())) throw new ApiError('البريد الإلكتروني مسجل مسبقًا')
     const policy = readSettings()
     if (!policy.signupOpen) throw new ApiError('التسجيل في المنصة متوقف مؤقتًا')
+    const part = (v: string, label: string) => { const t = v.trim().replace(/\s+/g, ' '); if (t.length < 2 || t.length > 30 || /\d/.test(t)) throw new ApiError(`اكتب ${label} بالحروف (2 إلى 30 حرفًا)`); return t }
+    const first = part(input.firstName, 'الاسم الأول'), father = part(input.fatherName, 'اسم الأب'), grand = part(input.grandfatherName, 'اسم الجد'), family = part(input.familyName, 'اسم العائلة')
+    const birth = Date.parse(input.birthDate)
+    if (!input.birthDate || Number.isNaN(birth)) throw new ApiError('أدخل تاريخ الميلاد')
+    const age = (now() - birth) / (365.25 * D)
+    if (age < 18) throw new ApiError('التسجيل لمن أتم 18 سنة')
+    if (age > 110) throw new ApiError('تاريخ الميلاد غير صحيح')
+    if (input.gender !== 'male' && input.gender !== 'female') throw new ApiError('اختر الجنس')
+    if (!input.nationality) throw new ApiError('اختر الجنسية')
+    if (!input.residenceCountry) throw new ApiError('اختر بلد الإقامة')
+    if (input.residenceCity.trim().length < 2) throw new ApiError('اختر مدينة الإقامة')
+    const nid = input.nationalId.trim().toUpperCase()
+    const idError = identityError(nid, input.nationality, input.residenceCountry)
+    if (idError) throw new ApiError(idError)
+    const phone = normalizeIntl(input.phoneCountry, input.phone)
+    if (!phone) throw new ApiError(input.phoneCountry === '966' || !input.phoneCountry ? 'رقم الجوال يبدأ بـ 5 ويتكون من 9 أرقام' : 'رقم الجوال غير صحيح لهذا البلد')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) throw new ApiError('البريد الإلكتروني غير صحيح')
     if (input.password.length < policy.passwordMinLength) throw new ApiError(`كلمة المرور ${policy.passwordMinLength} أحرف على الأقل`)
-    const u: DemoUser = { id: uid(db, 'u'), fullName: input.fullName.trim(), phone, email: input.email.trim(), nationalId: input.nationalId, role: 'owner', password: input.password, createdAt: iso(now()) }
+    if (db.users.some((u) => u.nationalId === nid)) throw new ApiError('رقم الهوية مسجل مسبقًا، سجّل الدخول')
+    if (db.users.some((u) => u.phone === phone)) throw new ApiError('رقم الجوال مسجل مسبقًا، سجّل الدخول')
+    if (db.users.some((u) => u.email.toLowerCase() === input.email.trim().toLowerCase())) throw new ApiError('البريد الإلكتروني مسجل مسبقًا')
+    const u: DemoUser = {
+      id: uid(db, 'u'), fullName: `${first} ${father} ${grand} ${family}`, phone, email: input.email.trim(), nationalId: nid, role: 'owner', password: input.password, createdAt: iso(now()),
+      p: { firstName: first, fatherName: father, grandfatherName: grand, familyName: family, birthDate: input.birthDate, gender: input.gender, nationality: input.nationality, residenceCountry: input.residenceCountry, residenceCity: input.residenceCity.trim() },
+    }
     db.users.push(u)
     setSession(u.id)
+    try { localStorage.setItem('sammha-demo-stamp', '0') } catch { /* ignore */ }
     return publicUser(u)
   }),
 
   startSignIn: (login, password, portal) => tx((db) => {
+    // the identity number, the mobile (05… or +country…) or the email
     const l = login.trim().toLowerCase()
-    const u = db.users.find((x) => x.phone === l || x.email.toLowerCase() === l)
+    const asPhone = normalizeIntl('', l) ?? l
+    const u = db.users.find((x) => x.phone === asPhone || x.phone === l || x.email.toLowerCase() === l || (x.nationalId ?? '').toLowerCase() === l)
     const wrong = new ApiError(portal === 'staff' ? 'البيانات غير صحيحة' : 'رقم الجوال أو كلمة المرور غير صحيحة')
     if (!u) throw wrong
     // the same generic error whichever portal is wrong, so the staff portal is not revealed
@@ -830,6 +957,9 @@ export const demoApi: SammhaApi = {
     if (name.length < 6) throw new ApiError('اكتب الاسم الرباعي')
     const nid = nationalId?.trim()
     if (nid && !/^[12]\d{9}$/.test(nid)) throw new ApiError('رقم الهوية أو الإقامة 10 أرقام يبدأ بـ 1 أو 2')
+    if (u.nationalId && nid !== u.nationalId) throw new ApiError('رقم الهوية لا يُعدّل بعد التسجيل، تواصل مع الدعم لتصحيحه')
+    if (u.p?.firstName && name !== u.fullName) throw new ApiError('الاسم مأخوذ من بيانات التسجيل، تواصل مع الدعم لتصحيحه')
+    if (nid && nid !== u.nationalId && db.users.some((x) => x.nationalId === nid && x.id !== u.id)) throw new ApiError('رقم الهوية مسجل لحساب آخر')
     const renamed = name !== u.fullName
     Object.assign(u, { fullName: name, nationalId: nid || undefined })
     // keep the owner's name on registered names and requests in step
@@ -856,6 +986,7 @@ export const demoApi: SammhaApi = {
     if (c.userId !== u.id) throw new ApiError('تعذّر التحقق')
     if (db.users.some((x) => x.id !== u.id && x.email.toLowerCase() === c.phone.toLowerCase())) throw new ApiError('البريد الإلكتروني مسجل لحساب آخر')
     u.email = c.phone
+    u.emailVerifiedAt = iso(now()) // the code reached the new address
     return publicUser(u)
   }),
 
@@ -899,6 +1030,7 @@ export const demoApi: SammhaApi = {
   listAuctions: (f = {}) => tx((db) => {
     const q = f.q ? normalizeName(f.q) : ''
     return db.auctions
+      .filter((a) => !a.cancelled)
       .filter((a) => (f.phase && f.phase !== 'all' ? phaseOf(a) === f.phase : true))
       .filter((a) => (f.type && f.type !== 'all' ? a.type === f.type : true))
       .filter((a) => (q ? normalizeName(a.name).includes(q) : true))
@@ -957,7 +1089,17 @@ export const demoApi: SammhaApi = {
       status: 'new', priority: clean.kind === 'report' ? 'urgent' : 'normal', messages: [], createdAt: iso(now()), updatedAt: iso(now()),
     }
     db.tickets.push(k)
-    emailTicketEvent('created', k)
+    // Settings → complaints and enquiries: assign to the handler of this kind with the fewest open tickets, notify them all
+    const routing = readRouting()
+    const handlers = (routing.handlers[k.kind] ?? []).map((hid) => db.users.find((x) => x.id === hid && x.active !== false)).filter((x): x is DemoUser => !!x)
+    if (handlers.length) {
+      const open = (hid: string) => db.tickets.filter((x) => x.assigneeId === hid && x.status !== 'closed').length
+      const pick = [...handlers].sort((a, b) => open(a.id) - open(b.id))[0]
+      k.assigneeId = pick.id; k.assignee = pick.fullName
+      const kind = ({ complaint: 'شكوى', report: 'بلاغ', inquiry: 'استفسار', suggestion: 'اقتراح' } as Record<string, string>)[k.kind]
+      for (const h of handlers) notify(db, h.id, 'ticket', h.id === pick.id ? `${kind} جديد مُسند إليك: ${k.number}` : `${kind} جديد: ${k.number}`, `${k.subject} · من ${k.name}`, `/admin/tickets/${k.id}`)
+    }
+    emailTicketEvent('created', k, undefined, teamInboxes(k.kind))
     return publicTicket(k)
   }),
 
@@ -985,38 +1127,41 @@ export const demoApi: SammhaApi = {
   }),
 
   listTickets: () => tx((db) => {
-    staff(db)
+    need(db, 'tickets.view')
     return [...db.tickets].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
   }),
 
   getTicket: (id) => tx((db) => {
-    staff(db)
+    need(db, 'tickets.view')
     const k = db.tickets.find((x) => x.id === id)
     if (!k) throw new ApiError('الطلب غير موجود')
     return k
   }),
 
   updateTicket: (id, patch) => tx((db) => {
-    staff(db)
+    const u = need(db, 'tickets.manage')
     const k = db.tickets.find((x) => x.id === id)
     if (!k) throw new ApiError('الطلب غير موجود')
+    ensureHandler(u, k)
+    if (patch.assignee !== undefined) k.assigneeId = db.users.find((x) => x.fullName === patch.assignee && x.role !== 'owner')?.id
     const statusChanged = patch.status && patch.status !== k.status
     Object.assign(k, Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)), { updatedAt: iso(now()) })
-    if (statusChanged && (k.status === 'closed' || k.status === 'in_progress')) emailTicketEvent('status', k)
+    if (statusChanged && (k.status === 'closed' || k.status === 'in_progress')) emailTicketEvent('status', k, undefined, teamInboxes(k.kind))
     return k
   }),
 
   replyTicket: (id, body, internal) => tx((db) => {
-    const u = staff(db)
+    const u = need(db, 'tickets.reply')
     const k = db.tickets.find((x) => x.id === id)
     if (!k) throw new ApiError('الطلب غير موجود')
+    ensureHandler(u, k)
     const text = body.trim().slice(0, 3000)
     if (text.length < 2) throw new ApiError('اكتب الرد')
     k.messages.push({ id: uid(db, 'tm'), by: 'staff', author: u.fullName, body: text, internal: internal || undefined, createdAt: iso(now()) })
     if (!internal) {
       k.status = 'answered'
       if (k.userId) notify(db, k.userId, 'ticket', `رد فريق سمّها على طلبك ${k.number}`, text.slice(0, 120), `/dashboard/tickets`)
-      emailTicketEvent('reply', k, text)
+      emailTicketEvent('reply', k, text, teamInboxes(k.kind))
     } else if (k.status === 'new') k.status = 'in_progress'
     if (!k.assignee) k.assignee = u.fullName
     k.updatedAt = iso(now())
@@ -1335,6 +1480,8 @@ export const demoApi: SammhaApi = {
     if (!a) throw new ApiError('المزاد غير موجود')
     const phase = phaseOf(a)
     if (phase === 'scheduled') throw new ApiError('المزاد لم يبدأ بعد')
+    if (a.cancelled) throw new ApiError('أُلغي هذا المزاد')
+    if (a.paused) throw new ApiError('المزاد متوقف مؤقتًا، تابع الصفحة لمعرفة موعد الاستئناف')
     if (phase === 'ended') throw new ApiError('انتهى المزاد')
     const min = a.currentPrice + a.minIncrement
     if (!Number.isFinite(amount) || amount < min) throw new ApiError(`أقل مزايدة ${min} ريال`)
@@ -1351,6 +1498,7 @@ export const demoApi: SammhaApi = {
     const a = db.auctions.find((x) => x.id === auctionId)
     if (!a) throw new ApiError('المزاد غير موجود')
     if (phaseOf(a) === 'ended') throw new ApiError('انتهى المزاد')
+    if (a.paused) throw new ApiError('المزاد متوقف مؤقتًا، تابع الصفحة لمعرفة موعد الاستئناف')
     if (isInvestment(db, a) && a.requesterId === u.id) throw new ApiError('لا يمكنك المزايدة على اسم قدّمته في «استثمار الاسم»')
     resaleGuard(db, a, u.id)
     const floor = a.leaderId === u.id ? a.currentPrice + a.minIncrement : a.currentPrice + a.minIncrement
@@ -1389,7 +1537,7 @@ export const demoApi: SammhaApi = {
 
 
   overview: () => tx((db) => {
-    staff(db)
+    need(db, 'overview.view')
     return {
       underReview: db.requests.filter((r) => r.status === 'under_review').length,
       awaitingSchedule: db.requests.filter((r) => r.kind !== 'compound' && r.status === 'accepted').flatMap((r) => r.candidates).filter((c) => c.status === 'accepted' && !c.auctionId).length,
@@ -1402,7 +1550,7 @@ export const demoApi: SammhaApi = {
   }),
 
   listRequests: (status = 'all') => tx((db) => {
-    staff(db)
+    need(db, 'requests.view')
     return db.requests.filter((r) => (status === 'all' ? r.status !== 'pending_payment' : r.status === status))
       .sort((a, b) => Date.parse(b.submittedAt || b.createdAt) - Date.parse(a.submittedAt || a.createdAt))
   }),
@@ -1416,7 +1564,7 @@ export const demoApi: SammhaApi = {
   }),
 
   reviewRequest: (id, decisions, note) => tx((db) => {
-    const u = staff(db)
+    const u = need(db, 'requests.review')
     const r = db.requests.find((x) => x.id === id)
     if (!r) throw new ApiError('الطلب غير موجود')
     if (r.status !== 'under_review') throw new ApiError('تمت مراجعة هذا الطلب')
@@ -1458,7 +1606,7 @@ export const demoApi: SammhaApi = {
   }),
 
   rejectRequest: (id, reason) => tx((db) => {
-    const u = staff(db)
+    const u = need(db, 'requests.review')
     const r = db.requests.find((x) => x.id === id)
     if (!r || r.status !== 'under_review') throw new ApiError('لا يمكن رفض هذا الطلب')
     r.candidates.forEach((c) => { if (c.status !== 'withdrawn') { c.status = 'rejected'; c.rejectReason = reason } })
@@ -1470,7 +1618,7 @@ export const demoApi: SammhaApi = {
   }),
 
   cancelRequest: (id, reason) => tx((db) => {
-    const u = staff(db)
+    const u = need(db, 'requests.cancel')
     const r = db.requests.find((x) => x.id === id)
     if (!r || !['under_review', 'accepted'].includes(r.status)) throw new ApiError('لا يمكن إلغاء هذا الطلب')
     if (r.candidates.some((c) => c.auctionId)) throw new ApiError('لا يمكن إلغاء طلب فُتح له مزاد')
@@ -1480,13 +1628,13 @@ export const demoApi: SammhaApi = {
   }),
 
   awaitingSchedule: () => tx((db) => {
-    staff(db)
+    need(db, 'auctions.schedule')
     return db.requests.filter((r) => r.status === 'accepted' && r.kind !== 'compound')
       .flatMap((r) => r.candidates.filter((c) => c.status === 'accepted' && !c.auctionId).map((c) => ({ ...c, request: r })))
   }),
 
   scheduleAuctions: (candidateIds, startsAt, endsAt) => tx((db) => {
-    staff(db)
+    need(db, 'auctions.schedule')
     const s = Date.parse(startsAt), e = Date.parse(endsAt)
     if (!s || !e) throw new ApiError('حدد موعد البداية والنهاية')
     if (e <= s) throw new ApiError('موعد النهاية يجب أن يكون بعد البداية')
@@ -1511,12 +1659,12 @@ export const demoApi: SammhaApi = {
   }),
 
   allInvoices: () => tx((db) => {
-    staff(db)
+    need(db, 'invoices.view')
     return [...db.invoices].sort((a, b) => Date.parse(b.issuedAt) - Date.parse(a.issuedAt))
   }),
 
   markInvoicePaid: (id) => tx((db) => {
-    staff(db)
+    need(db, 'invoices.mark_paid')
     const inv = db.invoices.find((i) => i.id === id)
     if (!inv || inv.status === 'paid') throw new ApiError('الفاتورة غير موجودة أو مدفوعة')
     inv.status = 'paid'
@@ -1526,12 +1674,13 @@ export const demoApi: SammhaApi = {
   }),
 
   listUsers: () => tx((db) => {
-    staff(db)
+    need(db, 'users.view')
     return [...db.users].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).map(publicUser)
   }),
 
   createStaff: (input) => tx((db) => {
-    superOnly(db)
+    const actor = need(db, 'users.create')
+    if (input.role === 'admin' && actor.role !== 'admin') throw new ApiError('إنشاء حساب مدير نظام لمدير النظام فقط')
     const phone = input.phone.replace(/\s/g, '')
     const email = input.email.trim()
     if (input.fullName.trim().length < 3) throw new ApiError('اكتب اسم الموظف')
@@ -1542,26 +1691,31 @@ export const demoApi: SammhaApi = {
     if (input.password.length < 8) throw new ApiError('كلمة المرور المؤقتة 8 أحرف على الأقل')
     if (input.role !== 'committee' && input.role !== 'admin') throw new ApiError('اختر الصلاحية')
     const u: DemoUser = { id: uid(db, 'u'), fullName: input.fullName.trim(), phone, email, role: input.role, password: input.password, active: true, createdAt: iso(now()) }
+    if (input.role === 'committee' && input.staffRoleId) {
+      if (!rolesOf(db).some((x) => x.id === input.staffRoleId)) throw new ApiError('الدور غير موجود')
+      u.staffRoleId = input.staffRoleId
+    }
     db.users.push(u)
     return publicUser(u)
   }),
 
   setUserRole: (id, role) => tx((db) => {
-    const t = targetUser(db, id, superOnly(db))
+    const t = targetUser(db, id, need(db, 'users.roles'))
+    if (role === 'admin' && me(db).role !== 'admin') throw new ApiError('ترقية حساب إلى مدير نظام لمدير النظام فقط')
     if (!['owner', 'committee', 'admin'].includes(role)) throw new ApiError('صلاحية غير معروفة')
     t.role = role
     return publicUser(t)
   }),
 
   setUserActive: (id, active) => tx((db) => {
-    const t = targetUser(db, id, superOnly(db))
+    const t = targetUser(db, id, need(db, 'users.suspend'))
     t.active = active
     if (!active && getSession() === t.id) setSession(null)
     return publicUser(t)
   }),
 
   saveEvent: (e) => tx((db) => {
-    staff(db)
+    need(db, 'events.manage')
     if (!e.title.trim() || !e.startsOn || !e.endsOn) throw new ApiError('أكمل اسم الفعالية والتواريخ')
     if (e.endsOn < e.startsOn) throw new ApiError('تاريخ النهاية قبل البداية')
     const ev = { ...e, id: e.id || uid(db, 'ev') }
@@ -1571,17 +1725,28 @@ export const demoApi: SammhaApi = {
   }),
 
   deleteEvent: (id) => tx((db) => {
-    staff(db)
+    need(db, 'events.manage')
     db.events = db.events.filter((e) => e.id !== id)
   }),
 
   // ───── settings ─────
   publicSettings: async () => structuredClone(publicOf(readSettings())),
-  adminSettings: () => tx((db) => { superOnly(db); return { ...readSettings(), rules: demoRules() } }),
-  updateSettings: (patch) => tx((db) => { const u = superOnly(db); return { ...writeSettings(patch, u.fullName), rules: demoRules() } }),
-  settingsHistory: () => tx((db) => { superOnly(db); return readLog() }),
+  adminSettings: () => tx((db) => {
+    const u = staff(db)
+    if (!permsOf(db, u).some((p) => p === 'settings.manage' || p === 'security.manage')) throw new ApiError('ليست لديك صلاحية «إعدادات المنصة»')
+    return { ...readSettings(), rules: demoRules() }
+  }),
+  updateSettings: (patch) => tx((db) => {
+    const security = ['passwordMinLength', 'maxLoginAttempts', 'lockoutMinutes', 'staffIdleMinutes'] as const
+    const touchesSecurity = security.some((k) => patch[k] !== undefined)
+    const touchesGeneral = Object.keys(patch).some((k) => !(security as readonly string[]).includes(k) && patch[k as keyof typeof patch] !== undefined)
+    const u = touchesSecurity ? need(db, 'security.manage') : need(db, 'settings.manage')
+    if (touchesSecurity && touchesGeneral) need(db, 'settings.manage')
+    return { ...writeSettings(patch, u.fullName), rules: demoRules() }
+  }),
+  settingsHistory: () => tx((db) => { need(db, 'audit.view'); return readLog() }),
   signOutEveryone: () => tx((db) => {
-    const u = superOnly(db)
+    const u = need(db, 'security.manage')
     let n = 0
     for (const x of db.users) if (x.id !== u.id) { x.stamp = (x.stamp ?? 0) + 1; n++ }
     // the caller's own stamp stays as is, so this browser keeps its session
@@ -1601,4 +1766,196 @@ export const demoApi: SammhaApi = {
   }),
   revokeMySession: () => tx(() => { throw new ApiError('هذا جهازك الحالي، استخدم «تسجيل الخروج»') }),
   mySecurity: () => tx((db) => ({ lastLoginAt: me(db).lastLoginAt, activeSessions: 1, passwordMinLength: readSettings().passwordMinLength })),
+
+  // ───── owner profile completion ─────
+  updateMyAddress: (i) => tx((db) => {
+    const u = me(db)
+    if (!i.addressCountry) throw new ApiError('اختر البلد')
+    if (i.addressCity.trim().length < 2) throw new ApiError('أدخل المدينة')
+    if (i.district.trim().length < 2) throw new ApiError('أدخل الحي')
+    const postal = otpDigits(i.postalCode)
+    if (postal.length < 3 || postal.length > 10) throw new ApiError('الرمز البريدي أرقام فقط، مثل 12345')
+    let alt: string | undefined
+    if (i.altPhone?.trim()) {
+      alt = normalizeIntl(i.altPhoneCountry ?? '966', i.altPhone) ?? undefined
+      if (!alt) throw new ApiError('رقم التواصل الآخر غير صحيح')
+      if (alt === u.phone) throw new ApiError('رقم التواصل الآخر هو رقمك الأساسي نفسه')
+    }
+    u.p = { ...u.p, addressCountry: i.addressCountry, addressCity: i.addressCity.trim(), district: i.district.trim(), postalCode: postal, street: i.street?.trim() || undefined, altPhone: alt }
+    return publicUser(u)
+  }),
+  updateMyPersonal: (i) => tx((db) => {
+    const u = me(db)
+    const part = (v: string, label: string) => { const t = v.trim().replace(/\s+/g, ' '); if (t.length < 2 || t.length > 30 || /\d/.test(t)) throw new ApiError(`اكتب ${label} بالحروف (2 إلى 30 حرفًا)`); return t }
+    const first = part(i.firstName, 'الاسم الأول'), father = part(i.fatherName, 'اسم الأب'), grand = part(i.grandfatherName, 'اسم الجد'), family = part(i.familyName, 'اسم العائلة')
+    if (!i.birthDate || (now() - Date.parse(i.birthDate)) / (365.25 * D) < 18) throw new ApiError('التسجيل لمن أتم 18 سنة')
+    if (i.gender !== 'male' && i.gender !== 'female') throw new ApiError('اختر الجنس')
+    if (!i.nationality || !i.residenceCountry || i.residenceCity.trim().length < 2) throw new ApiError('أكمل الجنسية وبلد ومدينة الإقامة')
+    if (!u.nationalId) {
+      const nid = (i.nationalId ?? '').trim().toUpperCase()
+      const e = identityError(nid, i.nationality, i.residenceCountry)
+      if (e) throw new ApiError(e)
+      if (db.users.some((x) => x.nationalId === nid && x.id !== u.id)) throw new ApiError('رقم الهوية مسجل لحساب آخر')
+      u.nationalId = nid
+    }
+    u.fullName = `${first} ${father} ${grand} ${family}`
+    for (const r of db.reserved) if (r.ownerId === u.id) r.ownerName = u.fullName
+    u.p = { ...u.p, firstName: first, fatherName: father, grandfatherName: grand, familyName: family, birthDate: i.birthDate, gender: i.gender, nationality: i.nationality, residenceCountry: i.residenceCountry, residenceCity: i.residenceCity.trim() }
+    return publicUser(u)
+  }),
+  requestEmailVerification: () => tx((db) => {
+    const u = me(db)
+    if (u.emailVerifiedAt) throw new ApiError('بريدك موثّق مسبقًا')
+    return issueOtp(u.id, 'verify_email', u.email)
+  }),
+  confirmEmailVerification: (challenge, code) => tx((db) => {
+    const u = me(db)
+    const c = consumeOtp(challenge, code, 'verify_email')
+    if (c.userId !== u.id || c.phone !== u.email) throw new ApiError('تعذّر التحقق، اطلب رمزًا جديدًا')
+    u.emailVerifiedAt = iso(now())
+    return publicUser(u)
+  }),
+
+  // ───── staff roles ─────
+  listRoles: () => tx((db) => {
+    const u = staff(db)
+    if (!permsOf(db, u).some((p) => p === 'roles.manage' || p === 'users.view')) throw new ApiError('ليست لديك صلاحية «الأدوار والصلاحيات»')
+    return rolesOf(db).map((r) => ({ ...r, members: db.users.filter((x) => x.role === 'committee' && (x.staffRoleId ?? COMMITTEE_ROLE_ID) === r.id).length }))
+  }),
+  saveRole: (id, input) => tx((db) => {
+    const u = need(db, 'roles.manage')
+    const name = input.name.trim()
+    if (name.length < 2 || name.length > 60) throw new ApiError('اكتب اسم الدور (2 إلى 60 حرفًا)')
+    const perms = ALL_PERMISSIONS.filter((p) => input.permissions.includes(p))
+    if (!perms.length) throw new ApiError('اختر صلاحية واحدة على الأقل')
+    const mine = permsOf(db, u)
+    const beyond = perms.filter((p) => !mine.includes(p))
+    if (beyond.length) throw new ApiError(`لا يمكنك منح صلاحية لا تملكها: ${beyond.map(permissionLabel).join('، ')}`)
+    const roles = rolesOf(db)
+    if (roles.some((r) => r.name === name && r.id !== id)) throw new ApiError('يوجد دور بهذا الاسم')
+    let role = id ? roles.find((r) => r.id === id) : undefined
+    if (id && !role) throw new ApiError('الدور غير موجود')
+    if (!role) { role = { id: uid(db, 'role'), name, permissions: [], isSystem: false, members: 0 }; roles.push(role); logAction('StaffRoleCreated', u.fullName, `${name}: ${perms.map(permissionLabel).join('، ')}`) }
+    else logAction('StaffRole', u.fullName, `${name}: ${perms.map(permissionLabel).join('، ')}`)
+    Object.assign(role, { name, description: input.description?.trim() || undefined, permissions: perms })
+    return { ...role, members: db.users.filter((x) => x.role === 'committee' && (x.staffRoleId ?? COMMITTEE_ROLE_ID) === role!.id).length }
+  }),
+  deleteRole: (id) => tx((db) => {
+    const u = need(db, 'roles.manage')
+    const roles = rolesOf(db)
+    const role = roles.find((r) => r.id === id)
+    if (!role) throw new ApiError('الدور غير موجود')
+    if (role.isSystem) throw new ApiError('الدور الأساسي «لجنة الاعتماد» لا يُحذف، عدّل صلاحياته بدلًا من ذلك')
+    const n = db.users.filter((x) => x.staffRoleId === id).length
+    if (n) throw new ApiError(`انقل الموظفين (${n}) إلى دور آخر قبل حذف هذا الدور`)
+    db.roles = roles.filter((r) => r.id !== id)
+    logAction('StaffRoleDeleted', u.fullName, role.name)
+  }),
+  setUserStaffRole: (userId, roleId) => tx((db) => {
+    const u = need(db, 'users.roles')
+    const t = db.users.find((x) => x.id === userId)
+    if (!t) throw new ApiError('المستخدم غير موجود')
+    if (t.role !== 'committee') throw new ApiError('الأدوار للموظفين فقط؛ مدير النظام يملك كل الصلاحيات')
+    if (t.id === u.id) throw new ApiError('لا يمكنك تعديل صلاحيات حسابك')
+    const role = rolesOf(db).find((r) => r.id === roleId)
+    if (!role) throw new ApiError('الدور غير موجود')
+    const mine = permsOf(db, u)
+    if (role.permissions.some((p) => !mine.includes(p as Permission))) throw new ApiError('لا يمكنك إسناد دور فيه صلاحيات لا تملكها')
+    t.staffRoleId = role.id
+    logAction('UserStaffRole', u.fullName, `${t.fullName} ← ${role.name}`)
+    return publicUser(t)
+  }),
+  ticketRouting: () => tx((db) => {
+    const u = staff(db)
+    if (!permsOf(db, u).some((p) => p === 'settings.manage' || p === 'tickets.manage')) throw new ApiError('ليست لديك صلاحية «إعدادات المنصة»')
+    return routingView(db)
+  }),
+  saveTicketRouting: (input) => tx((db) => {
+    const u = need(db, 'settings.manage')
+    const emails: Record<string, string> = {}
+    for (const [k, raw] of Object.entries(input.emails ?? {})) {
+      const list = [...new Set((raw ?? '').split(/[,،;\s]+/).map((e) => e.trim()).filter(Boolean))]
+      const bad = list.find((e) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
+      if (bad) throw new ApiError(`البريد غير صحيح: ${bad}`)
+      emails[k] = list.join(', ')
+    }
+    for (const ids of Object.values(input.handlers)) for (const id of ids) {
+      const x = db.users.find((y) => y.id === id)
+      if (!x || !permsOf(db, x).includes('tickets.reply')) throw new ApiError('اختر موظفين لديهم صلاحية «الرد على التذاكر»')
+    }
+    writeRouting({ restrictToHandlers: input.restrictToHandlers, handlers: input.handlers, emails })
+    logAction('TicketRouting', u.fullName, Object.entries(input.handlers).map(([k, v]) => `${k}: ${v.length}`).join(' | '))
+    return routingView(db)
+  }),
+
+  // ───── auction controls ─────
+  adminAuctions: (state = 'active', type = 'all') => tx((db) => {
+    const u = staff(db)
+    if (!permsOf(db, u).some((p) => p === 'auctions.manage' || p === 'auctions.cancel' || p === 'auctions.schedule')) throw new ApiError('ليست لديك صلاحية «التحكم في المزادات»')
+    const t = now()
+    return db.auctions.filter((a) => (type === 'all' ? true : a.type === type)).filter((a) => {
+      const ph = phaseOf(a, t)
+      switch (state) {
+        case 'live': return !a.settled && !a.paused && ph === 'live'
+        case 'scheduled': return !a.settled && !a.paused && ph === 'scheduled'
+        case 'paused': return !!a.paused && !a.cancelled
+        case 'cancelled': return !!a.cancelled
+        case 'ended': return !a.cancelled && !a.paused && (a.settled || ph === 'ended')
+        case 'active': return !a.settled && !a.cancelled
+        default: return true
+      }
+    }).sort((x, y) => Number(x.settled) - Number(y.settled) || Date.parse(x.endsAt) - Date.parse(y.endsAt))
+  }),
+  pauseAuctions: (scope, reason) => tx((db) => control(db, scope, 'auctions.manage', 'AuctionPause', reason, (a) => {
+    if (closedWhy(a)) return closedWhy(a)
+    if (a.paused) return 'متوقف مسبقًا'
+    Object.assign(a, { paused: true, pausedAt: iso(now()), pauseReason: reason?.trim() || undefined })
+    followers(db, a, `توقف مزاد «${a.name}» مؤقتًا`, reason?.trim() || 'أوقفت إدارة المنصة المزاد مؤقتًا، ويُضاف وقت التوقف إلى مدته عند الاستئناف.')
+    return null
+  })),
+  resumeAuctions: (scope) => tx((db) => control(db, scope, 'auctions.manage', 'AuctionResume', undefined, (a) => {
+    if (a.cancelled) return 'ملغى'
+    if (!a.paused || !a.pausedAt) return 'غير متوقف'
+    const at = Date.parse(a.pausedAt), shift = now() - at
+    if (at < Date.parse(a.startsAt)) a.startsAt = iso(Date.parse(a.startsAt) + shift)
+    a.endsAt = iso(Date.parse(a.endsAt) + shift)
+    Object.assign(a, { paused: undefined, pausedAt: undefined, pauseReason: undefined })
+    followers(db, a, `استؤنف مزاد «${a.name}»`, 'عاد المزاد ومُدّد بمقدار مدة التوقف.')
+    return null
+  })),
+  extendAuctions: (scope, minutes) => tx((db) => {
+    if (!(minutes >= 1 && minutes <= 43200)) throw new ApiError('مدة التمديد من دقيقة إلى 30 يومًا')
+    return control(db, scope, 'auctions.manage', 'AuctionExtend', `+${minutes} دقيقة`, (a) => {
+      if (closedWhy(a)) return closedWhy(a)
+      a.endsAt = iso(Date.parse(a.endsAt) + minutes * 60_000)
+      followers(db, a, `مُدّد مزاد «${a.name}»`, `أُضيفت ${minutes} دقيقة إلى مدة المزاد.`)
+      return null
+    })
+  }),
+  cancelAuctions: (scope, reason) => tx((db) => {
+    const why = reason?.trim()
+    if (!why) throw new ApiError('اكتب سبب الإلغاء، يصل للمالك والمزايدين')
+    return control(db, scope, 'auctions.cancel', 'AuctionCancel', why, (a) => {
+      if (closedWhy(a)) return closedWhy(a)
+      Object.assign(a, { cancelled: true, cancelReason: why, paused: undefined, pausedAt: undefined, settled: true })
+      db.autobids = (db.autobids ?? []).filter((x) => x.auctionId !== a.id)
+      const bidders = [...new Set(db.bids.filter((b) => b.auctionId === a.id).map((b) => b.userId))]
+      if (a.listingId) {
+        const l = db.listings?.find((x) => x.id === a.listingId)
+        if (l) { l.status = 'cancelled'; const r = db.reserved.find((x) => x.id === l.reservedId); if (r) r.listingId = undefined }
+        for (const d of db.bidDeposits ?? []) if (d.auctionId === a.id && d.state === 'held') {
+          d.state = 'refunded'
+          db.txs.push({ id: uid(db, 't'), userId: d.userId, amount: d.amount, kind: 'refund', note: `استرداد ضمان دخول مزاد «${a.name}»`, createdAt: iso(now()) })
+        }
+        notify(db, a.requesterId, 'auction_update', `أُلغي مزاد «${a.name}»`, `بقي الاسم باسمك ويمكنك عرضه من جديد. السبب: ${why}`, '/dashboard/sell')
+      } else {
+        const r = db.requests.find((x) => x.id === a.requestId)
+        const c = r?.candidates.find((x) => x.id === a.candidateId)
+        if (c && c.auctionId === a.id) c.auctionId = undefined
+        notify(db, a.requesterId, 'auction_update', `أُلغي مزاد «${a.name}»`, `يعود الاسم إلى قائمة الجدولة وتحدد اللجنة موعدًا جديدًا. السبب: ${why}`, '/dashboard/requests')
+      }
+      for (const b of bidders) if (b !== a.requesterId) notify(db, b, 'auction_update', `أُلغي مزاد «${a.name}»`, `لم تُحتسب المزايدات على هذا المزاد. السبب: ${why}`, `/auctions/${a.id}`)
+      return null
+    })
+  }),
 }

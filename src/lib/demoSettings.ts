@@ -93,3 +93,12 @@ export function ensureWritable(role: string) {
   const s = readSettings()
   if (s.maintenance && role === 'owner') throw new ApiError(s.maintenanceNote || 'المنصة في صيانة قصيرة، حاول بعد قليل')
 }
+
+// ───── who handles complaints, reports, enquiries and suggestions (demo) ─────
+const ROUTING = 'sammha-demo-ticket-routing'
+export interface DemoRouting { restrictToHandlers: boolean; handlers: Record<string, string[]>; emails: Record<string, string> }
+export function readRouting(): DemoRouting {
+  const blank: DemoRouting = { restrictToHandlers: false, handlers: { complaint: [], report: [], inquiry: [], suggestion: [] }, emails: { complaint: '', report: '', inquiry: '', suggestion: '' } }
+  try { const v = JSON.parse(localStorage.getItem(ROUTING) || 'null') as DemoRouting | null; return v ? { ...blank, ...v, handlers: { ...blank.handlers, ...v.handlers }, emails: { ...blank.emails, ...v.emails } } : blank } catch { return blank }
+}
+export function writeRouting(r: DemoRouting) { try { localStorage.setItem(ROUTING, JSON.stringify(r)) } catch { /* ignore */ } }

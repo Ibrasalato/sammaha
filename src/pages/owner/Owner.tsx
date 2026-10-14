@@ -16,6 +16,7 @@ import { phaseOf } from '../../lib/demoApi'
 import { date, dateTime, humanLeft, num, sar } from '../../lib/format'
 import { ClosedNotice, useClosed } from '../../components/SettingsUi'
 import { api, useApp, useLoad } from '../../lib/store'
+import { ProfileCompletion, ProfileSections } from './Profile'
 
 export function DashHome() {
   const { user } = useApp()
@@ -55,6 +56,8 @@ export function DashHome() {
           </Link>
         </div>
       </section>
+
+      <ProfileCompletion />
 
       {todo > 0 && (
         <div className="space-y-2">
@@ -449,7 +452,9 @@ function AccountDetails() {
   const [err, setErr] = useState('')
   const [changing, setChanging] = useState<'phone' | 'email' | null>(null)
   if (!user) return null
-  const dirty = f.fullName !== user.fullName || f.nationalId !== (user.nationalId ?? '')
+  // name and ID come from sign-up and are fixed once set
+  const fixed = !!user.profile?.firstName && !!user.nationalId
+  const dirty = !fixed && (f.fullName !== user.fullName || f.nationalId !== (user.nationalId ?? ''))
   async function save(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true); setErr('')
@@ -470,17 +475,22 @@ function AccountDetails() {
       <form onSubmit={save} className="space-y-4 p-5">
         {err && <ErrorBox text={err} />}
         <div className="grid gap-4 sm:grid-cols-2">
-          <div><label className="label" htmlFor="af">الاسم الرباعي</label><input id="af" className="field" value={f.fullName} onChange={(e) => setF({ ...f, fullName: e.target.value })} required /></div>
-          <div><label className="label" htmlFor="an">رقم الهوية أو الإقامة <span className="font-normal text-muted">(اختياري)</span></label><input id="an" className="field num" dir="ltr" inputMode="numeric" maxLength={10} value={f.nationalId} onChange={(e) => setF({ ...f, nationalId: e.target.value.replace(/\D/g, '') })} /></div>
+          {fixed ? <>
+            <div><span className="label">الاسم الرباعي</span><span className="field block truncate bg-stone">{user.fullName}</span></div>
+            <div><span className="label">رقم الهوية / الإقامة</span><span className="field num block bg-stone" dir="ltr">{user.nationalId}</span><p className="hint">تستخدمه للدخول. لتصحيحه تواصل مع الدعم.</p></div>
+          </> : <>
+            <div><label className="label" htmlFor="af">الاسم الرباعي</label><input id="af" className="field" value={f.fullName} onChange={(e) => setF({ ...f, fullName: e.target.value })} required /></div>
+            <div><label className="label" htmlFor="an">رقم الهوية أو الإقامة <span className="font-normal text-muted">(اختياري)</span></label><input id="an" className="field num" dir="ltr" inputMode="numeric" maxLength={10} value={f.nationalId} onChange={(e) => setF({ ...f, nationalId: e.target.value.replace(/\D/g, '') })} /></div>
+          </>}
           <Locked label="رقم الجوال" value={user.phone} kind="phone" hint="يتطلب رمز تحقق يُرسل إلى الرقم الجديد." />
           <Locked label="البريد الإلكتروني" value={user.email} kind="email" hint="تصلك عليه الفواتير. يتطلب رمز تحقق يُرسل إلى البريد الجديد." />
         </div>
         <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
-          <button className="btn-primary" disabled={!dirty || busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ التعديلات'}</button>
+          {!fixed && <button className="btn-primary" disabled={!dirty || busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ التعديلات'}</button>}
           {dirty && <button type="button" className="text-[14px] font-bold text-muted hover:text-ink" onClick={() => setF({ fullName: user.fullName, nationalId: user.nationalId ?? '' })}>تراجع</button>}
           <span className="ms-auto text-[13px] text-muted">مسجّل منذ {date(user.createdAt)}</span>
         </div>
-        <p className="text-[13px] text-muted">تعديل الاسم يحدّث اسم المالك على أسمائك المسجلة وشهاداتها.</p>
+        {!fixed && <p className="text-[13px] text-muted">تعديل الاسم يحدّث اسم المالك على أسمائك المسجلة وشهاداتها.</p>}
       </form>
       {changing && <ChangeContact kind={changing} onClose={() => setChanging(null)} />}
     </SectionCard>
@@ -521,6 +531,7 @@ export function ProfilePage() {
         </SectionCard>
         <AccountDetails />
       </div>
+      <ProfileSections />
     </>
   )
 }

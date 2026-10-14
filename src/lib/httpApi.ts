@@ -289,4 +289,22 @@ export const httpApi: SammhaApi = {
   mySessions: () => get('/api/me/sessions'),
   revokeMySession: (id) => call('DELETE', `/api/me/sessions/${encodeURIComponent(id)}`),
   mySecurity: () => get('/api/me/security'),
+
+  updateMyAddress: (input) => put('/api/me/address', input),
+  updateMyPersonal: (input) => put('/api/me/personal', input),
+  requestEmailVerification: () => post('/api/me/email/verify'),
+  confirmEmailVerification: (challenge, code) => post('/api/me/email/verify/confirm', { challenge, code }),
+
+  listRoles: () => get('/api/admin/roles'),
+  saveRole: (id, input) => (id ? put(`/api/admin/roles/${id}`, input) : post('/api/admin/roles', input)),
+  deleteRole: async (id) => { await call('DELETE', `/api/admin/roles/${id}`) },
+  setUserStaffRole: (userId, roleId) => put(`/api/admin/users/${userId}/staff-role`, { staffRoleId: roleId }),
+  ticketRouting: () => get('/api/admin/ticket-routing'),
+  saveTicketRouting: (input) => put('/api/admin/ticket-routing', input),
+
+  adminAuctions: (state, type) => get(`/api/admin/auctions${qs({ state, type })}`),
+  pauseAuctions: (scope, reason) => post('/api/admin/auctions/pause', { scope, reason }),
+  resumeAuctions: (scope) => post('/api/admin/auctions/resume', { scope }),
+  extendAuctions: (scope, minutes) => post('/api/admin/auctions/extend', { scope, minutes }),
+  cancelAuctions: (scope, reason) => post('/api/admin/auctions/cancel', { scope, reason }),
 }
