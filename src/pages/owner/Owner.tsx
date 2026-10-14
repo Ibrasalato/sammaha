@@ -1,5 +1,8 @@
 import { AuctionGrid } from '../../components/AuctionCard'
-import { typeOptions } from '../../lib/config'
+import { TYPE_CLS, TYPE_LABEL, typeOptions } from '../../lib/config'
+import { ActionMenu } from '../../components/ActionMenu'
+import type { MenuAction } from '../../components/ActionMenu'
+import { downloadCsv, printReport } from '../../lib/print'
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Avatar, resizeToSquare } from '../../components/Avatar'
@@ -13,7 +16,7 @@ import type { OtpChallenge } from '../../lib/api'
 import { OtpForm } from '../../components/OtpForm'
 import { phaseOf } from '../../lib/demoApi'
 import { date, dateTime, humanLeft, num, sar } from '../../lib/format'
-import { ClosedNotice, useClosed } from '../../components/SettingsUi'
+import { ClosedNotice, useClosed, useIntakeState } from '../../components/SettingsUi'
 import { api, useApp, useLoad } from '../../lib/store'
 import { ProfileCompletion, ProfileSections } from './Profile'
 import { BankAndRefunds } from './Bank'
@@ -408,9 +411,9 @@ function MarkLogo({ n, onChange }: { n: ReservedName; onChange: () => void }) {
   }
   const status = n.logo ? null : n.logoStatus === 'pending' ? [tr('اللوجو بانتظار الاعتماد', 'Logo awaiting approval'), 'bg-gold-soft text-gold-deep'] : n.logoStatus === 'rejected' ? [tr('لم يُعتمد اللوجو، ارفع غيره', 'Logo not approved, upload another'), 'bg-bad/10 text-bad'] : null
   return (
-    <div className="flex w-full flex-col items-center gap-2 border-t border-line pt-3">
+    <div className="flex w-full flex-col items-center gap-2.5">
       {src
-        ? <img src={src} alt={tr(`لوجو ${n.name}`, `${n.name} logo`)} className={`h-20 w-20 rounded-lg border border-line bg-paper object-contain p-1 ${n.logo ? '' : 'opacity-70'}`} />
+        ? <img src={src} alt={tr(`لوجو ${n.name}`, `${n.name} logo`)} className={`h-32 w-32 rounded-lg border border-line bg-paper object-contain p-1 ${n.logo ? '' : 'opacity-70'}`} />
         : <span className="text-[13px] text-muted">{tr('لا يوجد لوجو للشعار', 'No logo yet')}</span>}
       {status && <span className={`pill ${status[1]}`}>{status[0]}</span>}
       <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void pick(e.target.files?.[0])} />
@@ -423,6 +426,28 @@ function MarkLogo({ n, onChange }: { n: ReservedName; onChange: () => void }) {
   )
 }
 
+const NAME_SOURCE = (): Record<ReservedName['source'], string> => ({
+  auction: tr('مزاد علني', 'Public auction'), legacy: tr('قيد سابق', 'Prior record'), compound: tr('اسم مركب', 'Compound name'), exception: tr('أسماء المنظمة الدولية', 'Organization name'),
+  investment: tr('استثمار الاسم', 'Name investment'), resale: tr('إعادة بيع', 'Resale'), transfer: tr('نقل ملكية', 'Ownership transfer'),
+})
+type NameState = 'linked' | 'unlinked' | 'listed' | 'unpaid'
+const nameStateLabel = (): Record<NameState | 'manqiya', string> => ({ linked: tr('مربوط بشريحة', 'Linked to chip'), unlinked: tr('غير مربوط', 'Not linked'), listed: tr('معروض للبيع', 'Listed for sale'), unpaid: tr('بانتظار السداد', 'Awaiting payment'), manqiya: tr('مسجل', 'Registered') })
+const logoLabel = (n: ReservedName) => (n.logo ? tr('معتمد', 'Approved') : n.logoStatus === 'pending' ? tr('بانتظار الاعتماد', 'Awaiting approval') : n.logoStatus === 'rejected' ? tr('مرفوض', 'Rejected') : tr('لا يوجد', 'None'))
+
+/** the logo cell: the approved thumbnail, or where the owner's upload stands */
+function LogoCell({ n, onOpen }: { n: ReservedName; onOpen: () => void }) {
+  const src = n.logo ? api.logoSrc(n) : undefined
+  return (
+    <button type="button" onClick={onOpen} className="group inline-flex items-center gap-2 text-start" title={n.logo || n.logoStatus ? tr('عرض اللوجو', 'View logo') : tr('رفع لوجو', 'Upload logo')}>
+      {src
+        ? <img src={src} alt={tr(`لوجو ${n.name}`, `${n.name} logo`)} className="h-10 w-10 rounded-md border border-line bg-paper object-contain p-0.5 group-hover:border-pine" />
+        : n.logoStatus === 'pending' ? <span className="pill bg-gold-soft text-gold-deep"><Icon name="clock" className="h-3.5 w-3.5" />{tr('بانتظار الاعتماد', 'Awaiting approval')}</span>
+        : n.logoStatus === 'rejected' ? <span className="pill bg-bad/10 text-bad">{tr('مرفوض، ارفع غيره', 'Rejected, upload another')}</span>
+        : <span className="text-[13.5px] text-muted group-hover:text-pine">{tr('لا يوجد', 'None')}</span>}
+    </button>
+  )
+}
+
 export function MyNames() {
   const { user, toast } = useApp()
   const { data, loading, reload } = useLoad(() => api.myNames(), [])
@@ -430,6 +455,8 @@ export function MyNames() {
   const [linking, setLinking] = useState<ReservedName | null>(null)
   const [unlinking, setUnlinking] = useState<ReservedName | null>(null)
   const [unlinkBusy, setUnlinkBusy] = useState(false)
+  const [logoFor, setLogoFor] = useState<ReservedName | null>(null)
+  const printRef = useRef<HTMLDivElement>(null)
   async function unlink() {
     if (!unlinking?.camelId) return
     setUnlinkBusy(true)
@@ -438,44 +465,173 @@ export function MyNames() {
   }
   const invoices = useLoad(() => api.myInvoices(), [])
   const unpaidFor = (name: string) => invoices.data?.find((i) => i.name === name && i.status === 'unpaid')
+  // e-services, live with the admin settings
+  const resale = useIntakeState('resale')
+  const instant = useIntakeState('instant')
+  const transfer = useIntakeState('transfer')
+  const compound = useIntakeState('compound')
+
+  const states = (n: ReservedName): NameState[] => {
+    const s: NameState[] = []
+    if (unpaidFor(n.name)) s.push('unpaid')
+    if (n.listingId) s.push('listed')
+    if (n.type !== 'manqiya') s.push(n.camelChip ? 'linked' : 'unlinked')
+    return s
+  }
+  const tf = useTableFilter(data, {
+    fields: (n) => [n.name, n.latin, n.baseName, n.camelChip],
+    filters: [
+      { key: 'type', label: tr('الفئة', 'Category'), options: typeOptions('', tr('الكل', 'All')), test: (n, v) => n.type === v },
+      { key: 'state', label: tr('الحالة', 'Status'), options: [['', tr('الكل', 'All')], ['linked', nameStateLabel().linked], ['unlinked', nameStateLabel().unlinked], ['listed', nameStateLabel().listed], ['unpaid', nameStateLabel().unpaid]], test: (n, v) => states(n).includes(v as NameState) },
+    ],
+  })
+  const stateCount = (k: NameState) => (data ?? []).filter((n) => states(n).includes(k)).length
+  const toolbar = { ...tf, filters: tf.filters.filter((f) => f.key !== 'state') }
+  const LBL = nameStateLabel()
+  const SRC = NAME_SOURCE()
+  const statusText = (n: ReservedName) => { const s = states(n); return s.length ? s.map((k) => LBL[k]).join('، ') : LBL.manqiya }
+  const priceText = (n: ReservedName) => (n.source === 'compound' && !n.price ? '—' : sar(n.price))
+
+  function exportCsv() {
+    // ASCII file name: some browsers drop a non-Latin download name and save it as «download»
+    downloadCsv(`sammha-my-names-${new Date().toISOString().slice(0, 10)}.csv`, [
+      [tr('الاسم', 'Name'), tr('الفئة', 'Category'), tr('تاريخ التملك', 'Acquired on'), tr('السعر', 'Price'), tr('المصدر', 'Source'), tr('الشريحة', 'Chip'), tr('اللوجو', 'Logo'), tr('الحالة', 'Status')],
+      ...tf.list.map((n) => [n.name, TYPE_LABEL[n.type], date(n.acquiredAt), n.source === 'compound' && !n.price ? '' : n.price, SRC[n.source] ?? n.source, n.camelChip ?? '', logoLabel(n), statusText(n)]),
+    ])
+  }
+
+  /** the card's actions, in one menu; e-services follow the admin's open / closed / «قريبًا» switches */
+  function actionsOf(n: ReservedName): MenuAction[] {
+    const unpaid = unpaidFor(n.name)
+    const fardi = n.type !== 'manqiya'
+    const gate = (s: ReturnType<typeof useIntakeState>) => (s.open ? {} : { disabled: true, disabledNote: s.note ?? undefined, disabledTitle: s.message ?? undefined })
+    const a: MenuAction[] = []
+    if (unpaid) a.push({ key: 'pay', label: tr('سدّد الفاتورة لإصدار الشهادة', 'Pay the invoice to issue the certificate'), icon: 'receipt', to: `/dashboard/invoices/${unpaid.id}`, tone: 'gold' })
+    if (fardi && !user?.acting) {
+      if (n.camelChip) a.push({ key: 'unlink', label: tr('فك الربط بالشريحة', 'Unlink from chip'), icon: 'shield', onClick: () => setUnlinking(n), tone: 'bad' })
+      else if (!unpaid) a.push({ key: 'link', label: tr('ربط بشريحة', 'Link to chip'), icon: 'shield', onClick: () => setLinking(n), tone: 'pine' })
+    }
+    if (!unpaid) {
+      a.push({ key: 'cert', label: tr('إصدار شهادة', 'Issue certificate'), icon: 'file', to: `/dashboard/certificates?mark=${n.id}` })
+      if (n.listingId) a.push({ key: 'listed', label: tr('معروض للبيع: إدارة العرض', 'Listed for sale: manage listing'), icon: 'tag', to: '/dashboard/sell', tone: 'gold', separated: true })
+      else {
+        a.push({ key: 'resale', label: tr('بيع بالمزاد', 'Sell by auction'), icon: 'gavel', to: `/dashboard/sell?name=${n.id}&mode=auction`, tone: 'pine', separated: true, ...gate(resale) })
+        a.push({ key: 'instant', label: tr('بيع فوري', 'Instant sale'), icon: 'tag', to: `/dashboard/sell?name=${n.id}&mode=instant`, tone: 'pine', ...gate(instant) })
+        a.push({ key: 'transfer', label: tr('نقل الملكية (تنازل)', 'Transfer ownership (waiver)'), icon: 'users', to: `/dashboard/transfers?name=${n.id}`, ...gate(transfer) })
+      }
+      if (n.source !== 'compound') a.push({ key: 'compound', label: tr('طلب اسم مركب', 'Request a compound name'), icon: 'plus', onClick: () => setCompoundFor(n), tone: 'gold', ...gate(compound) })
+    }
+    a.push({ key: 'logo', label: n.logo || n.logoStatus ? tr('عرض اللوجو أو تغييره', 'View or change logo') : tr('رفع لوجو', 'Upload logo'), icon: 'image', onClick: () => setLogoFor(n), separated: true })
+    return a
+  }
+
+  const chipCell = (n: ReservedName) => (n.camelChip
+    ? <Link to="/dashboard/camels" className="inline-flex items-center gap-1.5 rounded-md bg-pine-soft/70 px-2 py-1 text-[13.5px] font-bold text-pine hover:underline"><Icon name="shield" className="h-3.5 w-3.5" /><span className="num" dir="ltr">{n.camelChip}</span></Link>
+    : <span className="text-muted" title={n.type === 'manqiya' ? tr('أسماء المنقية لا تُربط بشريحة', 'Manqiya names are not linked to a chip') : tr('غير مربوط', 'Not linked')}>—</span>)
+  const statePills = (n: ReservedName) => {
+    const unpaid = unpaidFor(n.name)
+    return (
+      <>
+        {unpaid && <Link to={`/dashboard/invoices/${unpaid.id}`} className="pill bg-bad/10 text-bad hover:underline">{LBL.unpaid}</Link>}
+        {n.listingId && <Link to="/dashboard/sell" className="pill bg-gold-soft text-gold-deep hover:underline">{LBL.listed}</Link>}
+      </>
+    )
+  }
+  const nameCell = (n: ReservedName) => (
+    <div className="flex items-start gap-2.5">
+      <span className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full ${TYPE_CLS[n.type].dot}`} aria-hidden />
+      <div className="min-w-0">
+        <span className={`block text-[17px] font-extrabold leading-7 ${TYPE_CLS[n.type].text}`}>{n.name}</span>
+        {n.latin && <span className="block text-[12.5px] font-semibold text-muted" dir="ltr">{n.latin}</span>}
+        {n.source === 'compound' && n.baseName && <span className="block text-[12.5px] text-muted">{tr(`مركب من «${n.baseName}»`, `Compound of «${n.baseName}»`)}</span>}
+        <span className="mt-1 flex flex-wrap gap-1 empty:hidden">{statePills(n)}</span>
+      </div>
+    </div>
+  )
+  const quick = (n: ReservedName) => (n.type !== 'manqiya' && !n.camelChip && !user?.acting && !unpaidFor(n.name)
+    ? <button type="button" className="btn-ghost btn-sm whitespace-nowrap border-pine/40 text-pine" onClick={() => setLinking(n)}><Icon name="shield" className="h-4 w-4" />{tr('ربط بشريحة', 'Link to chip')}</button>
+    : unpaidFor(n.name) ? <Link to={`/dashboard/invoices/${unpaidFor(n.name)!.id}`} className="btn-gold btn-sm whitespace-nowrap">{tr('سدّد الفاتورة', 'Pay invoice')}</Link> : null)
+
   return (
     <>
       <PageHead title={tr('أسمائي', 'My names')} sub={tr('الأسماء المسجلة باسمك. اربط كل اسم بشريحة إلكترونية قبل المشاركة في المهرجانات.', 'Names registered to you. Link each name to an electronic microchip before taking part in festivals.')} />
       {loading && !data ? <Loading /> : data?.length ? (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.map((n) => (
-            <li key={n.id} className="panel flex flex-col items-center gap-3 p-5 text-center">
-              <NameSeal name={n.name} type={n.type} size="md" latin={n.latin} />
-              {n.latin && <span className="-mt-1 text-[13px] font-semibold text-muted" dir="ltr">{n.latin}</span>}
-              <TypeBadge type={n.type} />
-              {n.source === 'compound'
-                ? <p className="text-sm text-muted">{tr(`اسم مركب من «${n.baseName}»، اعتُمد ${dateTime(n.acquiredAt)}`, `Compound name from «${n.baseName}», approved ${dateTime(n.acquiredAt)}`)}</p>
-                : <p className="text-sm text-muted">{tr(`منذ ${dateTime(n.acquiredAt)}، بسعر ${sar(n.price)}`, `Since ${dateTime(n.acquiredAt)}, for ${sar(n.price)}`)}</p>}
-              {unpaidFor(n.name)
-                ? <Link to={`/dashboard/invoices/${unpaidFor(n.name)!.id}`} className="btn-gold btn-sm">{tr('سدّد الفاتورة لإصدار الشهادة', 'Pay the invoice to issue the certificate')}</Link>
-                : <div className="flex flex-wrap justify-center gap-2">
-                    <Link to={`/dashboard/certificates?mark=${n.id}`} className="btn-ghost btn-sm">{tr('إصدار شهادة', 'Issue certificate')}</Link>
-                    {n.source !== 'compound' && <button className="btn-ghost btn-sm border-gold/60 text-gold-deep" onClick={() => setCompoundFor(n)}>{tr('طلب اسم مركب', 'Request a compound name')}</button>}
-                    {n.listingId
-                      ? <Link to="/dashboard/sell" className="pill bg-gold-soft text-gold-deep">{tr('معروض للبيع', 'Listed for sale')}</Link>
-                      : <>
-                          <Link to={`/dashboard/sell?name=${n.id}`} className="btn-ghost btn-sm border-pine/40 text-pine">{tr('بيع الاسم', 'Sell name')}</Link>
-                          <Link to={`/dashboard/transfers?name=${n.id}`} className="btn-ghost btn-sm">{tr('نقل الملكية', 'Transfer ownership')}</Link>
-                        </>}
-                  </div>}
-              {n.type !== 'manqiya' && (n.camelChip
-                ? <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-lg bg-pine-soft/60 px-3 py-1.5 text-[13.5px]">
-                    <Icon name="shield" className="h-4 w-4 text-pine" />{tr('مربوط بالشريحة', 'Linked to chip')} <b className="num" dir="ltr">{n.camelChip}</b>
-                    {!user?.acting && <button className="font-bold text-bad underline" onClick={() => setUnlinking(n)}>{tr('فك الربط', 'Unlink')}</button>}
-                  </div>
-                : !user?.acting && !unpaidFor(n.name) && <button className="btn-ghost btn-sm border-pine/40 text-pine" onClick={() => setLinking(n)}><Icon name="shield" className="h-4 w-4" />{tr('ربط بشريحة', 'Link to chip')}</button>)}
-              <MarkLogo n={n} onChange={reload} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <TableTools t={toolbar} placeholder={tr('بحث بالاسم', 'Search by name')}>
+            <span className="flex flex-wrap gap-2 sm:ms-1">
+              <button type="button" className="btn-ghost btn-sm" onClick={exportCsv}><Icon name="file" className="h-4 w-4" />{tr('تحميل التقرير', 'Download report')}</button>
+              <button type="button" className="btn-ghost btn-sm hidden sm:inline-flex" onClick={() => printReport({ title: tr('تقرير أسمائي', 'My names report'), subtitle: `${user?.fullName ?? ''} · ${num(tf.list.length)} ${tr('اسم', 'names')}`, el: printRef.current, landscape: true })}>{tr('طباعة', 'Print')}</button>
+            </span>
+          </TableTools>
+          <div className="-mt-1 mb-4 flex flex-wrap gap-2" role="group" aria-label={tr('تصفية بالحالة', 'Filter by status')}>
+            {([['', tr('الكل', 'All'), data.length], ...(['linked', 'unlinked', 'listed', 'unpaid'] as NameState[]).map((k) => [k, LBL[k], stateCount(k)])] as [string, string, number][])
+              .filter(([k, , c]) => !k || k !== 'unpaid' || c > 0)
+              .map(([k, l, c]) => {
+                const on = (tf.values.state ?? '') === k
+                return (
+                  <button key={k || 'all'} type="button" aria-pressed={on} onClick={() => tf.setValue('state', k)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[13.5px] font-bold transition-colors ${on ? 'border-pine bg-pine text-paper' : 'border-line bg-paper text-ink/80 hover:border-pine hover:text-pine'}`}>
+                    {l}<span className={`num rounded-full px-1.5 text-[12px] ${on ? 'bg-paper/20' : 'bg-stone'}`}>{num(c)}</span>
+                  </button>
+                )
+              })}
+          </div>
+
+          {/* md and up: the table (also what «طباعة» prints) */}
+          <div ref={printRef} className="panel hidden overflow-x-auto md:block">
+            <table className="tbl">
+              <thead><tr>
+                <th>{tr('الاسم', 'Name')}</th><th>{tr('الفئة', 'Category')}</th><th>{tr('تاريخ التملك', 'Acquired on')}</th><th>{tr('السعر', 'Price')}</th>
+                <th>{tr('الشريحة', 'Chip')}</th><th>{tr('اللوجو', 'Logo')}</th><th className="no-print w-0 text-end">{tr('الإجراءات', 'Actions')}</th>
+              </tr></thead>
+              <tbody>
+                {!tf.list.length && <NoResults cols={7} onReset={tf.reset} />}
+                {tf.list.map((n) => (
+                  <tr key={n.id} className="hover:bg-stone/40">
+                    <td className="min-w-[11rem]">{nameCell(n)}</td>
+                    <td><TypeBadge type={n.type} /></td>
+                    <td className="whitespace-nowrap text-muted">{date(n.acquiredAt)}<span className="block text-[12px]">{SRC[n.source]}</span></td>
+                    <td className="num whitespace-nowrap font-semibold">{priceText(n)}</td>
+                    <td>{chipCell(n)}</td>
+                    <td><LogoCell n={n} onOpen={() => setLogoFor(n)} /></td>
+                    <td className="no-print">
+                      <div className="flex items-center justify-end gap-2">{quick(n)}<ActionMenu items={actionsOf(n)} label={tr(`إجراءات «${n.name}»`, `Actions for «${n.name}»`)} /></div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* phones: one stacked row per name */}
+          <ul className="space-y-3 md:hidden">
+            {!tf.list.length && <li className="panel py-8 text-center text-muted">{tr('لا توجد نتائج مطابقة.', 'No matching results.')} <button type="button" className="font-bold text-pine underline" onClick={tf.reset}>{tr('مسح التصفية', 'Clear filters')}</button></li>}
+            {tf.list.map((n) => (
+              <li key={n.id} className={`panel overflow-hidden border-s-4 ${n.type === 'qaadan' ? 'border-s-qaadan' : n.type === 'bakkar' ? 'border-s-bakkar' : 'border-s-manqiya'}`}>
+                <div className="flex items-start justify-between gap-3 p-4 pb-3">
+                  <div className="min-w-0 flex-1">{nameCell(n)}</div>
+                  <ActionMenu items={actionsOf(n)} label={tr(`إجراءات «${n.name}»`, `Actions for «${n.name}»`)} />
+                </div>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-line px-4 py-3 text-[14px]">
+                  <div><dt className="text-[12px] text-muted">{tr('الفئة', 'Category')}</dt><dd className="mt-0.5"><TypeBadge type={n.type} /></dd></div>
+                  <div><dt className="text-[12px] text-muted">{tr('السعر', 'Price')}</dt><dd className="num mt-0.5 font-semibold">{priceText(n)}</dd></div>
+                  <div><dt className="text-[12px] text-muted">{tr('تاريخ التملك', 'Acquired on')}</dt><dd className="mt-0.5">{date(n.acquiredAt)}</dd></div>
+                  <div><dt className="text-[12px] text-muted">{tr('الشريحة', 'Chip')}</dt><dd className="mt-0.5">{chipCell(n)}</dd></div>
+                  <div className="col-span-2 flex items-center justify-between gap-3"><span><dt className="text-[12px] text-muted">{tr('اللوجو', 'Logo')}</dt><dd className="mt-0.5"><LogoCell n={n} onOpen={() => setLogoFor(n)} /></dd></span>{quick(n)}</div>
+                </dl>
+              </li>
+            ))}
+          </ul>
+        </>
       ) : <Empty title={tr('لا تملك أسماء بعد', 'You do not own any names yet')}><p className="text-muted">{tr('تظهر هنا الأسماء التي ترسو عليك في المزادات.', 'Names awarded to you in auctions appear here.')}</p></Empty>}
       {compoundFor && <CompoundName base={compoundFor} onClose={() => setCompoundFor(null)} />}
       {linking && <LinkChipModal name={linking} onClose={() => setLinking(null)} onDone={() => { setLinking(null); reload() }} />}
+      {logoFor && (
+        <Modal open onClose={() => setLogoFor(null)} title={tr(`لوجو «${logoFor.name}»`, `«${logoFor.name}» logo`)}>
+          {/* the latest copy of the name, so the modal follows uploads and deletions */}
+          <MarkLogo n={data?.find((x) => x.id === logoFor.id) ?? logoFor} onChange={reload} />
+        </Modal>
+      )}
       <Modal open={!!unlinking} onClose={() => !unlinkBusy && setUnlinking(null)} title={tr('فك ربط الاسم بالشريحة', 'Unlink name from chip')}>
         {unlinking && (
           <div className="space-y-4">

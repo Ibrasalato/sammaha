@@ -13,6 +13,14 @@ export function useClosed(intake: Intake): string | null {
   return closedMessage(intake, settings)
 }
 
+/** open / closed / «قريبًا» for one e-service, live with the admin settings (for buttons and menu items that start it) */
+export function useIntakeState(intake: Intake): { open: boolean; soon: boolean; message: string | null; note: string | null } {
+  const { settings } = useApp()
+  const message = closedMessage(intake, settings)
+  const soon = (settings.comingSoon ?? []).includes(intake)
+  return { open: !message, soon, message, note: message ? (soon ? tr('قريبًا', 'Coming soon') : tr('الخدمة متوقفة حاليًا', 'Service currently paused')) : null }
+}
+
 /** Banner on a form whose service is closed: says why and keeps the form from being sent. */
 export function ClosedNotice({ intake, className = '' }: { intake: Intake; className?: string }) {
   const msg = useClosed(intake)

@@ -30,7 +30,7 @@ export function SellPage() {
   const listings = useLoad(() => api.myListings(), [])
   const invoices = useLoad(() => api.myInvoices(), [])
   const [reservedId, setReservedId] = useState(params.get('name') ?? '')
-  const [mode, setMode] = useState<ListingMode>('auction')
+  const [mode, setMode] = useState<ListingMode>(params.get('mode') === 'instant' ? 'instant' : 'auction')
   const [price, setPrice] = useState('')
   const [agree, setAgree] = useState(false)
   const [busy, setBusy] = useState(false)
