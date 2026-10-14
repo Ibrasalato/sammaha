@@ -92,7 +92,6 @@ function RequestBlock({ r, audit, onDone }: { r: LogoRequest; audit: Map<string,
                   <div>
                     <span className={`pill ${c.status === 'accepted' ? 'bg-ok/10 text-ok' : c.status === 'rejected' ? 'bg-bad/10 text-bad' : 'bg-stone-deep text-muted'}`}>{c.status === 'accepted' ? tr('مقبول', 'Accepted') : c.status === 'rejected' ? tr('مرفوض', 'Rejected') : tr('بانتظار المراجعة', 'Awaiting review')}</span>
                     {c.rejectReason && <span className="mt-1 block max-w-[14rem] whitespace-normal text-[12.5px] text-bad">{L(c.rejectReason)}</span>}
-                    {c.exceptedAt && <span className="mt-1 block text-[12.5px] font-semibold text-gold-deep">{tr('سُجّل دون مزاد', 'Registered without auction')}{c.exceptionFee != null ? ` · ${c.exceptionFee}` : ''}</span>}
                     {c.auctionId && <Link to={`/auctions/${c.auctionId}`} className="mt-1 block text-[12.5px] font-semibold text-gold-deep underline">{tr('صفحة المزاد', 'Auction page')}</Link>}
                   </div>
                 )}

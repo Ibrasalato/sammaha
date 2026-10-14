@@ -14,6 +14,7 @@ import { localizeServerText as L } from '../../lib/serverText'
 const depositStateLabels = (): Record<LogoRequest['depositState'], string> => ({
   none: tr('لم يُسدَّد', 'Not paid'),
   held: tr('محجوز لدى المنصة', 'Held by the platform'),
+  forfeited: tr('خُصم لعدم سداد قيمة الشعار في المهلة', 'Forfeited: the mark was not paid in time'),
   applied: tr('خُصم من قيمة الاسم الذي رسا عليك', 'Deducted from the price of the name awarded to you'),
   refunded: tr('أُعيد إلى محفظتك', 'Returned to your wallet'),
   fee: tr('رسوم دراسة غير مستردة', 'Non-refundable review fee'),
@@ -254,7 +255,7 @@ export function NewRequest() {
       <section className="panel mt-4 flex flex-wrap items-center gap-4 p-5">
         <div className="flex-1">
           <p className="font-semibold">{tr('ضمان المزاد', 'Auction guarantee')} {sar(RULES.depositAmount)}</p>
-          <p className="text-sm text-muted">{tr('يُعاد إلى محفظتك إن رُفض الطلب أو أُلغي، ويُحتسب من قيمة الاسم إن رسا عليك.', 'Returned to your wallet if the request is rejected or cancelled, and counted toward the price if the name is awarded to you.')}</p>
+          <p className="text-sm text-muted">{tr(`يُعاد إلى محفظتك إن رُفض الطلب أو أُلغي أو رسا الاسم على غيرك. وإن رسا عليك تسدّد قيمته كاملة خلال ${RULES.paymentDeadlineHours} ساعة ثم يُعاد ضمانك.`, `Returned to your wallet if the request is rejected or cancelled, or someone else wins the name. If you win, pay the full price within ${RULES.paymentDeadlineHours} hours and the guarantee is returned.`)}</p>
         </div>
         <button className="btn-gold px-6" disabled={!type || !complete || blocked || busy} onClick={submit}>{tr('رفع الطلب وسداد الضمان', 'Submit request and pay guarantee')}</button>
       </section>
@@ -358,8 +359,7 @@ export function RequestDetail() {
             </span>
             {c.rejectReason && <p className="text-sm text-bad">{L(c.rejectReason)}</p>}
             {c.withdrawable && <button className="text-[13.5px] font-bold text-bad hover:underline" onClick={() => setWithdrawing(c)}>{tr('سحب هذا الاسم', 'Withdraw this name')}</button>}
-            {c.exceptedAt && <p className="rounded-md bg-gold-soft px-2 py-1 text-[13px] font-semibold text-gold-deep">{tr('سُجّل باسمك دون مزاد', 'Registered to you without auction')}</p>}
-            {c.status === 'accepted' && !c.exceptedAt && r.status !== 'cancelled' && (c.auctionId
+            {c.status === 'accepted' && r.status !== 'cancelled' && (c.auctionId
               ? <Link to={`/auctions/${c.auctionId}`} className="btn-ghost btn-sm">{tr('صفحة المزاد', 'Auction page')}</Link>
               : <p className="text-sm text-muted">{tr('بانتظار تحديد موعد المزاد', 'Awaiting an auction date')}</p>)}
           </div>

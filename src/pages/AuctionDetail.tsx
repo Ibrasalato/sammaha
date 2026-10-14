@@ -24,7 +24,7 @@ function Heart({ on }: { on: boolean }) {
 
 export default function AuctionDetail() {
   const { id = '' } = useParams()
-  const { user, toast } = useApp()
+  const { user, toast, settings } = useApp()
   const loc = useLocation()
   const { data, error, loading, setData, reload } = useLoad(() => api.getAuction(id), [id, user?.id], 5000)
   const now = useNow(1000)
@@ -56,8 +56,10 @@ export default function AuctionDetail() {
   const isRequester = user?.id === a.requesterId
   const resale = !!a.listingId
   const ownInvest = (!!a.investment || resale) && isRequester // the proposer or seller may not bid on the name
-  // resale auctions: bidders pay a participation guarantee first
-  const needDeposit = resale && !!user && !isRequester && !mine?.depositPaid && phase !== 'ended'
+  // every bidder pays the entry guarantee first (on a request's auction the requester's request guarantee covers them)
+  const entry = resale || (a.bidDeposit ?? 0) > 0
+  const needDeposit = entry && !!user && !isRequester && !mine?.depositPaid && phase !== 'ended'
+  const deadline = settings?.paymentDeadlineHours ?? 72
   const leading = !!user && a.leaderId === user.id
   const endsSoon = phase === 'live' && Date.parse(a.endsAt) - now < RULES.extendMinutes * 60_000 * 3
 
@@ -141,7 +143,7 @@ export default function AuctionDetail() {
                 ))}
               </dl>
               <p className="px-6 py-4 text-[14px] leading-7 text-muted">
-                {tr('يرسو الاسم على أعلى مزايد عند انتهاء الوقت. إن لم تُسجَّل أي مزايدة يرسو على مقدم الطلب بمبلغ الضمان، وتصدر للفائز فاتورة إلكترونية.', 'The name is awarded to the highest bidder when time runs out. If there are no bids it goes to the applicant for the guarantee amount, and the winner receives an e-invoice.')}
+                {tr(`يرسو الاسم على أعلى مزايد عند انتهاء الوقت، وإن لم تُسجَّل مزايدة يرسو على مقدم الطلب بالسعر الافتتاحي. تصدر للفائز فاتورة إلكترونية يسدّدها خلال ${deadline} ساعة ثم يُعاد ضمانه، وإن لم يسدّد يُخصم الضمان ويصبح الاسم ملكًا للمنظمة الدولية للإبل.`, `The name goes to the highest bidder when time runs out; with no bids it goes to the requester at the opening price. The winner gets an e-invoice to pay within ${deadline} hours, then the guarantee is returned; unpaid, the guarantee is forfeited and the name passes to the International Camel Organization.`)}
               </p>
             </section>
 
@@ -196,7 +198,7 @@ export default function AuctionDetail() {
                   <p className="rounded-lg bg-stone px-4 py-3 font-semibold">
                     {a.settled
                       ? a.wonByRequester
-                        ? a.bidCount ? tr('رسا الاسم على مقدم الطلب', 'Awarded to the applicant') : tr('لم تُسجَّل مزايدات، فرسا الاسم على مقدم الطلب بمبلغ الضمان', 'No bids, so the name went to the applicant for the guarantee amount')
+                        ? a.bidCount ? tr('رسا الاسم على مقدم الطلب', 'Awarded to the applicant') : tr('لم تُسجَّل مزايدات، فرسا الاسم على مقدم الطلب بالسعر الافتتاحي', 'No bids, so the name went to the requester at the opening price')
                         : tr(`رسا الاسم على ${a.winnerName ? a.winnerName.split(' ')[0] + '…' : 'أعلى مزايد'}`, 'Awarded to the highest bidder')
                       : tr('انتهى المزاد، جارٍ الترسية', 'Auction ended, awarding')}
                     {user && a.winnerId === user.id && <Link to="/dashboard/invoices" className="mt-1 block text-gold-deep underline underline-offset-4">{tr('عرض فاتورتك', 'View your invoice')}</Link>}
@@ -212,13 +214,15 @@ export default function AuctionDetail() {
               {needDeposit && (
                 <div className="mt-5 rounded-lg border border-gold/60 bg-gold-soft p-4 text-[14.5px] leading-7">
                   <b>{tr('ضمان دخول المزاد', 'Participation guarantee')} {sar(a.bidDeposit ?? RULES.resaleBidDeposit)}</b>
-                  <p className="text-ink/80">{tr('يدفعه كل مشارك قبل المزايدة على اسم معروض من مالكه. يُعاد إلى محفظتك إن لم يرسُ عليك، ويُخصم من فاتورتك إن فزت.', 'Every bidder pays it before bidding on an owner’s resale. It is refunded unless you win, and deducted from your invoice if you do.')}</p>
+                  <p className="text-ink/80">{resale
+                    ? tr('يدفعه كل مشارك قبل المزايدة على اسم معروض من مالكه. يُعاد إلى محفظتك إن لم يرسُ عليك، ويُخصم من فاتورتك إن فزت.', 'Every bidder pays it before bidding on an owner’s resale. It is refunded unless you win, and deducted from your invoice if you do.')
+                    : tr(`يدفعه كل مشارك قبل المزايدة. يُعاد إلى محفظتك فور انتهاء المزاد إن لم يرسُ عليك، وإن فزت تسدّد قيمة الشعار كاملة خلال ${deadline} ساعة ثم يُعاد ضمانك. إن لم تُسدّد في المهلة يُخصم الضمان ويصبح الاسم ملكًا للمنظمة الدولية للإبل.`, `Every bidder pays it before bidding. It returns to your wallet when the auction ends unless you win; if you win, pay the full price within ${deadline} hours and it is returned. If you do not pay in time, the guarantee is forfeited and the name passes to the International Camel Organization.`)}</p>
                   <button className="btn-gold mt-3 w-full" disabled={busy} onClick={() => setPayingDeposit(true)}>{tr('دفع الضمان والمشاركة', 'Pay and take part')}</button>
                 </div>
               )}
               {phase === 'live' && !ownInvest && !needDeposit && (user ? (
                 <form className="mt-5" onSubmit={(e) => { e.preventDefault(); bid(Number(amount)) }}>
-                  {isRequester && <p className="mb-3 rounded-md bg-stone px-3 py-2 text-[13px] text-muted">{tr('أنت مقدم طلب هذا الاسم. إن لم يزايد أحد يرسو عليك بمبلغ الضمان.', 'You requested this name. If nobody bids it is yours for the guarantee amount.')}</p>}
+                  {isRequester && <p className="mb-3 rounded-md bg-stone px-3 py-2 text-[13px] text-muted">{tr(`أنت مقدم طلب هذا الاسم، وضمان طلبك يغطي دخولك المزاد. إن لم يزايد أحد يرسو عليك بالسعر الافتتاحي، وتسدّده خلال ${deadline} ساعة ثم يُعاد ضمانك.`, `You requested this name; your request guarantee covers your entry. If nobody bids it is yours at the opening price, payable within ${deadline} hours, then your guarantee is returned.`)}</p>}
                   <span className="label">{tr('مزايدة سريعة', 'Quick bid')}</span>
                   <div className="grid grid-cols-3 gap-2">
                     {[a.minIncrement, 50, 100].map((step, k) => {

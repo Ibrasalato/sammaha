@@ -5,6 +5,8 @@ import type { NameType } from './types'
 export const RULES = {
   /** Auction guarantee paid with every logo request (SAR) */
   depositAmount: 50,
+  /** hours an auction winner has to pay (the live value comes from the platform settings) */
+  paymentDeadlineHours: 72,
   /** Opening price of every name in auction (SAR) */
   openingPrice: 50,
   /** Minimum raise over the current price (SAR) */

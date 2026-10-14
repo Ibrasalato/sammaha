@@ -7,6 +7,7 @@ import { httpApi } from './httpApi'
 import type { PublicSettings, User } from './types'
 import { DEFAULT_SETTINGS, publicOf } from './demoSettings'
 import { localizeError } from './serverText'
+import { RULES } from './config'
 
 /**
  * The backend speaks Arabic only; this wrapper puts error messages into the UI language.
@@ -63,7 +64,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
   const seq = useRef(0)
   const [settings, setSettings] = useState<PublicSettings>(() => publicOf(DEFAULT_SETTINGS))
-  const reloadSettings = useCallback(async () => { try { setSettings(await api.publicSettings()) } catch { /* keep the last known */ } }, [])
+  const reloadSettings = useCallback(async () => {
+    try {
+      const s = await api.publicSettings()
+      // the guarantee and the payment deadline are admin settings; texts across the site read them from RULES
+      if (typeof s.depositAmount === 'number') RULES.depositAmount = s.depositAmount
+      if (typeof s.paymentDeadlineHours === 'number') RULES.paymentDeadlineHours = s.paymentDeadlineHours
+      setSettings(s)
+    } catch { /* keep the last known */ }
+  }, [])
 
   useEffect(() => {
     reloadSettings()

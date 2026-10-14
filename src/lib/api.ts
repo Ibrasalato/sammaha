@@ -1,6 +1,6 @@
 import type {
   AppNotification, CamelEvent, AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
-  ActivityFilter, ActivityPage, Certificate, CertificatePage, CertificateScope, CertificateVerify, Delegation, DelegationInput, AuditRow, BankAccount, BankAccountInput, BankStatus, DepositRow, DocumentFile, IbanCheck, MarkRow, OwnerCrm, StaffBankAccount, WalletDetail, WalletRow, Withdrawal, WithdrawalStatus,
+  ActivityFilter, ActivityPage, IcoName, Certificate, CertificatePage, CertificateScope, CertificateVerify, Delegation, DelegationInput, AuditRow, BankAccount, BankAccountInput, BankStatus, DepositRow, DocumentFile, IbanCheck, MarkRow, OwnerCrm, StaffBankAccount, WalletDetail, WalletRow, Withdrawal, WithdrawalStatus,
   AddressInput, AdminSettings, AuctionActionResult, AuctionScope, AuctionView, PersonalInput, StaffRole, TicketRouting, InvestmentItem, ListingMode, NameListing, Preferences, PublicSettings, PublicStats, SecuritySummary, SessionInfo, SettingsChange, SettingsPatch, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
 } from './types'
 
@@ -77,6 +77,9 @@ export interface SammhaApi {
   staffCertificate(number: string): Promise<Certificate>
   revokeCertificate(id: string, reason: string): Promise<Certificate>
   setLatinName(reservedId: string, latin: string): Promise<ReservedName>
+  /** names the International Camel Organization owns (the winner did not pay in time) — names.ico */
+  icoNames(): Promise<IcoName[]>
+  auctionIcoName(reservedId: string, startsAt: string, endsAt: string, openingPrice?: number): Promise<Auction>
   /** contact form: anyone can file a complaint, report or enquiry and gets a tracking number */
   submitTicket(input: TicketInput): Promise<Ticket>
   /** public tracking: needs the ticket number and the mobile number it was filed with */
@@ -139,8 +142,6 @@ export interface SammhaApi {
   cancelRequest(id: string, reason: string): Promise<LogoRequest>
   awaitingSchedule(): Promise<(LogoRequest['candidates'][number] & { request: LogoRequest })[]>
   /** staggerMinutes > 0: each mark opens and closes that many minutes after the previous, in the order given */
-  /** register an accepted name to its requester for a fee, without an auction (requests.exception) */
-  grantException(candidateId: string, fee: number, reason: string): Promise<LogoRequest>
   scheduleAuctions(candidateIds: string[], startsAt: string, endsAt: string, staggerMinutes?: number): Promise<Auction[]>
   allInvoices(): Promise<Invoice[]>
   markInvoicePaid(id: string): Promise<Invoice>

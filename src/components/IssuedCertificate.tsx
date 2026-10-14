@@ -14,7 +14,7 @@ export function issuedVerifyUrl(c: Pick<Certificate, 'number' | 'signature'>) {
 const dAr = (s: string) => new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { timeZone: 'Asia/Riyadh', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(s))
 const dEn = (s: string) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Riyadh', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(s))
 const SOURCE: Record<string, [string, string]> = {
-  auction: ['مزاد علني', 'Public auction'], legacy: ['قيد سابق', 'Prior record'], compound: ['اسم مركب', 'Compound name'], exception: ['اسم مستثنى من المزاد', 'Registered without auction'],
+  auction: ['مزاد علني', 'Public auction'], legacy: ['قيد سابق', 'Prior record'], compound: ['اسم مركب', 'Compound name'], exception: ['أسماء المنظمة الدولية', 'Organization name'],
   investment: ['استثمار الاسم', 'Name investment'], resale: ['إعادة بيع', 'Resale'],
 }
 const TYPE: Record<string, [string, string]> = { qaadan: ['القعدان', "Qa'dan"], bakkar: ['البكار', 'Bakkar'], manqiya: ['المنقية', 'Manqiya'] }

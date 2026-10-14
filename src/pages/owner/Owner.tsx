@@ -20,6 +20,7 @@ import { BankAndRefunds } from './Bank'
 import { tr } from '../../lib/i18n'
 import { localizeServerText as L } from '../../lib/serverText'
 import { Approx } from '../../components/Region'
+import { InvoiceStatus } from '../../components/InvoiceStatus'
 
 export function DashHome() {
   const { user } = useApp()
@@ -229,7 +230,7 @@ export function MyInvoices() {
                   <td className="text-muted">{date(i.issuedAt)}</td>
                   <td className="num">{sar(i.total)}</td>
                   <td className="num font-semibold">{sar(i.amountDue)}</td>
-                  <td><span className={`pill ${i.status === 'paid' ? 'bg-ok/10 text-ok' : 'bg-gold-soft text-gold-deep'}`}>{i.status === 'paid' ? tr('مدفوعة', 'Paid') : tr('غير مدفوعة', 'Unpaid')}</span></td>
+                  <td><InvoiceStatus i={i} /></td>
                 </tr>
               ))}
             </tbody>
@@ -253,6 +254,8 @@ export function InvoicePage() {
       <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
         <Link to="/dashboard/invoices" className="text-sm font-medium text-muted hover:text-ink">{tr('الفواتير', 'Invoices')}</Link>
         <span className="ms-auto" />
+        {data.status === 'unpaid' && data.dueAt && <span className="text-[13.5px] font-semibold text-bad">{tr('سدّد قبل', 'Pay before')} {dateTime(data.dueAt)} {tr('وإلا يُلغى فوزك ويُخصم الضمان', 'or the win is cancelled and the guarantee forfeited')}</span>}
+        {data.status === 'cancelled' && <span className="pill bg-bad/10 text-bad">{tr('أُلغيت لانتهاء مهلة السداد، وآل الاسم إلى المنظمة الدولية للإبل', 'Cancelled: the deadline passed and the name passed to the International Camel Organization')}</span>}
         {data.status === 'unpaid' && <button className="btn-gold" onClick={() => setPaying(true)}>{tr('سداد', 'Pay')} {sar(data.amountDue)}</button>}
         <button className="btn-ghost" onClick={() => window.print()}>{tr('طباعة أو حفظ PDF', 'Print or save PDF')}</button>
       </div>

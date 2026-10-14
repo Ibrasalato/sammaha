@@ -59,7 +59,7 @@ export default function About() {
             tr(`ضمان مزاد ${RULES.depositAmount} ريال مع كل طلب، ويُعاد إن رُفض الطلب أو أُلغي.`, `A SAR ${RULES.depositAmount} guarantee with each request, refunded if it is declined or cancelled.`),
             tr('يُرفض أي اسم مطابق تمامًا لاسم مسجل، وتُراجع الأسماء الشبيهة.', 'Exact matches are rejected; similar names are reviewed.'),
             tr(`سعر افتتاحي ${RULES.openingPrice} ريال وأقل زيادة ${RULES.minIncrement} ريال، بتوقيت الرياض.`, `Opening price SAR ${RULES.openingPrice}, minimum raise SAR ${RULES.minIncrement}, Riyadh time.`),
-            tr('إن لم يزايد أحد يرسو الاسم على مقدم الطلب بمبلغ الضمان.', 'If nobody bids, the applicant gets the name for the guarantee amount.'),
+            tr('إن لم يزايد أحد يرسو الاسم على مقدم الطلب بالسعر الافتتاحي.', 'If nobody bids, the requester gets the name at the opening price.'),
             tr('فاتورة إلكترونية متوافقة مع هيئة الزكاة والضريبة والجمارك.', 'A ZATCA-compliant e-invoice is issued to the winner.'),
             tr('شهادة تسجيل برمز QR يتحقق منها أي شخص.', 'A registration certificate with a QR code anyone can verify.'),
           ].map((x) => <li key={x} className="panel flex gap-3 p-4"><span className="mt-2.5 h-2 w-2 shrink-0 rounded-full bg-gold" />{x}</li>)}

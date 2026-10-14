@@ -292,6 +292,21 @@ function GeneralPanel({ d, set, rules }: { d: Draft; set: (p: SettingsPatch) => 
         </div>
       </Card>
 
+      <Card icon="lock" title={tr('الضمان ومهلة السداد', 'Guarantee and payment deadline')} sub={tr('يدفع مقدم الطلب الضمان مع طلبه، ويدفعه كل مزايد آخر لدخول المزاد. يُعاد لمن لم يرسُ عليه، ويُعاد للفائز بعد سداد قيمة الشعار كاملة. إن لم يسدّد الفائز في المهلة يُخصم ضمانه ويصبح الاسم ملكًا للمنظمة الدولية للإبل.', 'The requester pays the guarantee with the request, and every other bidder pays it to enter the auction. It returns to whoever does not win, and to the winner after paying the full price. If the winner does not pay in time, the guarantee is forfeited and the name passes to the International Camel Organization.')}>
+        <div className="grid gap-4 p-5 sm:grid-cols-2">
+          <div>
+            <label className="label" htmlFor="g-dep">{tr('مبلغ الضمان (ريال)', 'Guarantee amount (SAR)')}</label>
+            <input id="g-dep" type="number" min={0} step="1" className="field num" dir="ltr" value={d.depositAmount ?? ''} onChange={(e) => set({ depositAmount: Number(e.target.value) })} />
+            <p className="hint">{tr('يُطبّق على الطلبات والمزادات الجديدة، ولا يغيّر ما سُدّد من قبل.', 'Applies to new requests and auctions; amounts already paid do not change.')}</p>
+          </div>
+          <div>
+            <label className="label" htmlFor="g-due">{tr('مهلة سداد قيمة الشعار (ساعة)', 'Payment deadline for the winner (hours)')}</label>
+            <input id="g-due" type="number" min={1} max={720} step="1" className="field num" dir="ltr" value={d.paymentDeadlineHours ?? ''} onChange={(e) => set({ paymentDeadlineHours: Number(e.target.value) })} />
+            <p className="hint">{tr('تبدأ من لحظة انتهاء المزاد. مثال: 72 ساعة = 3 أيام.', 'Counted from the end of the auction. Example: 72 hours = 3 days.')}</p>
+          </div>
+        </div>
+      </Card>
+
       <Card icon="receipt" title={tr('قواعد المنصة والرسوم', 'Platform rules and fees')} sub={tr('مرجع للاطلاع. تُعدَّل من إعدادات الخادم (PlatformOptions) لأنها تؤثر على المبالغ والفواتير.', 'For reference. Changed in the server settings (PlatformOptions) because they affect amounts and invoices.')}>
         <dl className="grid gap-px bg-line/70 sm:grid-cols-2 lg:grid-cols-3">
           {([

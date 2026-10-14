@@ -296,6 +296,7 @@ export function AdminWallets() {
 
 const DEP_STATE: Record<DepositRow['state'], [string, string]> = {
   get held(): [string, string] { return [tr('محجوز', 'Held'), 'bg-gold-soft text-gold-deep'] },
+  get forfeited(): [string, string] { return [tr('خُصم لعدم السداد في المهلة', 'Forfeited: not paid in time'), 'bg-bad/10 text-bad'] },
   get applied(): [string, string] { return [tr('خُصم من الفاتورة', 'Applied to invoice'), 'bg-info-soft text-info-deep'] },
   get refunded(): [string, string] { return [tr('مُسترد', 'Refunded'), 'bg-[#E2F0E8] text-ok'] },
   get fee(): [string, string] { return [tr('رسوم غير مستردة', 'Non-refundable fee'), 'bg-stone-deep text-muted'] },

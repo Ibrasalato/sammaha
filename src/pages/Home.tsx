@@ -17,7 +17,7 @@ import type { NameCheck, NameType } from '../lib/types'
 const STEPS = (): [string, string][] => [
   [tr('إنشاء الحساب', 'Create an account'), tr('بالجوال والبريد الإلكتروني.', 'With your mobile number and email.')],
   [tr('طلب الشعار', 'Request a name'), tr(`${RULES.namesPerRequest} أسماء مقترحة مع تحقق فوري من التطابق.`, `${RULES.namesPerRequest} proposed names, checked instantly for matches.`)],
-  [tr('سداد الضمان', 'Pay the guarantee'), tr(`${RULES.depositAmount} ريال، تُعاد إن لم يُقبل الطلب.`, `SAR ${RULES.depositAmount}, refunded if the request is not approved.`)],
+  [tr('سداد الضمان', 'Pay the guarantee'), tr(`${RULES.depositAmount} ريال، يُعاد إلى محفظتك بعد المزاد.`, `SAR ${RULES.depositAmount}, returned to your wallet after the auction.`)],
   [tr('مراجعة اللجنة', 'Committee review'), tr('تدقيق الأسماء الشبيهة وقبول كل اسم أو رفضه.', 'Similar names are reviewed; each name is approved or declined.')],
   [tr('المزاد العلني', 'Public auction'), tr(`سعر افتتاحي ${RULES.openingPrice} ريال وموعد محدد.`, `Opening price SAR ${RULES.openingPrice}, on a set schedule.`)],
   [tr('الترسية والفاتورة', 'Award and invoice'), tr('تسجيل الاسم للفائز وإصدار فاتورة إلكترونية.', 'The name is registered to the winner with an e-invoice.')],

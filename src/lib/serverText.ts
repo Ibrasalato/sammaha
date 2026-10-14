@@ -508,6 +508,17 @@ const DICT: Record<string, string> = {
   'طباعة أو تصدير بيانات العملاء': 'Customer data printed or exported',
   'حفظ تفويض': 'Delegation saved',
   'إصدار شهادة': 'Certificate issued',
+  'طرح اسم للمنظمة في مزاد': 'Organization name put up for auction',
+  'هذا المزاد لا يحتاج ضمان دخول': 'This auction needs no entry guarantee',
+  'ضمان طلبك يغطي دخولك هذا المزاد': 'Your request guarantee covers your entry to this auction',
+  'أُلغيت هذه الفاتورة لانتهاء مهلة السداد': 'This invoice was cancelled because the payment deadline passed',
+  'هذا الاسم ليس من أسماء المنظمة': 'This name is not an organization name',
+  'للاسم مزاد قائم أو مجدول': 'The name already has a live or scheduled auction',
+  'السعر الافتتاحي غير صحيح': 'The opening price is not valid',
+  'مبلغ الضمان بين 0 و1,000,000 ريال': 'The guarantee must be between 0 and 1,000,000 riyals',
+  'المنظمة الدولية للإبل': 'International Camel Organization',
+  'طرحته المنظمة الدولية للإبل في مزاد عام، وتستطيع المشاركة بسداد ضمان الدخول.': 'The International Camel Organization put it up for public auction; you can take part by paying the entry guarantee.',
+  'سُدّدت فاتورة الفوز': 'the winning invoice was paid',
   'استثناء اسم من المزاد': 'Name registered without auction',
   'اكتب سبب الاستثناء': 'Write the reason for the exception',
   'رسوم التسجيل غير صحيحة': 'The registration fee is not valid',
@@ -780,6 +791,15 @@ const TEMPLATES: [string, string][] = [
   ['استثنته لجنة الاعتماد من المزاد برسوم {#0} ريال سُددت من ضمان الطلب.', 'The Accreditation Committee registered it without auction for SAR {0}, paid from the request guarantee.'],
   ['استثنته لجنة الاعتماد من المزاد برسوم تسجيل {#0} ريال. سدّد الفاتورة {1} لإصدار الشهادة.', 'The Accreditation Committee registered it without auction for a fee of SAR {0}. Pay invoice {1} to get the certificate.'],
   ['باقي ضمان الطلب {0} بعد رسوم تسجيل «{1}»', 'Rest of the guarantee of request {0} after the registration fee of “{1}”'],
+
+  // guarantees and the organization's names
+  ['بسعر {#0} ريال. سدّد الفاتورة خلال {#1} ساعة من محفظتك أو بوسائل الدفع، ويُعاد ضمانك إلى محفظتك بعد السداد. إن لم تُسدَّد في المهلة يُلغى فوزك ويُخصم الضمان ويصبح الاسم ملكًا للمنظمة الدولية للإبل.', 'At SAR {0}. Pay the invoice within {1} hours from your wallet or by card, and your guarantee returns to your wallet. If it is not paid in time, the win is cancelled, the guarantee forfeited and the name passes to the International Camel Organization.'],
+  ['أُلغي فوزك بشعار «{0}»', 'Your win of “{0}” was cancelled'],
+  ['لم تُسدَّد الفاتورة {0} خلال المهلة، فخُصم الضمان ({#1} ريال) وأصبح الاسم ملكًا للمنظمة الدولية للإبل.', 'Invoice {0} was not paid in time, so the guarantee (SAR {1}) was forfeited and the name passed to the International Camel Organization.'],
+  ['يُطرح «{0}» في مزاد جديد', '“{0}” is up for a new auction'],
+  ['استرداد ضمان دخول مزاد «{0}» بعد سداد الفاتورة {1}', 'Entry guarantee of “{0}” returned after paying invoice {1}'],
+  ['{#0} ريال بعد سداد فاتورة «{1}».', 'SAR {0} after paying the invoice for “{1}”.'],
+  ['مهلة سداد قيمة الشعار بالساعات بين {0} و{1}', 'The payment deadline (hours) must be between {0} and {1}'],
 
   // certificates
   ['صدرت شهادة {0}', 'Certificate {0} issued'],

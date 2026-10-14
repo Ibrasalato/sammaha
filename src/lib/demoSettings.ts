@@ -12,11 +12,12 @@ export const DEFAULT_SETTINGS: Omit<AdminSettings, 'rules'> = {
   signupOpen: true, supportEmail: '', supportPhone: '', whatsApp: '',
   announcementOn: false, announcement: '', announcementTone: 'info', maintenance: false, maintenanceNote: '',
   passwordMinLength: 8, maxLoginAttempts: 5, lockoutMinutes: 15, staffIdleMinutes: 30,
+  depositAmount: RULES.depositAmount, paymentDeadlineHours: 72,
 }
 
 export function demoRules(): AdminSettings['rules'] {
   return {
-    depositAmount: RULES.depositAmount, namesPerRequest: RULES.namesPerRequest, openingPrice: RULES.openingPrice, minIncrement: RULES.minIncrement,
+    depositAmount: readSettings().depositAmount, namesPerRequest: RULES.namesPerRequest, openingPrice: RULES.openingPrice, minIncrement: RULES.minIncrement,
     extendMinutes: RULES.extendMinutes, vatRate: RULES.vatRate, investFee: RULES.investFee, investOwnerShare: RULES.investOwnerShare,
     investMaxNames: RULES.investMaxNames, resaleNoticeHours: RULES.resaleNoticeHours, resaleAuctionDays: RULES.resaleAuctionDays,
     resaleCommission: RULES.resaleCommission, resaleBidDeposit: RULES.resaleBidDeposit, instantSaleHours: RULES.instantSaleHours, instantCommission: RULES.instantCommission,
@@ -44,6 +45,8 @@ export function writeSettings(patch: SettingsPatch, by: string): Omit<AdminSetti
   range(patch.maxLoginAttempts, 3, 20, tr('محاولات الدخول', 'Sign-in attempts'))
   range(patch.lockoutMinutes, 1, 1440, tr('مدة القفل بالدقائق', 'Lockout duration (minutes)'))
   range(patch.staffIdleMinutes, 0, 480, tr('مهلة الخمول بالدقائق', 'Idle timeout (minutes)'))
+  range(patch.paymentDeadlineHours, 1, 720, tr('مهلة سداد قيمة الشعار بالساعات', 'Payment deadline (hours)'))
+  if (patch.depositAmount != null && !(patch.depositAmount >= 0 && patch.depositAmount <= 1_000_000)) throw new ApiError(tr('مبلغ الضمان بين 0 و1,000,000 ريال', 'The guarantee must be between 0 and 1,000,000 riyals'))
   if (patch.supportEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patch.supportEmail.trim())) throw new ApiError(tr('بريد الدعم غير صحيح', 'The support email is not valid'))
   const cur = readSettings()
   const log = readLog()

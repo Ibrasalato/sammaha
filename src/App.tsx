@@ -48,6 +48,7 @@ const AdminEvents = pick(adminMod, 'AdminEvents')
 const certMod = () => import('./pages/owner/Certificates')
 const CertificatesPage = pick(certMod, 'CertificatesPage'), CertificateView = pick(certMod, 'CertificateView'), StaffCertificateView = pick(certMod, 'StaffCertificateView')
 const AdminCertificates = pick(() => import('./pages/admin/Certificates'), 'AdminCertificates')
+const AdminIcoNames = pick(() => import('./pages/admin/IcoNames'), 'AdminIcoNames')
 const AdminTickets = pick(() => import('./pages/admin/Tickets'), 'AdminTickets'), AdminTicket = pick(() => import('./pages/admin/Tickets'), 'AdminTicket')
 const AdminRoles = pick(() => import('./pages/admin/Roles'), 'AdminRoles')
 const AdminCustomers = pick(() => import('./pages/admin/Customers'), 'AdminCustomers')
@@ -105,6 +106,7 @@ const ADMIN_NAV: (NavItem & { perms?: Permission[] })[] = [
   { to: '/admin/auctions', get label() { return tr('التحكم في المزادات', 'Auction control') }, get short() { return tr('المزادات', 'Auctions') }, icon: 'gavel', perms: ['auctions.manage', 'auctions.cancel', 'auctions.schedule'] },
   { to: '/admin/reports/marks', get label() { return tr('تقرير الشعارات', 'Marks report') }, get short() { return tr('التقرير', 'Report') }, icon: 'list', perms: ['reports.marks'] },
   { to: '/admin/certificates', get label() { return tr('الشهادات والسجل', 'Certificates & registry') }, get short() { return tr('الشهادات', 'Certificates') }, icon: 'file', perms: ['certificates.manage', 'names.latin'] },
+  { to: '/admin/ico-names', get label() { return tr('أسماء المنظمة الدولية', 'Organization names') }, get short() { return tr('أسماء المنظمة', 'ICO names') }, icon: 'tag', perms: ['names.ico'] },
   { to: '/admin/customers', get label() { return tr('بيانات العملاء', 'Customer data') }, get short() { return tr('العملاء', 'Customers') }, icon: 'users', perms: ['owners.view'] },
   { to: '/admin/invoices', get label() { return tr('الفواتير', 'Invoices') }, icon: 'receipt', perms: ['invoices.view'] },
   { to: '/admin/wallets', get label() { return tr('المحافظ والاسترداد', 'Wallets & refunds') }, get short() { return tr('المحافظ', 'Wallets') }, icon: 'wallet', perms: ['wallets.view', 'wallets.refund', 'banks.verify'] },
@@ -207,6 +209,7 @@ function AppRoutes() {
             <Route path="reports/marks" element={<Can perms={['reports.marks']}><AdminMarksReport /></Can>} />
             <Route path="customers" element={<Can perms={['owners.view']}><AdminCustomers /></Can>} />
             <Route path="certificates" element={<Can perms={['certificates.manage', 'names.latin']}><AdminCertificates /></Can>} />
+            <Route path="ico-names" element={<Can perms={['names.ico']}><AdminIcoNames /></Can>} />
             <Route path="certificates/:number" element={<Can perms={['certificates.manage']}><StaffCertificateView /></Can>} />
             <Route path="wallets" element={<Can perms={['wallets.view', 'wallets.refund', 'banks.verify']}><AdminWallets /></Can>} />
             <Route path="deposits" element={<Can perms={['deposits.view']}><AdminDeposits /></Can>} />

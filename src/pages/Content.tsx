@@ -34,9 +34,9 @@ const FAQ: [string, ReactNode][] = [
   ['كيف أطلب اسمًا لإبلي؟', `أنشئ حسابًا، ثم من لوحة التحكم اختر «طلب شعار جديد»، وحدّد النوع واكتب ${RULES.namesPerRequest} أسماء مقترحة، ثم سدّد ضمان المزاد.`],
   ['كم اسمًا يُقبل من الطلب الواحد؟', `اسم واحد فقط. تكتب ${RULES.namesPerRequest} أسماء مقترحة لتزيد فرصة القبول، وتقبل لجنة الاعتماد شعارًا واحدًا منها يُطرح في المزاد، وتُرفض البقية تلقائيًا.`],
   ['لماذا رُفض الاسم الذي كتبته فورًا؟', 'لأنه مطابق تمامًا لاسم مسجل أو لاسم في طلب أو مزاد قائم. غيّر الاسم أو جرّب صيغة مختلفة. الأسماء الشبيهة تُقبل مبدئيًا وتراجعها لجنة الاعتماد.'],
-  ['كم ضمان المزاد ومتى يعود؟', `ضمان المزاد ${RULES.depositAmount} ريال لكل طلب. يعود إلى محفظتك إذا رُفض الطلب أو أُلغي، أو إذا رست كل أسماء الطلب على مزايدين آخرين. وإذا رسا عليك اسم من طلبك يُخصم الضمان من فاتورته.`],
+  ['كم ضمان المزاد ومتى يعود؟', `الضمان ${RULES.depositAmount} ريال، يدفعه مقدم الطلب مع طلبه، ويدفعه كل مزايد آخر لدخول المزاد. يعود إلى محفظتك إذا رُفض الطلب أو أُلغي، أو إذا رسا الاسم على غيرك. وإذا رسا عليك تسدّد قيمة الشعار كاملة خلال ${RULES.paymentDeadlineHours} ساعة ثم يعود ضمانك، وإن لم تسدّد في المهلة يُلغى فوزك ويُخصم الضمان ويصبح الاسم ملكًا للمنظمة الدولية للإبل.`],
   ['كيف تعمل المزايدة؟', `يبدأ كل اسم بسعر افتتاحي ${RULES.openingPrice} ريال، وأقل زيادة ${RULES.minIncrement} ريال. المزايدة في آخر ${RULES.extendMinutes} دقيقة تمدّد المزاد ${RULES.extendMinutes} دقيقة حتى لا يُحسم بمزايدة خاطفة.`],
-  ['ماذا يحدث إن لم يزايد أحد على الاسم؟', 'يرسو الاسم على مقدم الطلب بمبلغ الضمان نفسه، ويُسجّل باسمه.'],
+  ['ماذا يحدث إن لم يزايد أحد على الاسم؟', `يرسو الاسم على مقدم الطلب بالسعر الافتتاحي ${RULES.openingPrice} ريال، ويسدّده خلال ${RULES.paymentDeadlineHours} ساعة ثم يعود ضمانه.`],
   ['متى أستلم الفاتورة والشهادة؟', 'تصدر الفاتورة الإلكترونية فور ترسية المزاد، وتجدها في «الفواتير». وبعد السداد تجد شهادة تسجيل الاسم في «أسمائي»، وعليها رمز QR يتحقق منه أي شخص.'],
   ['ما خدمة «استثمار الاسم»؟', <>تقترح حتى {RULES.investMaxNames} أسماء جديدة مبتكرة في الطلب برسوم دراسة {RULES.investFee} ريال غير مستردة. ما تعتمده اللجنة يُطرح في مزاد عام، ولك {Math.round(RULES.investOwnerShare * 100)}% من قيمة بيعه قبل الضريبة، وإن لم يزايد أحد يؤول إليك. <Link to="/invest" className="font-bold text-gold-deep underline">التفاصيل</Link></>],
   ['هل يمكنني بيع الاسم أو نقله؟', 'بعد ربط الاسم بشريحة إلكترونية لا يحق بيعه أو استخدامه على فردي أو فردية أخرى، ويجب أن يرتبط اسم المتن باسم المشارك نفسه.'],
@@ -49,9 +49,9 @@ const FAQ_EN: [string, string][] = [
   ['How do I request a name?', `Create an account, choose “New request” in your dashboard, pick the type, enter ${RULES.namesPerRequest} proposed names and pay the auction guarantee.`],
   ['How many names are accepted per request?', `Only one. You enter ${RULES.namesPerRequest} proposed names to raise your chances; the Accreditation Committee accepts one of them for auction and the rest are declined automatically.`],
   ['Why was my name rejected immediately?', 'It is identical to a registered name or to a name in an active request or auction. Similar names are accepted for review by the committee.'],
-  ['How much is the guarantee and when is it refunded?', `SAR ${RULES.depositAmount} per request. It returns to your wallet if the request is declined or cancelled, or if all its names are won by others. If you win a name from your own request it is deducted from that invoice.`],
+  ['How much is the guarantee and when is it refunded?', `SAR ${RULES.depositAmount}. The requester pays it with the request, and every other bidder pays it to enter the auction. It returns to your wallet if the request is declined or cancelled, or if someone else wins the name. If you win, pay the full price within ${RULES.paymentDeadlineHours} hours and it is returned; if you do not pay in time, the win is cancelled, the guarantee is forfeited and the name passes to the International Camel Organization.`],
   ['How does bidding work?', `Each name opens at SAR ${RULES.openingPrice} with a minimum raise of SAR ${RULES.minIncrement}. A bid in the last ${RULES.extendMinutes} minutes extends the auction by ${RULES.extendMinutes} minutes.`],
-  ['What if nobody bids?', 'The name goes to the applicant for the guarantee amount.'],
+  ['What if nobody bids?', `The name goes to the requester at the opening price of SAR ${RULES.openingPrice}, payable within ${RULES.paymentDeadlineHours} hours; then their guarantee is returned.`],
   ['When do I get the invoice and certificate?', 'The e-invoice is issued as soon as the auction is awarded. After payment, the registration certificate with a verifiable QR code is in “My names”.'],
   ['What is «Name investment»?', `Propose up to ${RULES.investMaxNames} new, original names per request for a non-refundable SAR ${RULES.investFee} study fee. Approved names go to a public auction and you get ${Math.round(RULES.investOwnerShare * 100)}% of the sale before VAT; if nobody bids, the name is yours.`],
   ['Can I sell or transfer a name?', 'Once linked to a microchip, a name may not be sold or used on another camel, and must be linked to the participant’s own name.'],
@@ -108,7 +108,7 @@ export function Terms() {
           <li>{tr(`السعر الافتتاحي ${RULES.openingPrice} ريال، وأقل زيادة ${RULES.minIncrement} ريال، والمواعيد بتوقيت الرياض.`, `The opening price is SAR ${RULES.openingPrice}, the minimum raise is SAR ${RULES.minIncrement}, and all times are Riyadh time.`)}</li>
           <li>{tr('المزايدة التزام بالشراء ولا يجوز سحبها.', 'A bid is a commitment to buy and cannot be withdrawn.')}</li>
           <li>{tr(`المزايدة في آخر ${RULES.extendMinutes} دقيقة تمدّد المزاد ${RULES.extendMinutes} دقيقة.`, `A bid in the last ${RULES.extendMinutes} minutes extends the auction by ${RULES.extendMinutes} minutes.`)}</li>
-          <li>{tr('يرسو الاسم على أعلى مزايد عند انتهاء الوقت، وإن لم تُسجل مزايدات يرسو على مقدم الطلب بمبلغ الضمان.', 'The name is awarded to the highest bidder when time runs out; if there are no bids, it goes to the applicant for the guarantee amount.')}</li>
+          <li>{tr('يرسو الاسم على أعلى مزايد عند انتهاء الوقت، وإن لم تُسجل مزايدات يرسو على مقدم الطلب بالسعر الافتتاحي.', 'The name goes to the highest bidder when time runs out; with no bids it goes to the requester at the opening price.')}</li>
           <li>{tr('تصدر للفائز فاتورة ضريبية إلكترونية، والأسعار شاملة ضريبة القيمة المضافة 15%.', 'The winner receives an electronic tax invoice. Prices include 15% VAT.')}</li>
         </ul>
         <h2>{tr('ربط الأسماء', 'Linking names')}</h2>
@@ -160,7 +160,7 @@ export function Refund() {
         <h2>{tr('ضمان المزاد', 'Auction guarantee')}</h2>
         <ul>
           <li>{tr(`يُعاد ضمان المزاد (${RULES.depositAmount} ريال) تلقائيًا إلى محفظتك في الحالات الآتية: رفض الطلب، إلغاء الطلب قبل مراجعته، إلغاء اللجنة للطلب، أو ترسية جميع أسماء الطلب على غيرك.`, `The auction guarantee (SAR ${RULES.depositAmount}) is returned to your wallet automatically if the request is rejected, you cancel it before review, the committee cancels it, or all of its names are won by others.`)}</li>
-          <li>{tr('لا يُعاد الضمان إذا رسا عليك اسم من طلبك، إذ يُخصم من فاتورته.', 'The guarantee is not returned if you win a name from your own request; it is deducted from that invoice.')}</li>
+          <li>{tr(`إذا رسا عليك الاسم يُعاد الضمان بعد سداد قيمته كاملة خلال ${RULES.paymentDeadlineHours} ساعة، ولا يُعاد إن لم تسدّد في المهلة، ويصبح الاسم حينها ملكًا للمنظمة الدولية للإبل.`, `If you win, the guarantee is returned after you pay the full price within ${RULES.paymentDeadlineHours} hours; it is not returned if you do not pay in time, and the name then passes to the International Camel Organization.`)}</li>
         </ul>
         <h2>{tr('رصيد المحفظة', 'Wallet balance')}</h2>
         <p>{tr('يمكنك استخدام رصيد المحفظة في طلبات ومدفوعات لاحقة، أو طلب تحويله إلى حسابك البنكي عبر التواصل معنا، ويُعالج الطلب خلال 7 أيام عمل.', 'You can use your wallet balance for later requests and payments, or ask us to transfer it to your bank account; requests are processed within 7 working days.')}</p>

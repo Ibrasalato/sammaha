@@ -109,7 +109,7 @@ export interface OwnerCrm {
 export interface MarkRow {
   auctionId: string; number: string; name: string; type: NameType; kind: 'request' | 'investment' | 'resale'; requestNumber?: string; listingNumber?: string
   ownerName: string; status: 'scheduled' | 'live' | 'paused' | 'settling' | 'sold' | 'cancelled'; startsAt: string; endsAt: string; openingPrice: number
-  price: number; bidCount: number; bidders: number; winnerName?: string; wonByRequester?: boolean; invoiceNumber?: string; invoiceStatus?: 'paid' | 'unpaid'
+  price: number; bidCount: number; bidders: number; winnerName?: string; wonByRequester?: boolean; invoiceNumber?: string; invoiceStatus?: 'paid' | 'unpaid' | 'cancelled'
   vat?: number; certCode?: string; extensions: number; ownerId: string; winnerId?: string
 }
 
@@ -134,7 +134,7 @@ export interface WalletRow {
 export interface WalletDetail { wallet: WalletRow; txs: WalletTx[]; withdrawals: Withdrawal[]; bank?: BankAccount }
 export interface DepositRow {
   kind: 'request' | 'bid'; requestId?: string; auctionId?: string; userId: string; ownerName: string; reference: string; auctionNumber?: string
-  names: string; type: NameType; amount: number; state: 'held' | 'applied' | 'refunded' | 'fee'; context: string; at: string
+  names: string; type: NameType; amount: number; state: 'held' | 'applied' | 'refunded' | 'fee' | 'forfeited'; context: string; at: string
 }
 
 export type DelegationScope = 'requests' | 'invest' | 'bids' | 'payments' | 'sales' | 'tickets'
@@ -188,10 +188,6 @@ export interface Candidate {
   withdrawnAt?: string
   /** the owner can still withdraw this name (no auction of it has started) */
   withdrawable?: boolean
-  /** «استثناء من المزاد»: registered to the requester for a fee, without an auction */
-  exceptedAt?: string
-  exceptionFee?: number
-  exceptionReason?: string
 }
 
 export interface SimilarHit {
@@ -212,7 +208,7 @@ export interface LogoRequest {
   depositAmount: number
   depositPaid: boolean
   /** 'fee' = the non-refundable study fee of a name-investment request */
-  depositState: 'none' | 'held' | 'applied' | 'refunded' | 'fee'
+  depositState: 'none' | 'held' | 'applied' | 'refunded' | 'fee' | 'forfeited'
   createdAt: string
   submittedAt?: string
   reviewedAt?: string
@@ -233,6 +229,8 @@ export interface LogoRequest {
 export type AuctionPhase = 'scheduled' | 'live' | 'ended'
 
 export interface Auction {
+  /** a re-auction of a name the International Camel Organization owns */
+  icoReservedId?: string
   /** the name in Latin letters */
   latin?: string
   id: string
@@ -320,6 +318,18 @@ export interface ReservedName {
   latinOverride?: boolean
   /** demo store only: staff's Latin spelling */
   latinName?: string
+  /** «اسم مستثنى»: the winner did not pay in time and the name passed to the organization */
+  forfeitedFromId?: string
+  forfeitedFromName?: string
+  forfeitedAt?: string
+  forfeitedPrice?: number
+  forfeitedDeposit?: number
+  auctionId?: string
+}
+
+export interface IcoName {
+  id: string; name: string; latin: string; type: NameType; forfeitedFromName?: string; forfeitedFromId?: string; forfeitedAt?: string
+  forfeitedPrice?: number; forfeitedDeposit?: number; certCode: string; auction?: Auction
 }
 
 export type CertificateScope = 'mark' | 'portfolio'
@@ -361,7 +371,10 @@ export interface Invoice {
   subtotal: number
   depositApplied: number
   amountDue: number
-  status: 'paid' | 'unpaid'
+  status: 'paid' | 'unpaid' | 'cancelled'
+  /** an auction win must be paid by then; after it the win is cancelled and the guarantee forfeited */
+  dueAt?: string
+  cancelledAt?: string
   issuedAt: string
   paidAt?: string
   /** name investment: the proposer's share of the proceeds, paid to their wallet once this invoice is paid */
@@ -551,6 +564,10 @@ export interface PublicSettings {
   maintenanceNote?: string
   passwordMinLength: number
   staffIdleMinutes: number
+  /** the guarantee for a mark request and for entering an auction */
+  depositAmount: number
+  /** hours an auction winner has to pay */
+  paymentDeadlineHours: number
 }
 
 /** fees and rules from the server configuration (read-only in the dashboard) */
