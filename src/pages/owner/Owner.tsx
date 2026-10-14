@@ -277,7 +277,7 @@ export function InvoicePage() {
           <p className="text-lg font-extrabold">{tr('جاري معالجة الطلب', 'Processing your payment')}</p>
           <p className="text-muted">{paid ? tr('تم السداد، جاري إصدار الفاتورة الضريبية…', 'Payment received; issuing the tax invoice…') : tr('نتحقق من عملية الدفع مع البنك، وتصدر الفاتورة الضريبية فور اكتمالها.', 'We are confirming the payment with the bank; the tax invoice is issued as soon as it completes.')}</p>
         </div>
-      ) : <InvoiceDoc inv={data} />}
+      ) : <InvoiceDoc inv={data} onPay={data.status === 'unpaid' ? () => setPaying(true) : undefined} />}
       {paying && <PayModal open cardOnly title={tr(`سداد طلب السداد ${data.number}`, `Pay request ${data.number}`)} amount={data.amountDue} onClose={() => setPaying(false)}
         onPay={async (m) => { try { await api.payInvoice(data.id, m); setProcessing(true); await reload() } catch (e) { toast((e as Error).message, 'bad'); throw e } }} />}
     </>

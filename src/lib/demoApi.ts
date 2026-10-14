@@ -75,7 +75,7 @@ interface BidDeposit { auctionId: string; userId: string; amount: number; state:
 
 const KEY = 'sammha-demo-db'
 const SESSION = 'sammha-demo-session'
-const VERSION = 11
+const VERSION = 12
 
 const now = () => Date.now()
 const iso = (t: number) => new Date(t).toISOString()
@@ -411,7 +411,13 @@ function load(): DB {
         // the sample farm becomes a person, and sample owners get the sign-up details
         const fixed = JSON.parse(JSON.stringify(db).replaceAll('مزرعة الوسم للإبل', 'عبدالرحمن محمد سعد القحطاني')) as DB
         sampleProfiles(fixed)
-        fixed.v = VERSION; save(fixed); return fixed
+        fixed.v = 11; save(fixed); return load()
+      }
+      if (db.v === 11) {
+        // unpaid invoices are payment requests (PR-); the tax invoice number comes with the payment
+        let n = 0
+        for (const i of db.invoices) if (i.status !== 'paid' && i.number.startsWith('INV-')) { i.number = `PR-${new Date(i.issuedAt).getFullYear()}-${String(++n).padStart(5, '0')}`; i.requestNumber = i.number }
+        db.v = VERSION; save(db); return db
       }
     }
   } catch { /* storage unavailable */ }

@@ -12,11 +12,11 @@ const itemLabel = (inv: Invoice) => `${tr('اسم شعار', 'Mark name')} «${i
  * Before payment: a payment request (طلب سداد), never a tax invoice.
  * Once paid: the simplified tax invoice with its own number, date and ZATCA QR code.
  */
-export function InvoiceDoc({ inv }: { inv: Invoice }) {
-  return inv.status === 'paid' ? <TaxInvoice inv={inv} /> : <PaymentRequest inv={inv} />
+export function InvoiceDoc({ inv, onPay }: { inv: Invoice; onPay?: () => void }) {
+  return inv.status === 'paid' ? <TaxInvoice inv={inv} /> : <PaymentRequest inv={inv} onPay={onPay} />
 }
 
-function PaymentRequest({ inv }: { inv: Invoice }) {
+function PaymentRequest({ inv, onPay }: { inv: Invoice; onPay?: () => void }) {
   const cancelled = inv.status === 'cancelled'
   return (
     <article className="invoice panel mx-auto max-w-2xl bg-white p-6 sm:p-8 print:border-0 print:p-0">
@@ -44,6 +44,12 @@ function PaymentRequest({ inv }: { inv: Invoice }) {
         {inv.dueAt && !cancelled && <div className="flex justify-between text-bad"><dt>{tr('آخر موعد للسداد', 'Pay by')}</dt><dd>{dateTime(inv.dueAt)}</dd></div>}
         <div className="pt-1 text-end"><span className={`pill ${cancelled ? 'bg-bad/10 text-bad' : 'bg-gold-soft text-gold-deep'}`}>{cancelled ? tr('ملغى', 'Cancelled') : tr('بانتظار السداد', 'Awaiting payment')}</span></div>
       </dl>
+      {onPay && !cancelled && (
+        <div className="mt-6 print:hidden">
+          <button type="button" className="btn-gold w-full py-3 text-[17px]" onClick={onPay}>{tr('سداد', 'Pay')} {sar(inv.amountDue)}</button>
+          <p className="mt-2 text-center text-[13px] text-muted">{tr('مدى أو بطاقة ائتمانية أو Apple Pay', 'mada, credit card or Apple Pay')}</p>
+        </div>
+      )}
       <div className="mt-6 flex justify-center border-t border-line pt-4"><IcoLogo className="h-8" /></div>
     </article>
   )
