@@ -35,7 +35,7 @@ export function DashHome() {
   const liveBids = bids.data?.filter((b) => phaseOf(b.auction) === 'live') ?? []
   const pendingPay = reqs.data?.filter((r) => r.status === 'pending_payment') ?? []
   const underReview = reqs.data?.filter((r) => r.status === 'under_review').length ?? 0
-  const outbid = liveBids.filter((b) => b.auction.leaderId !== b.userId).length
+  const outbid = liveBids.filter((b) => !b.auction.isLeader).length
   const todo = unpaid.length + pendingPay.length + outbid
 
   return (
@@ -72,7 +72,7 @@ export function DashHome() {
               note={<>{tr('سدّد الفاتورة', 'Pay invoice')} <span className="num" dir="ltr">{i.number}</span> {tr('لإصدار شهادة التسجيل باسمك.', 'to issue the registration certificate in your name.')}</>}
               aside={<span className="btn-gold btn-sm hidden sm:inline-flex">{tr('سداد', 'Pay')} <span className="num">{sar(i.amountDue)}</span></span>} />
           ))}
-          {liveBids.filter((b) => b.auction.leaderId !== b.userId).map((b) => (
+          {liveBids.filter((b) => !b.auction.isLeader).map((b) => (
             <Alert key={b.id} icon="gavel" tone="red" to={`/auctions/${b.auctionId}`} aside={<span className="num font-extrabold text-ink">{sar(b.auction.currentPrice)}</span>}>
               {tr(`تجاوز مزايد آخر مزايدتك على «${b.auction.name}».`, `Another bidder outbid you on «${b.auction.name}».`)}
             </Alert>
@@ -120,7 +120,7 @@ export function DashHome() {
           {liveBids.length ? (
             <ul className="divide-y divide-line/70">
               {liveBids.map((b) => {
-                const leading = b.auction.leaderId === b.userId
+                const leading = !!b.auction.isLeader
                 return (
                   <li key={b.id}>
                     <Link to={`/auctions/${b.auctionId}`} className="flex items-center gap-3 px-5 py-3 hover:bg-stone">
@@ -286,8 +286,8 @@ export function InvoicePage() {
 export function MyBids() {
   const { data, loading } = useLoad(() => api.myBids(), [], 15000)
   const result = (b: NonNullable<typeof data>[number]) => {
-    if (phaseOf(b.auction) === 'ended') return b.auction.winnerId === b.userId ? 'won' : 'lost'
-    return b.auction.leaderId === b.userId ? 'leading' : 'outbid'
+    if (phaseOf(b.auction) === 'ended') return b.auction.isWinner ? 'won' : 'lost'
+    return b.auction.isLeader ? 'leading' : 'outbid'
   }
   const tf = useTableFilter(data, {
     fields: (b) => [b.auction.name, b.amount, b.auction.currentPrice],
@@ -310,15 +310,15 @@ export function MyBids() {
               {!tf.list.length && <NoResults cols={5} onReset={tf.reset} />}
               {tf.list.map((b) => {
                 const phase = phaseOf(b.auction)
-                const leading = b.auction.leaderId === b.userId
+                const leading = !!b.auction.isLeader
                 return (
                   <tr key={b.id}>
                     <td><Link to={`/auctions/${b.auctionId}`} className="flex items-center gap-2 font-extrabold text-lg hover:text-gold-deep"><TypeBadge type={b.auction.type} />{b.auction.name}</Link></td>
                     <td><PhasePill phase={phase} /></td>
                     <td className="num">{sar(b.amount)}</td>
                     <td className="num font-semibold">{sar(b.auction.finalPrice ?? b.auction.currentPrice)}</td>
-                    <td className={`font-semibold ${phase === 'ended' ? (b.auction.winnerId === b.userId ? 'text-ok' : 'text-muted') : leading ? 'text-ok' : 'text-bad'}`}>
-                      {phase === 'ended' ? (b.auction.winnerId === b.userId ? <span className="inline-flex items-center gap-1.5 rounded-full bg-gold-soft px-2.5 py-0.5 text-gold-deep"><Icon name="trophy" className="h-4 w-4" />{tr('مبارك، فزت بالمزاد', 'Congratulations, you won')}</span> : tr('لم يرسُ عليك', 'Not won')) : leading ? tr('متصدر', 'Leading') : tr('تم تجاوزك', 'Outbid')}
+                    <td className={`font-semibold ${phase === 'ended' ? (b.auction.isWinner ? 'text-ok' : 'text-muted') : leading ? 'text-ok' : 'text-bad'}`}>
+                      {phase === 'ended' ? (b.auction.isWinner ? <span className="inline-flex items-center gap-1.5 rounded-full bg-gold-soft px-2.5 py-0.5 text-gold-deep"><Icon name="trophy" className="h-4 w-4" />{tr('مبارك، فزت بالمزاد', 'Congratulations, you won')}</span> : tr('لم يرسُ عليك', 'Not won')) : leading ? tr('متصدر', 'Leading') : tr('تم تجاوزك', 'Outbid')}
                     </td>
                   </tr>
                 )

@@ -8,6 +8,15 @@ import { locale, tr } from '../lib/i18n'
 import { api, useLoad } from '../lib/store'
 import type { Auction, CamelEvent, EventKind } from '../lib/types'
 
+/** event links come from staff input: only absolute http(s) addresses become links (no javascript:, data: …) */
+function safeUrl(u?: string | null): string | undefined {
+  if (!u) return undefined
+  try {
+    const x = new URL(u.trim())
+    return x.protocol === 'https:' || x.protocol === 'http:' ? x.href : undefined
+  } catch { return undefined }
+}
+
 const monthFmt = () => new Intl.DateTimeFormat(locale(), { month: 'long', timeZone: 'Asia/Riyadh' })
 const monthYearFmt = () => new Intl.DateTimeFormat(locale(), { month: 'long', year: 'numeric', timeZone: 'Asia/Riyadh' })
 const dayFmt = () => new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'long', timeZone: 'Asia/Riyadh' })
@@ -79,7 +88,7 @@ export function CalendarRow({ item }: { item: CalItem }) {
           {sameDay ? dayFmt().format(asDate(e.startsOn)) : `${dayFmt().format(asDate(e.startsOn))} ${tr('إلى', 'to')} ${dayFmt().format(asDate(e.endsOn))}`}{tr('، ', ', ')}{tr(e.city, e.cityEn || e.city)}{tr('، ', ', ')}{tr(e.country, e.countryEn || e.country)}
         </p>
         <p className="mt-1.5 text-[14.5px] leading-7 text-ink/80">{tr(e.description, e.descriptionEn || e.description)}</p>
-        {e.url && <a href={e.url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-[14px] font-bold text-gold-deep hover:underline">{tr('الموقع الرسمي', 'Official website')}</a>}
+        {safeUrl(e.url) && <a href={safeUrl(e.url)} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[14px] font-bold text-gold-deep hover:underline">{tr('الموقع الرسمي', 'Official website')}</a>}
       </div>
       <Relative startsOn={e.startsOn} endsOn={e.endsOn} />
     </article>

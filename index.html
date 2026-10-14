@@ -2,6 +2,8 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
+    <!-- CSP as a meta tag (GitHub Pages cannot send headers; frame-ancestors is header-only). connect-src https:/wss: covers the API, SignalR and the n8n chat webhook on another origin -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-src https:; object-src 'none'; base-uri 'self'; form-action 'self' https:" />
     <link rel="icon" type="image/svg+xml" href="./sammha-mark.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="./favicon-192.png" />

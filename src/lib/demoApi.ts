@@ -19,9 +19,13 @@ import { SIMILAR_THRESHOLD, findMatches, normalizeName, relation, sameForms, sim
 import { emailTicketEvent, normalizePhone, publicTicket, validateTicket } from './tickets'
 import type { MatchSource } from './names'
 import type {
-  AppNotification, CamelEvent, Auction, Ticket, AuctionPhase, Bid, Candidate, Invoice, LogoRequest, NameCheck, NameType, ReservedName,
+  AppNotification, CamelEvent, Auction as ApiAuction, Ticket, AuctionPhase, Bid as ApiBid, Candidate, Invoice, LogoRequest, NameCheck, NameType, ReservedName,
   User, WalletTx,
 } from './types'
+
+/** the demo database keeps the ids the API keeps; pubAuction / view strip them like the API's public projection */
+type Auction = ApiAuction & { requesterId: string }
+type Bid = ApiBid & { userId: string }
 
 interface DemoUser extends User {
   password: string
@@ -731,8 +735,30 @@ function mineFor(db: DB, auctionId: string) {
   return { watching: !!db.watches?.some((w) => w.auctionId === auctionId && w.userId === id), autoMax: db.autobids?.find((x) => x.auctionId === auctionId && x.userId === id)?.max,
     depositPaid: hasBidDeposit(db, auctionId, id) || undefined }
 }
+/** staff (committee/admin) see user ids; everyone else gets the public shape the API returns */
+function staffViewer(db: DB) {
+  const id = getSession()
+  const u = id ? db.users.find((x) => x.id === id) : undefined
+  return !!u && u.role !== 'owner' && u.active !== false
+}
+/** mirrors the API: no user ids in public projections, the winner masked, flags relative to the signed-in caller */
+function pubAuction(db: DB, a: Auction): ApiAuction {
+  const id = getSession() ?? undefined
+  const flags = {
+    isLeader: (!!id && a.leaderId === id) || undefined,
+    isWinner: (!!id && a.winnerId === id) || undefined,
+    isRequester: (!!id && a.requesterId === id) || undefined,
+  }
+  if (staffViewer(db)) return { ...a, ...flags }
+  const { requesterId: _r, leaderId: _l, winnerId: _w, ...rest } = a
+  return { ...rest, ...flags, winnerName: a.winnerName ? maskName(a.winnerName) : undefined }
+}
 function view(db: DB, a: Auction): AuctionView {
-  return { auction: a, bids: db.bids.filter((b) => b.auctionId === a.id).sort((x, y) => y.amount - x.amount || Date.parse(y.createdAt) - Date.parse(x.createdAt)), mine: mineFor(db, a.id) }
+  const id = getSession()
+  const staff = staffViewer(db)
+  const bids = db.bids.filter((b) => b.auctionId === a.id).sort((x, y) => y.amount - x.amount || Date.parse(y.createdAt) - Date.parse(x.createdAt))
+    .map(({ userId, ...b }) => ({ ...b, userId: staff ? userId : undefined, mine: (!!id && userId === id) || undefined }))
+  return { auction: pubAuction(db, a), bids, mine: mineFor(db, a.id) }
 }
 
 /** Watchlist reminders: an hour before the start, and an hour before the end. */
@@ -1310,6 +1336,7 @@ const rawApi: SammhaApi = {
         if (px === 'scheduled') return Date.parse(x.startsAt) - Date.parse(y.startsAt)
         return Date.parse(x.endsAt) - Date.parse(y.endsAt)
       })
+      .map((a) => pubAuction(db, a))
   }),
 
   getAuction: (id) => tx((db) => {
@@ -1332,19 +1359,35 @@ const rawApi: SammhaApi = {
       return u?.showAvatar && u.avatarUrl ? u.avatarUrl : undefined
     }
     const latin = q && isLatinQuery(q) ? latinKey(q.trim()) : ''
-    return db.reserved.map((r) => ({ ...r, ownerAvatar: avatar(r) }))
+    // like the API: no owner id, and each owner's photo only on their first row
+    const shown = new Set<string>()
+    return db.reserved
       .filter((r) => (type && type !== 'all' ? r.type === type : true))
       .filter((r) => (latin ? latinKey(latinOf(r)).includes(latin) : n ? r.normalized.includes(n) || r.ownerName.includes(q!) : true))
       .sort((a, b) => Date.parse(b.acquiredAt) - Date.parse(a.acquiredAt))
+      .map(({ ownerId: _o, ...r }) => {
+        const key = _o ?? r.ownerName
+        const first = !shown.has(key)
+        shown.add(key)
+        return { ...r, ownerAvatar: first ? avatar({ ...r, ownerId: _o }) : undefined }
+      })
   }),
 
-  checkNames: (names, _type) => tx((db) => checkNamesIn(db, names)),
+  // like the API: names from other owners' live requests are not public, so those hits keep only their type, source and score
+  checkNames: (names, _type) => tx((db) => checkNamesIn(db, names).map((c) => ({
+    ...c,
+    message: c.verdict === 'exact' && c.hits.find((h) => h.score === 1)?.source === 'request' ? `مطابق تمامًا لاسم تحت الطلب أو المزاد: «${c.name.trim()}»` : c.message,
+    hits: c.hits.map((h) => (h.source === 'request' ? { ...h, name: '' } : h)),
+  }))),
 
   listEvents: () => tx((db) => [...db.events].sort((a, b) => a.startsOn.localeCompare(b.startsOn))),
 
   verifyCertificate: (code) => tx((db) => {
     const c = code.trim().toUpperCase()
-    return db.reserved.find((r) => certNo(r) === c) ?? null
+    const r = db.reserved.find((x) => certNo(x) === c)
+    if (!r) return null
+    const { ownerId: _o, ...pub } = r
+    return pub
   }),
 
   submitTicket: (input) => tx((db) => {
@@ -1535,7 +1578,7 @@ const rawApi: SammhaApi = {
         return request.candidates.map((candidate) => {
           const auction = db.auctions.find((a) => a.id === candidate.auctionId)
           const inv = auction ? db.invoices.find((i) => i.auctionId === auction.id) : undefined
-          return { request, candidate, auction, share: inv?.ownerShare, sharePaid: inv?.ownerSharePaid, keptByOwner: !!auction?.settled && auction.winnerId === r.userId }
+          return { request, candidate, auction: auction && pubAuction(db, auction), share: inv?.ownerShare, sharePaid: inv?.ownerSharePaid, keptByOwner: !!auction?.settled && auction.winnerId === r.userId }
         })
       })
   }),
@@ -1641,7 +1684,7 @@ const rawApi: SammhaApi = {
       const cur = latest.get(b.auctionId)
       if (!cur || b.amount > cur.amount) latest.set(b.auctionId, b)
     }
-    return [...latest.values()].map((b) => ({ ...b, auction: db.auctions.find((a) => a.id === b.auctionId)! }))
+    return [...latest.values()].map((b) => ({ ...b, mine: true, auction: pubAuction(db, db.auctions.find((a) => a.id === b.auctionId)!) }))
       .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
   }),
 
@@ -1960,7 +2003,7 @@ const rawApi: SammhaApi = {
   myWatchlist: () => tx((db) => {
     const u = me(db)
     const ids = new Set((db.watches ?? []).filter((w) => w.userId === u.id).map((w) => w.auctionId))
-    return db.auctions.filter((a) => ids.has(a.id)).sort((x, y) => Date.parse(x.endsAt) - Date.parse(y.endsAt))
+    return db.auctions.filter((a) => ids.has(a.id)).sort((x, y) => Date.parse(x.endsAt) - Date.parse(y.endsAt)).map((a) => pubAuction(db, a))
   }),
 
 

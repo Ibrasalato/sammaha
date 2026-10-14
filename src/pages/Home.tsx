@@ -236,7 +236,7 @@ function NameChecker({ ctaTo }: { ctaTo: string }) {
         <div className={`mt-3 flex flex-wrap items-center gap-3 rounded-md border px-4 py-3 text-[15px] ${tone}`} role="status">
           <span className="flex-1 font-bold text-paper">
             {res.verdict === 'available' ? tr(`«${res.name}» متاح للطلب`, `“${res.name}” is available`) : getLang() === 'ar' ? res.message : ({ similar: 'Available, but similar to existing names; the committee will review it', exact: 'Already registered or under request', invalid: 'Use Arabic letters only (2 to 30)', duplicate: 'Duplicate name' } as Record<string, string>)[res.verdict]}
-            {res.verdict === 'similar' && <span className="font-normal text-paper/70"> ({res.hits.slice(0, 3).map((h) => h.name).join(tr('، ', ', '))})</span>}
+            {res.verdict === 'similar' && res.hits.some((h) => h.name) && <span className="font-normal text-paper/70"> ({res.hits.filter((h) => h.name).slice(0, 3).map((h) => h.name).join(tr('، ', ', '))})</span>}
           </span>
           {(res.verdict === 'available' || res.verdict === 'similar') && <Link to={ctaTo} className="btn-on-dark btn-sm">{tr('اطلبه الآن', 'Request it')}</Link>}
         </div>
@@ -249,6 +249,7 @@ function Leaderboards() {
   const { data } = useLoad(() => api.listReservedNames('', 'all'), [])
   if (!data?.length) return null
   const topValue = [...data].sort((a, b) => b.price - a.price).slice(0, 5)
+  // the registry sends an owner's photo on their first row only
   const byOwner = new Map<string, { n: number; avatar?: string }>()
   for (const r of data) {
     const cur = byOwner.get(r.ownerName) ?? { n: 0 }
@@ -258,7 +259,7 @@ function Leaderboards() {
   return (
     <section className="wrap grid gap-6 py-16 lg:grid-cols-2">
       <Leaderboard title={tr('أعلى قيمة للمزادات', 'Highest auction values')}
-        rows={topValue.map((r) => ({ key: r.id, to: `/names?q=${encodeURIComponent(r.name)}`, main: r.name, type: r.type, sub: r.ownerName, subAvatar: r.ownerAvatar, value: sar(r.price) }))} />
+        rows={topValue.map((r) => ({ key: r.id, to: `/names?q=${encodeURIComponent(r.name)}`, main: r.name, type: r.type, sub: r.ownerName, subAvatar: byOwner.get(r.ownerName)?.avatar, value: sar(r.price) }))} />
       <Leaderboard title={tr('أكثر ملكية للأسماء', 'Most names owned')}
         rows={topOwners.map(([o, { n, avatar }]) => ({ key: o, to: `/names?q=${encodeURIComponent(o)}`, main: o, avatar: { src: avatar }, value: tr(n === 1 ? 'اسم واحد' : n === 2 ? 'اسمان' : n <= 10 ? `${n} أسماء` : `${n} اسمًا`, `${n} name${n > 1 ? 's' : ''}`) }))} />
     </section>

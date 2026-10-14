@@ -243,7 +243,7 @@ export function NewRequest() {
                 {c && (
                   <p className={`mt-1 text-sm font-semibold ${VERDICT_STYLE[c.verdict]}`}>
                     {L(c.message ?? '')}
-                    {c.verdict === 'similar' && <span className="font-normal text-muted"> ({c.hits.slice(0, 3).map((h) => h.name).join(tr('، ', ', '))})</span>}
+                    {c.verdict === 'similar' && c.hits.some((h) => h.name) && <span className="font-normal text-muted"> ({c.hits.filter((h) => h.name).slice(0, 3).map((h) => h.name).join(tr('، ', ', '))})</span>}
                   </p>
                 )}
               </div>

@@ -73,7 +73,8 @@ export function publicTicket(t: Ticket): Ticket {
   return { ...t, assignee: undefined, messages: t.messages.filter((m) => !m.internal) }
 }
 
-const WEBHOOK = (import.meta.env.VITE_TICKET_WEBHOOK_URL as string | undefined) ?? 'https://ibrasalato.app.n8n.cloud/webhook/sammha-tickets'
+/** set per deployment; no default, so a build without it simply skips the email fan-out */
+const WEBHOOK = (import.meta.env.VITE_TICKET_WEBHOOK_URL as string | undefined) || ''
 
 /**
  * Email fan-out through n8n ("Sammha 6 — Tickets Email"). In production the database calls the same

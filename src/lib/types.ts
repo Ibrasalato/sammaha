@@ -241,18 +241,26 @@ export interface Auction {
   candidateId: string
   name: string
   type: NameType
-  requesterId: string
+  /** staff views only; public responses carry isRequester instead */
+  requesterId?: string
   openingPrice: number
   minIncrement: number
   startsAt: string
   endsAt: string
   currentPrice: number
   bidCount: number
+  /** staff views only (user ids are never sent publicly) */
   leaderId?: string
   leaderLabel?: string
   settled: boolean
+  /** staff views only */
   winnerId?: string
+  /** staff: the full name; public: masked like leaderLabel */
   winnerName?: string
+  /** relative to the signed-in caller: they hold the top bid / won / requested this name */
+  isLeader?: boolean
+  isWinner?: boolean
+  isRequester?: boolean
   finalPrice?: number
   wonByRequester?: boolean
   /** times the end was pushed back by a last-minute bid */
@@ -277,7 +285,10 @@ export interface Auction {
 export interface Bid {
   id: string
   auctionId: string
-  userId: string
+  /** staff views only */
+  userId?: string
+  /** the signed-in caller placed this bid */
+  mine?: boolean
   bidderLabel: string
   amount: number
   createdAt: string
@@ -305,6 +316,7 @@ export interface ReservedName {
   name: string
   normalized: string
   type: NameType
+  /** the caller's own names only; the public registry omits it */
   ownerId?: string
   ownerName: string
   price: number
@@ -312,7 +324,7 @@ export interface ReservedName {
   source: 'auction' | 'legacy' | 'compound' | 'investment' | 'resale' | 'exception' | 'transfer'
   /** for a compound name: the owned name it was built on */
   baseName?: string
-  /** owner's public photo, only when they chose to show it */
+  /** owner's public photo, only when they chose to show it (public registry: on the owner's first row only) */
   ownerAvatar?: string
   /** an active sale listing of this name, if its owner is selling it */
   listingId?: string

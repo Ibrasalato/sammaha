@@ -77,8 +77,15 @@ export const SUPER_ADMIN_EMAIL = 'ibrasalato@gmail.com'
 /** Staff sign-in lives on its own unlisted address, not on the public login page. */
 export const STAFF_LOGIN_PATH = '/ico-staff'
 
-/** One-time code: fixed until an SMS provider is connected (then it's random and sent by SMS). */
-export const OTP = { fixedCode: '4321', length: 4, ttlMinutes: 5, maxAttempts: 5 }
+/** no API address → the in-browser demo backend */
+export const IS_DEMO = !import.meta.env.VITE_API_URL
+
+/**
+ * One-time code hint. The demo always uses 4321; a build against the real API shows it only while VITE_OTP_HINT is set
+ * (the API runs with a temporary fixed code until the SMS provider is connected on the organization's server —
+ * then drop the variable and the hint disappears).
+ */
+export const OTP = { fixedCode: IS_DEMO ? '4321' : (import.meta.env.VITE_OTP_HINT ?? ''), length: 4, ttlMinutes: 5, maxAttempts: 5 }
 
 /** Every name category, in display order */
 export const NAME_TYPES: NameType[] = ['qaadan', 'bakkar', 'manqiya']
@@ -96,6 +103,3 @@ export const TYPE_HEX: Record<NameType, { base: string; deep: string; soft: stri
 }
 /** [value, label] options for filters; `all` = the value used for "everything" */
 export const typeOptions = <A extends string>(all: A, allLabel: string): [A | NameType, string][] => [[all, allLabel], ...NAME_TYPES.map((t) => [t, TYPE_LABEL[t]] as [NameType, string])]
-
-/** no API address → the in-browser demo backend */
-export const IS_DEMO = !import.meta.env.VITE_API_URL

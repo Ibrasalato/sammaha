@@ -53,14 +53,14 @@ export default function AuctionDetail() {
   const phase = a.paused ? 'paused' as const : phaseOf(a, now)
   const mine = data.mine
   const min = a.currentPrice + a.minIncrement
-  const isRequester = user?.id === a.requesterId
+  const isRequester = !!user && !!a.isRequester
   const resale = !!a.listingId
   const ownInvest = (!!a.investment || resale) && isRequester // the proposer or seller may not bid on the name
   // every bidder pays the entry guarantee first (on a request's auction the requester's request guarantee covers them)
   const entry = resale || (a.bidDeposit ?? 0) > 0
   const needDeposit = entry && !!user && !isRequester && !mine?.depositPaid && phase !== 'ended'
   const deadline = settings?.paymentDeadlineHours ?? 72
-  const leading = !!user && a.leaderId === user.id
+  const leading = !!user && !!a.isLeader
   const endsSoon = phase === 'live' && Date.parse(a.endsAt) - now < RULES.extendMinutes * 60_000 * 3
 
   async function run<T>(p: Promise<T>, ok: (r: T) => string) {
@@ -156,7 +156,7 @@ export default function AuctionDetail() {
                     <tbody>
                       {data.bids.map((b, i) => (
                         <tr key={b.id} className={i === 0 ? 'bg-gold-soft/40 font-semibold' : ''}>
-                          <td>{user?.id === b.userId ? tr('أنت', 'You') : b.bidderLabel}{i === 0 && <span className="pill ms-2 bg-gold text-pine-deep">{phase === 'ended' ? tr('الفائز', 'Winner') : tr('الأعلى', 'Top')}</span>}</td>
+                          <td>{user && b.mine ? tr('أنت', 'You') : b.bidderLabel}{i === 0 && <span className="pill ms-2 bg-gold text-pine-deep">{phase === 'ended' ? tr('الفائز', 'Winner') : tr('الأعلى', 'Top')}</span>}</td>
                           <td className="num">{sar(b.amount)}</td>
                           <td className="text-[13px] text-muted">{b.auto ? tr('تلقائية', 'Auto') : tr('يدوية', 'Manual')}</td>
                           <td className="text-muted">{time(b.createdAt)}{tr('، ', ', ')}{new Date(b.createdAt).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })}</td>
@@ -201,7 +201,7 @@ export default function AuctionDetail() {
                         ? a.bidCount ? tr('رسا الاسم على مقدم الطلب', 'Awarded to the applicant') : tr('لم تُسجَّل مزايدات، فرسا الاسم على مقدم الطلب بالسعر الافتتاحي', 'No bids, so the name went to the requester at the opening price')
                         : tr(`رسا الاسم على ${a.winnerName ? a.winnerName.split(' ')[0] + '…' : 'أعلى مزايد'}`, 'Awarded to the highest bidder')
                       : tr('انتهى المزاد، جارٍ الترسية', 'Auction ended, awarding')}
-                    {user && a.winnerId === user.id && <Link to="/dashboard/invoices" className="mt-1 block text-gold-deep underline underline-offset-4">{tr('عرض فاتورتك', 'View your invoice')}</Link>}
+                    {user && a.isWinner && <Link to="/dashboard/invoices" className="mt-1 block text-gold-deep underline underline-offset-4">{tr('عرض فاتورتك', 'View your invoice')}</Link>}
                   </p>
                 )}
               </div>

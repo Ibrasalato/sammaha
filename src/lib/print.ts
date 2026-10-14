@@ -72,8 +72,10 @@ ${opts.el.outerHTML}
 /** CSV with a BOM so Excel opens Arabic correctly */
 export function downloadCsv(filename: string, rows: (string | number | null | undefined)[][]) {
   const cell = (v: string | number | null | undefined) => {
-    const s = v == null ? '' : String(v)
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+    let s = v == null ? '' : String(v)
+    // CSV formula injection: a text cell starting with = + - @ tab or CR would run as a formula in Excel/Sheets
+    if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = `'${s}`
+    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
   }
   const blob = new Blob(['﻿' + rows.map((r) => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' })
   const a = document.createElement('a')
