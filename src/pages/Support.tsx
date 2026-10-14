@@ -11,6 +11,7 @@ import { getLang, tr } from '../lib/i18n'
 import { api, useApp } from '../lib/store'
 import { KIND_LABEL, TICKET_KINDS, TOPICS, kindLabel } from '../lib/tickets'
 import type { Ticket, TicketInput, TicketKind } from '../lib/types'
+import { useContact } from '../components/SettingsUi'
 import { PageBand } from './Content'
 
 const KIND_ICON: Record<TicketKind, IconName> = { complaint: 'alert', report: 'shield', inquiry: 'file', suggestion: 'plus' }
@@ -25,6 +26,7 @@ function CopyNumber({ value }: { value: string }) {
 }
 
 export function Contact() {
+  const contact = useContact()
   const { user } = useApp()
   const en = getLang() === 'en'
   const blank = (): TicketInput => ({ kind: 'inquiry', topic: TOPICS[0][0], subject: '', name: user?.fullName ?? '', phone: user?.phone ?? '', email: user?.email ?? '', refNumber: '', message: '' })
@@ -112,8 +114,9 @@ export function Contact() {
           </Link>
           <div className="panel divide-y divide-line/70">
             {([
-              [tr('البريد الإلكتروني', 'Email'), SELLER.email, `mailto:${SELLER.email}`],
-              [tr('واتساب', 'WhatsApp'), SELLER.whatsapp.replace(/^966/, '0'), `https://wa.me/${SELLER.whatsapp}`],
+              [tr('البريد الإلكتروني', 'Email'), contact.email, `mailto:${contact.email}`],
+              [tr('واتساب', 'WhatsApp'), contact.whatsapp.replace(/^966/, '0'), `https://wa.me/${contact.whatsapp}`],
+              ...(contact.phone ? [[tr('الهاتف', 'Phone'), contact.phone, `tel:${contact.phone.replace(/[^\d+]/g, '')}`] as [string, string, string]] : []),
               ['X', '@samha_ico', SELLER.x],
               [tr('العنوان', 'Address'), tr(SELLER.address, 'Riyadh, Saudi Arabia'), ''],
             ] as [string, string, string][]).map(([l, v, href]) => (

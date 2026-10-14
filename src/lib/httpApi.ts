@@ -172,6 +172,12 @@ export const httpApi: SammhaApi = {
     resetHub()
     if (s) await fetch(`${BASE}/api/auth/signout`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.token}` }, body: JSON.stringify({ refreshToken: s.refreshToken }) }).catch(() => {})
   },
+  async signOutEverywhere() {
+    const s = session
+    if (s) await post('/api/auth/signout', { refreshToken: s.refreshToken, everywhere: true }).catch(() => {})
+    saveSession(null)
+    resetHub()
+  },
 
   // ───── public ─────
   stats: () => get('/api/stats'),
@@ -271,4 +277,16 @@ export const httpApi: SammhaApi = {
   getTicket: (id) => get(`/api/admin/tickets/${id}`),
   updateTicket: (id, patch) => call('PATCH', `/api/admin/tickets/${id}`, patch),
   replyTicket: (id, body, internal) => post(`/api/admin/tickets/${id}/reply`, { body, internal }),
+
+  // ───── settings ─────
+  publicSettings: () => get('/api/settings'),
+  adminSettings: () => get('/api/admin/settings'),
+  updateSettings: (patch) => call('PATCH', '/api/admin/settings', patch),
+  settingsHistory: () => get('/api/admin/settings/history'),
+  signOutEveryone: async () => (await post<{ users: number }>('/api/admin/settings/sign-out-everyone')).users,
+  myPreferences: () => get('/api/me/preferences'),
+  saveMyPreferences: (p) => put('/api/me/preferences', p),
+  mySessions: () => get('/api/me/sessions'),
+  revokeMySession: (id) => call('DELETE', `/api/me/sessions/${encodeURIComponent(id)}`),
+  mySecurity: () => get('/api/me/security'),
 }

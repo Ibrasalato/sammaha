@@ -7,6 +7,7 @@ import { Empty, Loading, NameSeal, PageHead, TypeBadge, TypePicker } from '../..
 import { RULES, typeOptions } from '../../lib/config'
 import { dateTime, sar } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
+import { ClosedNotice, useClosed } from '../../components/SettingsUi'
 import type { InvestmentItem, LogoRequest, NameCheck, NameType } from '../../lib/types'
 
 const pct = Math.round(RULES.investOwnerShare * 100)
@@ -55,7 +56,8 @@ export function InvestPage() {
   const filled = names.filter((n) => n.trim())
   const blocked = checks.some((c) => c && BLOCK.includes(c.verdict))
   const checked = names.every((n, i) => !n.trim() || checks[i])
-  const ready = !!type && filled.length > 0 && checked && !blocked && agree
+  const closed = useClosed('investment')
+  const ready = !!type && filled.length > 0 && checked && !blocked && agree && !closed
 
   async function submit() {
     if (!type) return
@@ -78,6 +80,7 @@ export function InvestPage() {
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <section className="panel p-5">
           <h2 className="flex items-center gap-2 text-lg"><span className="grid h-9 w-9 place-items-center rounded-lg bg-gold-soft text-gold-deep"><Icon name="coins" /></span>تقديم أسماء جديدة</h2>
+          <ClosedNotice intake="investment" className="mt-3" />
           <p className="mt-2 text-sm text-muted">من اسم إلى {RULES.investMaxNames} أسماء في الطلب، جديدة وغير مكررة، ورسوم الدراسة {sar(RULES.investFee)} للطلب كاملًا.</p>
           <div className="mt-4"><TypePicker value={type} onChange={setType} compact /></div>
           <div className={`mt-4 space-y-3 ${type ? '' : 'pointer-events-none opacity-50'}`}>

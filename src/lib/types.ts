@@ -351,3 +351,92 @@ export interface Ticket extends TicketInput {
   createdAt: string
   updatedAt: string
 }
+
+// ───────────── platform settings (super admin) and personal settings ─────────────
+/** What every visitor sees: open services, banner, contact details, password rule. */
+export interface PublicSettings {
+  requestsOpen: boolean
+  requestsClosedNote?: string
+  compoundOpen: boolean
+  compoundClosedNote?: string
+  resaleAuctionOpen: boolean
+  instantSaleOpen: boolean
+  saleClosedNote?: string
+  investmentOpen: boolean
+  investmentClosedNote?: string
+  signupOpen: boolean
+  supportEmail: string
+  supportPhone: string
+  whatsApp: string
+  /** shown only while the banner is on */
+  announcement?: string
+  announcementTone: 'info' | 'warn' | 'ok'
+  maintenance: boolean
+  maintenanceNote?: string
+  passwordMinLength: number
+  staffIdleMinutes: number
+}
+
+/** fees and rules from the server configuration (read-only in the dashboard) */
+export interface PlatformRules {
+  depositAmount: number
+  namesPerRequest: number
+  openingPrice: number
+  minIncrement: number
+  extendMinutes: number
+  vatRate: number
+  investFee: number
+  investOwnerShare: number
+  investMaxNames: number
+  resaleNoticeHours: number
+  resaleAuctionDays: number
+  resaleCommission: number
+  resaleBidDeposit: number
+  instantSaleHours: number
+  instantCommission: number
+}
+
+export interface AdminSettings extends Omit<PublicSettings, 'announcement'> {
+  announcementOn: boolean
+  announcement?: string
+  maxLoginAttempts: number
+  lockoutMinutes: number
+  updatedAt?: string
+  updatedBy?: string
+  rules: PlatformRules
+}
+
+export type SettingsPatch = Partial<Omit<AdminSettings, 'rules' | 'updatedAt' | 'updatedBy'>>
+
+export interface SettingsChange {
+  id: number
+  at: string
+  userName: string
+  field: string
+  oldValue?: string
+  newValue?: string
+}
+
+/** SMS / WhatsApp copies per category (in-app notices always arrive) */
+export interface Preferences {
+  notifyOutbid: boolean
+  notifyReminders: boolean
+  notifyResults: boolean
+  notifyRequests: boolean
+}
+
+export interface SessionInfo {
+  id: string
+  signedInAt: string
+  lastActiveAt: string
+  expiresAt: string
+  ip?: string
+  device?: string
+  current: boolean
+}
+
+export interface SecuritySummary {
+  lastLoginAt?: string
+  activeSessions: number
+  passwordMinLength: number
+}

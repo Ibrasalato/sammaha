@@ -1,6 +1,6 @@
 import type {
   AppNotification, CamelEvent, AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
-  AuctionView, InvestmentItem, ListingMode, NameListing, PublicStats, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
+  AdminSettings, AuctionView, InvestmentItem, ListingMode, NameListing, Preferences, PublicSettings, PublicStats, SecuritySummary, SessionInfo, SettingsChange, SettingsPatch, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
 } from './types'
 
 export interface SignUpInput {
@@ -34,6 +34,8 @@ export interface SammhaApi {
   resendOtp(challenge: string): Promise<OtpChallenge>
   changePassword(current: string, next: string): Promise<void>
   signOut(): Promise<void>
+  /** ends this account's sessions on every device, this one included */
+  signOutEverywhere(): Promise<void>
 
   // public
   stats(): Promise<PublicStats>
@@ -122,6 +124,23 @@ export interface SammhaApi {
   getTicket(id: string): Promise<Ticket>
   updateTicket(id: string, patch: { status?: TicketStatus; priority?: TicketPriority; assignee?: string }): Promise<Ticket>
   replyTicket(id: string, body: string, internal: boolean): Promise<Ticket>
+
+  // settings
+  /** public switches: open services, banner, maintenance, contact details, password rule */
+  publicSettings(): Promise<PublicSettings>
+  // super admin
+  adminSettings(): Promise<AdminSettings>
+  /** partial update; every change is written to the history */
+  updateSettings(patch: SettingsPatch): Promise<AdminSettings>
+  settingsHistory(): Promise<SettingsChange[]>
+  /** ends every session on the platform except the caller's; returns how many accounts were signed out */
+  signOutEveryone(): Promise<number>
+  // any signed-in user
+  myPreferences(): Promise<Preferences>
+  saveMyPreferences(p: Preferences): Promise<Preferences>
+  mySessions(): Promise<SessionInfo[]>
+  revokeMySession(id: string): Promise<SessionInfo[]>
+  mySecurity(): Promise<SecuritySummary>
 }
 
 export class ApiError extends Error {}

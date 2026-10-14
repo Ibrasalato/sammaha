@@ -14,6 +14,7 @@ import type { OtpChallenge } from '../../lib/api'
 import { OtpForm } from '../../components/OtpForm'
 import { phaseOf } from '../../lib/demoApi'
 import { date, dateTime, humanLeft, num, sar } from '../../lib/format'
+import { ClosedNotice, useClosed } from '../../components/SettingsUi'
 import { api, useApp, useLoad } from '../../lib/store'
 
 export function DashHome() {
@@ -321,10 +322,12 @@ function CompoundName({ base, onClose }: { base: ReservedName; onClose: () => vo
     setBusy(true); setErr('')
     try { const r = await api.createCompoundRequest(base.id, full); toast('أُرسل طلب الاسم المركب إلى لجنة الاعتماد'); nav(`/dashboard/requests/${r.id}`) } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
   }
-  const blocked = check?.verdict === 'exact' || check?.verdict === 'invalid'
+  const closed = useClosed('compound')
+  const blocked = check?.verdict === 'exact' || check?.verdict === 'invalid' || !!closed
   return (
     <Modal open onClose={onClose} title={`اسم مركب لـ«${base.name}»`}>
       <div className="space-y-4">
+        <ClosedNotice intake="compound" />
         {err && <ErrorBox text={err} />}
         <p className="text-[15px] text-muted">أضف كلمة إلى اسمك المسجل. يُراجع الطلب من لجنة الاعتماد، وإذا اعتُمد يُسجّل باسمك مباشرة <b className="text-ink">دون مزاد ودون ضمان</b>.</p>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">

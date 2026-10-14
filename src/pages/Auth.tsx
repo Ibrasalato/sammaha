@@ -8,6 +8,7 @@ import { OtpForm } from '../components/OtpForm'
 import type { OtpChallenge } from '../lib/api'
 import { IS_DEMO, SUPER_ADMIN_EMAIL } from '../lib/config'
 import { api, useApp } from '../lib/store'
+
 import type { User } from '../lib/types'
 
 function useAfterAuth() {
@@ -142,7 +143,7 @@ export function StaffLogin() {
 }
 
 export function Signup() {
-  const { setUser } = useApp()
+  const { setUser, settings } = useApp()
   const done = useAfterAuth()
   const [f, setF] = useState({ fullName: '', phone: '', email: '', nationalId: '', password: '' })
   const [agree, setAgree] = useState(false)
@@ -156,6 +157,16 @@ export function Signup() {
     try { const u = await api.signUp(f); setUser(u); done(u) } catch (x) { setErr((x as Error).message) } finally { setBusy(false) }
   }
 
+  if (!settings.signupOpen) return (
+    <AuthFrame title={tr('حساب مالك إبل جديد', 'New camel owner account')}>
+      <div role="status" className="rounded-xl border border-gold/50 bg-gold-soft p-4 text-[15px] leading-7 text-gold-deep">
+        <b className="block text-ink">{tr('التسجيل متوقف مؤقتًا', 'Sign-up is paused')}</b>
+        {tr('لا يمكن إنشاء حسابات جديدة حاليًا. إن كان لديك حساب فسجّل الدخول.', 'New accounts cannot be created right now. If you already have one, sign in.')}
+      </div>
+      <Link to="/login" className="btn-primary mt-5 w-full">{tr('تسجيل الدخول', 'Sign in')}</Link>
+    </AuthFrame>
+  )
+
   return (
     <AuthFrame title={tr('حساب مالك إبل جديد', 'New camel owner account')}>
       <form onSubmit={submit} className="space-y-4">
@@ -164,7 +175,7 @@ export function Signup() {
         <div><label className="label" htmlFor="ph">{tr('رقم الجوال', 'Mobile number')}</label><input id="ph" className="field" dir="ltr" inputMode="tel" placeholder="05xxxxxxxx" value={f.phone} onChange={set('phone')} required /></div>
         <div><label className="label" htmlFor="em">{tr('البريد الإلكتروني', 'Email')}</label><input id="em" type="email" className="field" dir="ltr" value={f.email} onChange={set('email')} required /><p className="hint">{tr('تصلك عليه الفواتير الإلكترونية.', 'Your e-invoices are sent here.')}</p></div>
         <div><label className="label" htmlFor="id">{tr('رقم الهوية أو الإقامة (اختياري)', 'National ID or Iqama (optional)')}</label><input id="id" className="field" dir="ltr" inputMode="numeric" value={f.nationalId} onChange={set('nationalId')} /></div>
-        <div><label className="label" htmlFor="pw">{tr('كلمة المرور', 'Password')}</label><input id="pw" type="password" className="field" dir="ltr" autoComplete="new-password" value={f.password} onChange={set('password')} required minLength={6} /></div>
+        <div><label className="label" htmlFor="pw">{tr('كلمة المرور', 'Password')}</label><input id="pw" type="password" className="field" dir="ltr" autoComplete="new-password" value={f.password} onChange={set('password')} required minLength={settings.passwordMinLength} /><p className="hint">{tr(`${settings.passwordMinLength} أحرف على الأقل`, `At least ${settings.passwordMinLength} characters`)}</p></div>
         <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1.5" checked={agree} onChange={(e) => setAgree(e.target.checked)} required /><span>{tr('أوافق على', 'I agree to the')} <Link to="/terms" className="underline">{tr('شروط المزاد وضوابط ربط الأسماء', 'auction terms and name-linking rules')}</Link></span></label>
         <button className="btn-primary w-full" disabled={busy || !agree}>{tr('إنشاء الحساب', 'Create account')}</button>
       </form>

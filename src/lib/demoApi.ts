@@ -5,7 +5,8 @@
  */
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'
-import type { AuctionView , NameListing } from './types'
+import type { AuctionView, NameListing, Preferences } from './types'
+import { demoRules, ensureOpen, ensureWritable, logAction, publicOf, readLog, readSettings, writeSettings } from './demoSettings'
 import { NAME_TYPES, OTP, RULES, SUPER_ADMIN_EMAIL } from './config'
 import { maskEmail, maskPhone, otpDigits } from './otp'
 import { namesCount } from './format'
@@ -19,7 +20,15 @@ import type {
   User, WalletTx,
 } from './types'
 
-interface DemoUser extends User { password: string }
+interface DemoUser extends User {
+  password: string
+  prefs?: Preferences
+  failedLogins?: number
+  lockedUntil?: number
+  lastLoginAt?: string
+  /** bumped by "sign out everyone"; a demo session started before it ends */
+  stamp?: number
+}
 interface AutoBid { auctionId: string; userId: string; max: number; createdAt: string }
 interface Watch { auctionId: string; userId: string; notifiedStart?: boolean; notifiedEnd?: boolean }
 interface DB {
@@ -721,6 +730,15 @@ function me(db: DB): DemoUser {
   const u = db.users.find((x) => x.id === id)
   if (!u) throw new ApiError('سجّل الدخول أولًا')
   if (u.active === false) { setSession(null); throw new ApiError('هذا الحساب موقوف') }
+  let mine = '0'
+  try { mine = localStorage.getItem('sammha-demo-stamp') ?? '0' } catch { /* ignore */ }
+  if (String(u.stamp ?? 0) !== mine) { setSession(null); throw new ApiError('انتهت الجلسة، سجّل الدخول من جديد') }
+  return u
+}
+/** owner write actions: closed during maintenance */
+function writer(db: DB): DemoUser {
+  const u = me(db)
+  ensureWritable(u.role)
   return u
 }
 function staff(db: DB): DemoUser {
@@ -740,7 +758,8 @@ function targetUser(db: DB, id: string, actor: DemoUser) {
   if (t.id === actor.id) throw new ApiError('لا يمكنك تعديل صلاحيات حسابك')
   return t
 }
-const publicUser = ({ password: _p, ...u }: DemoUser): User => u
+const publicUser = ({ password: _p, prefs: _q, failedLogins: _f, lockedUntil: _l, lastLoginAt: _a, stamp: _s, ...u }: DemoUser): User => u
+const DEFAULT_PREFS: Preferences = { notifyOutbid: true, notifyReminders: true, notifyResults: true, notifyRequests: true }
 
 // ───────────────────────── API ─────────────────────────
 export const demoApi: SammhaApi = {
@@ -754,7 +773,9 @@ export const demoApi: SammhaApi = {
     if (!/^05\d{8}$/.test(phone)) throw new ApiError('رقم الجوال يبدأ بـ 05 ويتكون من 10 أرقام')
     if (db.users.some((u) => u.phone === phone)) throw new ApiError('رقم الجوال مسجل مسبقًا، سجّل الدخول')
     if (db.users.some((u) => u.email.toLowerCase() === input.email.toLowerCase())) throw new ApiError('البريد الإلكتروني مسجل مسبقًا')
-    if (input.password.length < 6) throw new ApiError('كلمة المرور 6 أحرف على الأقل')
+    const policy = readSettings()
+    if (!policy.signupOpen) throw new ApiError('التسجيل في المنصة متوقف مؤقتًا')
+    if (input.password.length < policy.passwordMinLength) throw new ApiError(`كلمة المرور ${policy.passwordMinLength} أحرف على الأقل`)
     const u: DemoUser = { id: uid(db, 'u'), fullName: input.fullName.trim(), phone, email: input.email.trim(), nationalId: input.nationalId, role: 'owner', password: input.password, createdAt: iso(now()) }
     db.users.push(u)
     setSession(u.id)
@@ -772,8 +793,18 @@ export const demoApi: SammhaApi = {
       if (password.length < 8) throw new ApiError('أول دخول لحساب مدير النظام: اختر كلمة مرور من 8 أحرف على الأقل')
       u.password = password
     }
-    if (u.password !== password) throw wrong
+    const policy = readSettings()
+    if (u.lockedUntil && u.lockedUntil > now()) throw new ApiError(`تم إيقاف الدخول مؤقتًا بعد محاولات خاطئة متكررة، حاول بعد ${Math.max(1, Math.ceil((u.lockedUntil - now()) / 60000))} دقيقة`)
+    if (u.password !== password) {
+      // counted and saved even though sign-in fails (tx saves only on success, so save here)
+      u.failedLogins = (u.failedLogins ?? 0) + 1
+      if (u.failedLogins >= policy.maxLoginAttempts) { u.lockedUntil = now() + policy.lockoutMinutes * 60000; u.failedLogins = 0 }
+      save(db)
+      throw wrong
+    }
     if (u.active === false) throw new ApiError('هذا الحساب موقوف، تواصل مع مدير النظام')
+    u.failedLogins = 0
+    u.lockedUntil = undefined
     return issueOtp(u.id, 'login', u.phone)
   }),
 
@@ -781,7 +812,9 @@ export const demoApi: SammhaApi = {
     const c = consumeOtp(challenge, code, 'login')
     const u = db.users.find((x) => x.id === c.userId)
     if (!u || u.active === false) throw new ApiError('تعذّر الدخول')
+    u.lastLoginAt = iso(now())
     setSession(u.id)
+    try { sessionStorage.setItem('sammha-demo-signed-in', iso(now())); localStorage.setItem('sammha-demo-stamp', String(u.stamp ?? 0)) } catch { /* ignore */ }
     return publicUser(u)
   }),
 
@@ -847,11 +880,14 @@ export const demoApi: SammhaApi = {
   changePassword: (current, next) => tx((db) => {
     const u = me(db)
     if (u.password !== current) throw new ApiError('كلمة المرور الحالية غير صحيحة')
-    if (next.length < 8) throw new ApiError('كلمة المرور الجديدة 8 أحرف على الأقل')
+    const min = readSettings().passwordMinLength
+    if (next.length < min) throw new ApiError(`كلمة المرور ${min} أحرف على الأقل`)
+    if (next === current) throw new ApiError('اختر كلمة مرور مختلفة عن الحالية')
     u.password = next
   }),
 
   signOut: async () => { setSession(null) },
+  signOutEverywhere: () => tx((db) => { const u = me(db); u.stamp = (u.stamp ?? 0) + 1; setSession(null) }),
 
   stats: () => tx((db) => ({
     live: db.auctions.filter((a) => phaseOf(a) === 'live').length,
@@ -1010,7 +1046,8 @@ export const demoApi: SammhaApi = {
   }),
 
   createRequest: (type, names) => tx((db) => {
-    const u = me(db)
+    const u = writer(db)
+    ensureOpen('requests')
     if (names.length !== RULES.namesPerRequest) throw new ApiError(`أدخل ${RULES.namesPerRequest} أسماء`)
     const checks = checkNamesIn(db, names)
     const blocked = checks.filter((c) => c.verdict === 'exact' || c.verdict === 'invalid' || c.verdict === 'duplicate')
@@ -1025,7 +1062,8 @@ export const demoApi: SammhaApi = {
   }),
 
   createCompoundRequest: (reservedId, fullName) => tx((db) => {
-    const u = me(db)
+    const u = writer(db)
+    ensureOpen('compound')
     const base = db.reserved.find((x) => x.id === reservedId && x.ownerId === u.id)
     if (!base) throw new ApiError('اختر اسمًا من أسمائك المسجلة')
     const unpaid = db.invoices.find((i) => i.userId === u.id && i.name === base.name && i.status === 'unpaid')
@@ -1050,7 +1088,8 @@ export const demoApi: SammhaApi = {
   }),
 
   createInvestmentRequest: (type, names) => tx((db) => {
-    const u = me(db)
+    const u = writer(db)
+    ensureOpen('investment')
     if (!NAME_TYPES.includes(type)) throw new ApiError('اختر النوع')
     const list = names.map((n) => n.trim()).filter(Boolean)
     if (!list.length) throw new ApiError('اكتب اسمًا واحدًا على الأقل')
@@ -1085,7 +1124,7 @@ export const demoApi: SammhaApi = {
   }),
 
   payDeposit: (requestId, method: PayMethod) => tx((db) => {
-    const u = me(db)
+    const u = writer(db)
     const r = db.requests.find((x) => x.id === requestId && x.userId === u.id)
     if (!r) throw new ApiError('الطلب غير موجود')
     if (r.status !== 'pending_payment') throw new ApiError('تم سداد ضمان هذا الطلب')
@@ -1151,7 +1190,7 @@ export const demoApi: SammhaApi = {
   }),
 
   topUp: (amount) => tx((db) => {
-    const u = me(db)
+    const u = writer(db)
     if (!(amount >= 10)) throw new ApiError('أقل مبلغ للشحن 10 ريال')
     db.txs.push({ id: uid(db, 't'), userId: u.id, amount, kind: 'topup', note: 'شحن المحفظة بالبطاقة', createdAt: iso(now()) })
     return { balance: balanceOf(db, u.id), txs: db.txs.filter((t) => t.userId === u.id).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)) }
@@ -1163,7 +1202,7 @@ export const demoApi: SammhaApi = {
   }),
 
   payInvoice: (id, method) => tx((db) => {
-    const u = me(db)
+    const u = writer(db)
     const inv = db.invoices.find((i) => i.id === id && (i.userId === u.id || u.role !== 'owner'))
     if (!inv) throw new ApiError('الفاتورة غير موجودة')
     if (inv.status === 'paid') return inv
@@ -1193,7 +1232,8 @@ export const demoApi: SammhaApi = {
   }),
 
   createListing: (reservedId, mode, price) => tx((db) => {
-    const u = me(db)
+    const u = writer(db)
+    ensureOpen(mode === 'auction' ? 'resale' : 'instant')
     const r = db.reserved.find((x) => x.id === reservedId && x.ownerId === u.id)
     if (!r) throw new ApiError('الاسم غير مسجل باسمك')
     if (r.listingId && db.listings?.some((l) => l.id === r.listingId && (l.status === 'live' || l.status === 'scheduled'))) throw new ApiError('الاسم معروض للبيع حاليًا')
@@ -1256,7 +1296,7 @@ export const demoApi: SammhaApi = {
   }),
 
   buyListing: (id, method) => tx((db) => {
-    const u = me(db)
+    const u = writer(db)
     const l = db.listings?.find((x) => x.id === id)
     if (!l || l.mode !== 'instant') throw new ApiError('العرض غير موجود')
     if (l.status !== 'live' || now() >= Date.parse(l.endsAt)) throw new ApiError('انتهى عرض هذا الاسم')
@@ -1275,7 +1315,7 @@ export const demoApi: SammhaApi = {
   }),
 
   payBidDeposit: (auctionId, method) => tx((db) => {
-    const u = me(db)
+    const u = writer(db)
     const a = db.auctions.find((x) => x.id === auctionId)
     if (!a || !a.listingId) throw new ApiError('المزاد غير موجود')
     if (a.settled || phaseOf(a) === 'ended') throw new ApiError('انتهى المزاد')
@@ -1290,7 +1330,7 @@ export const demoApi: SammhaApi = {
   }),
 
   placeBid: (auctionId, amount) => tx((db) => {
-    const u = me(db)
+    const u = writer(db)
     const a = db.auctions.find((x) => x.id === auctionId)
     if (!a) throw new ApiError('المزاد غير موجود')
     const phase = phaseOf(a)
@@ -1307,7 +1347,7 @@ export const demoApi: SammhaApi = {
   }),
 
   setAutoBid: (auctionId, max) => tx((db) => {
-    const u = me(db)
+    const u = writer(db)
     const a = db.auctions.find((x) => x.id === auctionId)
     if (!a) throw new ApiError('المزاد غير موجود')
     if (phaseOf(a) === 'ended') throw new ApiError('انتهى المزاد')
@@ -1534,4 +1574,31 @@ export const demoApi: SammhaApi = {
     staff(db)
     db.events = db.events.filter((e) => e.id !== id)
   }),
+
+  // ───── settings ─────
+  publicSettings: async () => structuredClone(publicOf(readSettings())),
+  adminSettings: () => tx((db) => { superOnly(db); return { ...readSettings(), rules: demoRules() } }),
+  updateSettings: (patch) => tx((db) => { const u = superOnly(db); return { ...writeSettings(patch, u.fullName), rules: demoRules() } }),
+  settingsHistory: () => tx((db) => { superOnly(db); return readLog() }),
+  signOutEveryone: () => tx((db) => {
+    const u = superOnly(db)
+    let n = 0
+    for (const x of db.users) if (x.id !== u.id) { x.stamp = (x.stamp ?? 0) + 1; n++ }
+    // the caller's own stamp stays as is, so this browser keeps its session
+    logAction('SignOutEveryone', u.fullName, String(n))
+    return n
+  }),
+  myPreferences: () => tx((db) => ({ ...DEFAULT_PREFS, ...me(db).prefs })),
+  saveMyPreferences: (p) => tx((db) => { const u = me(db); u.prefs = { ...p }; return u.prefs }),
+  mySessions: () => tx((db) => {
+    me(db)
+    let at = iso(now())
+    try { at = sessionStorage.getItem('sammha-demo-signed-in') || at } catch { /* ignore */ }
+    const ua = navigator.userAgent
+    const device = `${/Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'متصفح'} · ${/iPhone/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac OS/.test(ua) ? 'macOS' : 'جهاز'}`
+    // the demo knows only this browser; the real API lists every signed-in device
+    return [{ id: 'this-device', signedInAt: at, lastActiveAt: iso(now()), expiresAt: iso(now() + 30 * D), device, current: true }]
+  }),
+  revokeMySession: () => tx(() => { throw new ApiError('هذا جهازك الحالي، استخدم «تسجيل الخروج»') }),
+  mySecurity: () => tx((db) => ({ lastLoginAt: me(db).lastLoginAt, activeSessions: 1, passwordMinLength: readSettings().passwordMinLength })),
 }

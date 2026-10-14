@@ -8,6 +8,8 @@ import { api, useApp } from '../lib/store'
 import { Avatar } from './Avatar'
 import { NotificationBell } from './NotificationBell'
 import { Icon } from './dash'
+import { SiteBanner, useContact } from './SettingsUi'
+import { useStaffIdle } from './StaffIdle'
 import type { IconName } from './dash'
 
 const PUBLIC_NAV = (): [string, string][] => [
@@ -29,6 +31,7 @@ export function IcoLogo({ light, className = 'h-9' }: { light?: boolean; classNa
 }
 
 function UtilityBar() {
+  const contact = useContact()
   return (
     <div className="bg-pine text-[13px] text-paper/75">
       <div className="wrap flex h-9 items-center gap-4">
@@ -41,8 +44,8 @@ function UtilityBar() {
         )}
         <span className="ms-auto flex items-center gap-4">
           <LangSwitch className="rounded border border-paper/25 px-2 py-px font-bold text-paper hover:bg-paper hover:text-pine" />
-          <a className="hover:text-paper" href={`mailto:${SELLER.email}`}>{SELLER.email}</a>
-          <a className="hidden hover:text-paper sm:inline" href={`https://wa.me/${SELLER.whatsapp}`} target="_blank" rel="noreferrer" dir="ltr">{SELLER.whatsapp.replace(/^966/, '0')}</a>
+          <a className="hover:text-paper" href={`mailto:${contact.email}`}>{contact.email}</a>
+          <a className="hidden hover:text-paper sm:inline" href={`https://wa.me/${contact.whatsapp}`} target="_blank" rel="noreferrer" dir="ltr">{contact.whatsapp.replace(/^966/, '0')}</a>
         </span>
       </div>
     </div>
@@ -100,6 +103,7 @@ export function PublicLayout() {
           </div>
         )}
       </header>
+      <SiteBanner />
       <main className="flex-1"><Outlet /></main>
       <Footer />
     </div>
@@ -107,6 +111,7 @@ export function PublicLayout() {
 }
 
 export function Footer() {
+  const contact = useContact()
   return (
     <footer className="mt-auto bg-pine text-paper/70">
       <div className="sadu" aria-hidden />
@@ -126,8 +131,8 @@ export function Footer() {
         <div>
           <h3 className="text-[15px] font-extrabold text-paper">{tr('تواصل معنا', 'Contact')}</h3>
           <ul className="mt-4 space-y-2.5 text-[14.5px]">
-            <li><a className="hover:text-paper" href={`mailto:${SELLER.email}`}>{SELLER.email}</a></li>
-            <li><a className="hover:text-paper" href={`https://wa.me/${SELLER.whatsapp}`} target="_blank" rel="noreferrer">{tr('واتساب', 'WhatsApp')} <span dir="ltr">{SELLER.whatsapp.replace(/^966/, '0')}</span></a></li>
+            <li><a className="hover:text-paper" href={`mailto:${contact.email}`}>{contact.email}</a></li>
+            <li><a className="hover:text-paper" href={`https://wa.me/${contact.whatsapp}`} target="_blank" rel="noreferrer">{tr('واتساب', 'WhatsApp')} <span dir="ltr">{contact.whatsapp.replace(/^966/, '0')}</span></a></li>
             <li><a className="hover:text-paper" href={SELLER.x} target="_blank" rel="noreferrer">X: @samha_ico</a></li>
           </ul>
           <h3 className="mt-6 text-[13px] font-bold text-paper/60">{tr('وسائل الدفع', 'Payment methods')}</h3>
@@ -167,6 +172,7 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
   const { user, setUser } = useApp()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  useStaffIdle()
   const roleLabel = user?.role === 'owner' ? 'مالك إبل' : user?.role === 'committee' ? 'لجنة الاعتماد' : 'مدير المنصة'
   return (
     <div className="flex min-h-screen flex-col bg-stone">
@@ -190,6 +196,7 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
         </div>
         <div className="h-[3px] bg-gold" aria-hidden />
       </header>
+      <SiteBanner dashboard />
       <div className="flex flex-1">
         <aside className={`${open ? 'fixed inset-0 z-30 block bg-pine/40' : 'hidden'} lg:static lg:block lg:bg-transparent`} onClick={() => setOpen(false)}>
           <nav className="h-full w-64 shrink-0 border-e border-line bg-paper px-3 py-5" onClick={(e) => e.stopPropagation()} aria-label={title}>

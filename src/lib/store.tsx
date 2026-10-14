@@ -4,7 +4,8 @@ import type { SammhaApi } from './api'
 import { IS_DEMO } from './config'
 import { demoApi } from './demoApi'
 import { httpApi } from './httpApi'
-import type { User } from './types'
+import type { PublicSettings, User } from './types'
+import { DEFAULT_SETTINGS, publicOf } from './demoSettings'
 
 export const api: SammhaApi = IS_DEMO ? demoApi : httpApi
 
@@ -14,6 +15,9 @@ interface Ctx {
   ready: boolean
   setUser: (u: User | null) => void
   toast: (text: string, tone?: Toast['tone']) => void
+  /** platform switches set by the super admin (open services, banner, maintenance, password rule) */
+  settings: PublicSettings
+  reloadSettings: () => Promise<void>
 }
 
 const AppCtx = createContext<Ctx>(null as unknown as Ctx)
@@ -24,6 +28,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false)
   const [toasts, setToasts] = useState<Toast[]>([])
   const seq = useRef(0)
+  const [settings, setSettings] = useState<PublicSettings>(() => publicOf(DEFAULT_SETTINGS))
+  const reloadSettings = useCallback(async () => { try { setSettings(await api.publicSettings()) } catch { /* keep the last known */ } }, [])
+
+  useEffect(() => {
+    reloadSettings()
+    const t = setInterval(reloadSettings, 60_000)
+    const onFocus = () => { if (document.visibilityState === 'visible') reloadSettings() }
+    document.addEventListener('visibilitychange', onFocus)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onFocus) }
+  }, [reloadSettings])
 
   useEffect(() => {
     api.currentUser().then(setUser).catch(() => setUser(null)).finally(() => setReady(true))
@@ -36,7 +50,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AppCtx.Provider value={{ user, ready, setUser, toast }}>
+    <AppCtx.Provider value={{ user, ready, setUser, toast, settings, reloadSettings }}>
       {children}
       <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4" aria-live="polite">
         {toasts.map((t) => (

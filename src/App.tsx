@@ -23,6 +23,7 @@ import Invest from './pages/Invest'
 import Market from './pages/Market'
 import ReservedNames from './pages/ReservedNames'
 import Verify from './pages/Verify'
+import { OwnerSettings, StaffSettings } from './pages/Settings'
 import { STAFF_LOGIN_PATH } from './lib/config'
 
 // Dashboards load on demand, so the public site stays light on phones.
@@ -87,6 +88,7 @@ const OWNER_NAV: NavItem[] = [
   { to: '/dashboard/invoices', label: 'الفواتير', icon: 'receipt' },
   { to: '/dashboard/tickets', label: 'الشكاوى والاستفسارات', icon: 'alert' },
   { to: '/dashboard/profile', label: 'حسابي', icon: 'users' },
+  { to: '/dashboard/settings', label: 'الإعدادات', icon: 'settings' },
 ]
 
 const ADMIN_NAV: NavItem[] = [
@@ -98,6 +100,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: '/admin/tickets', label: 'الشكاوى والبلاغات', icon: 'alert' },
   { to: '/admin/events', label: 'المواعيد والفعاليات', icon: 'list' },
   { to: '/admin/users', label: 'المستخدمون والصلاحيات', icon: 'users' },
+  { to: '/admin/settings', label: 'الإعدادات', icon: 'settings' },
   { to: '/admin/account', label: 'حسابي', icon: 'shield' },
 ]
 
@@ -165,6 +168,7 @@ function AppRoutes() {
             <Route path="watchlist" element={<WatchlistPage />} />
             <Route path="invest" element={<InvestPage />} />
             <Route path="sell" element={<SellPage />} />
+            <Route path="settings" element={<OwnerSettings />} />
           </Route>
           <Route path={STAFF_LOGIN_PATH.slice(1)} element={<StaffLogin />} />
           <Route path="admin" element={<Guard roles={['committee', 'admin']}><AdminShell /></Guard>}>
@@ -176,6 +180,7 @@ function AppRoutes() {
             <Route path="invoices" element={<AdminInvoices />} />
             <Route path="users" element={<Guard roles={['admin']}><AdminUsers /></Guard>} />
             <Route path="account" element={<StaffAccount />} />
+            <Route path="settings" element={<StaffSettings />} />
             <Route path="events" element={<AdminEvents />} />
             <Route path="tickets" element={<AdminTickets />} />
             <Route path="tickets/:id" element={<AdminTicket />} />

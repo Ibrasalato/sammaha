@@ -6,6 +6,7 @@ import { Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, RequestStatusPill,
 import { RULES, typeOptions, TYPE_CLS } from '../../lib/config'
 import { dateTime, sar } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
+import { ClosedPage, useClosed } from '../../components/SettingsUi'
 import type { Candidate, LogoRequest, NameCheck, NameType } from '../../lib/types'
 
 const DEPOSIT_STATE: Record<LogoRequest['depositState'], string> = {
@@ -188,6 +189,7 @@ export function NewRequest() {
   const [created, setCreated] = useState<LogoRequest | null>(null)
   const [busy, setBusy] = useState(false)
   const paid = useRef(false)
+  const closed = useClosed('requests')
 
   // live matching check, debounced
   useEffect(() => {
@@ -206,6 +208,8 @@ export function NewRequest() {
     setBusy(true)
     try { setCreated(await api.createRequest(type, names)) } catch (e) { toast((e as Error).message, 'bad') } finally { setBusy(false) }
   }
+
+  if (closed && !created) return <ClosedPage intake="requests" title="طلب شعار جديد" back="/dashboard/requests" />
 
   return (
     <>

@@ -6,6 +6,7 @@ import { Empty, Loading, NameSeal, PageHead, TypeBadge } from '../../components/
 import { RULES, typeOptions } from '../../lib/config'
 import { dateTime, sar } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
+import { ClosedNotice, useClosed } from '../../components/SettingsUi'
 import type { ListingMode, NameListing } from '../../lib/types'
 
 const pct = (r: number) => Math.round(r * 100)
@@ -37,7 +38,8 @@ export function SellPage() {
   const chosen = sellable.find((n) => n.id === reservedId)
   const rate = mode === 'auction' ? RULES.resaleCommission : RULES.instantCommission
   const value = Number(price)
-  const valid = !!chosen && Number.isFinite(value) && value >= RULES.openingPrice && agree
+  const closed = useClosed(mode === 'auction' ? 'resale' : 'instant')
+  const valid = !!chosen && Number.isFinite(value) && value >= RULES.openingPrice && agree && !closed
 
   async function submit() {
     if (!chosen) return
@@ -94,6 +96,7 @@ export function SellPage() {
                   ))}
                 </div>
               </fieldset>
+              <ClosedNotice intake={mode === 'auction' ? 'resale' : 'instant'} />
               <div>
                 <label className="label" htmlFor="sell-price">{mode === 'auction' ? 'حدد القيمة الأدنى للاسم (سعر فتح المزاد)' : 'حدد قيمة الاسم المراد بيعه'}</label>
                 <input id="sell-price" className="field num text-lg" inputMode="numeric" placeholder={`${RULES.openingPrice} ريال أو أكثر`} value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ''))} />
