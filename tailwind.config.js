@@ -4,13 +4,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        pine: { DEFAULT: '#0F3B24', 2: '#154A2E', 3: '#1D5C2F', soft: '#E6EFE8' }, // deep greens from the Sammha logo
+        // Sammha brand identity: forest green #00513B, deep green #092F27, primary gold #C99532, warm ivory #F7F3E8
+        pine: { DEFAULT: '#00513B', 2: '#004532', 3: '#006247', soft: '#E3EFEA', deep: '#092F27' },
+        ivory: '#F7F3E8',
         ink: '#0D1B2A',
         stone: { DEFAULT: '#F4F5F7', deep: '#E9ECF0' },
         paper: '#FFFFFF',
         line: '#DFE3E8',
         muted: '#5B6675',
-        gold: { DEFAULT: '#AE832C', soft: '#F3EBDA', deep: '#80601E', light: '#D9BD82' },
+        // filled gold takes deep-green text: white on #C99532 is below readable contrast
+        gold: { DEFAULT: '#C99532', soft: '#F5ECD8', deep: '#80601E', light: '#DDB965' },
         // name categories: قعدان بنفسجي، بكار أخضر، منقية ذهبي
         qaadan: { DEFAULT: '#6B4C8F', soft: '#F1ECF7', deep: '#4A2F6B' },
         bakkar: { DEFAULT: '#1F6B3A', soft: '#E6F2EA', deep: '#134626' },

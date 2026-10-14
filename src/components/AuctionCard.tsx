@@ -170,8 +170,8 @@ function LiveDot({ light }: { light?: boolean }) {
 
 /** Sammha identity: logo green and gold with the category colours — qaadan purple, bakkar green, manqiya gold. */
 const BRAND = {
-  qaadan: { head: '#5A3F7A', glow: 'rgba(226,194,126,.22)', rule: 'from-[#AE832C] via-[#E2C27E] to-[#AE832C]', price: '#5A3F7A', ink: '#3B2752', soft: '#F1ECF7', btn: '#5A3F7A', btnHover: 'group-hover:bg-[#4A3366]', btnRing: 'ring-[#E2C27E]/60', status: '#F1DDA8' },
-  bakkar: { head: '#1D5C2F', glow: 'rgba(226,194,126,.22)', rule: 'from-[#AE832C] via-[#E2C27E] to-[#AE832C]', price: '#1D5C2F', ink: '#123D20', soft: '#EAF2EC', btn: '#1D5C2F', btnHover: 'group-hover:bg-[#164A25]', btnRing: 'ring-[#E2C27E]/60', status: '#F1DDA8' },
+  qaadan: { head: '#5A3F7A', glow: 'rgba(226,194,126,.22)', rule: 'from-[#C99532] via-[#E2C27E] to-[#C99532]', price: '#5A3F7A', ink: '#3B2752', soft: '#F1ECF7', btn: '#5A3F7A', btnHover: 'group-hover:bg-[#4A3366]', btnRing: 'ring-[#E2C27E]/60', status: '#F1DDA8' },
+  bakkar: { head: '#1D5C2F', glow: 'rgba(226,194,126,.22)', rule: 'from-[#C99532] via-[#E2C27E] to-[#C99532]', price: '#1D5C2F', ink: '#123D20', soft: '#EAF2EC', btn: '#1D5C2F', btnHover: 'group-hover:bg-[#164A25]', btnRing: 'ring-[#E2C27E]/60', status: '#F1DDA8' },
   manqiya: { head: '#9C7425', glow: 'rgba(255,255,255,.20)', rule: 'from-[#1D5C2F] via-[#3E8550] to-[#1D5C2F]', price: '#8C6A22', ink: '#5C4413', soft: '#F6EEDB', btn: '#8C6A22', btnHover: 'group-hover:bg-[#765817]', btnRing: 'ring-[#1D5C2F]/40', status: '#FFF3D6' },
 } as const
 
@@ -181,7 +181,7 @@ function BrandCard({ a }: { a: Auction }) {
   return (
     <Link to={`/auctions/${a.id}`} className="group flex flex-col overflow-hidden rounded-xl border bg-paper shadow-card transition hover:-translate-y-0.5 hover:shadow-lift" style={{ borderColor: `${b.head}40` }}>
       <div className={`relative overflow-hidden text-paper ${l.k ? 'px-2 pb-3 pt-2' : 'px-4 pb-5 pt-3'}`} style={{ backgroundColor: b.head, backgroundImage: `radial-gradient(ellipse 90% 80% at 100% 0%, ${b.glow}, transparent 60%)` }}>
-        <img src="./sammha-logo-light.png" alt="" aria-hidden className={`pointer-events-none absolute -bottom-3 end-2 w-auto max-w-none opacity-[.14] ${l.k ? 'h-12' : 'h-20'}`} />
+        <img src="./sammha-logo-light.svg" alt="" aria-hidden className={`pointer-events-none absolute -bottom-3 end-2 w-auto max-w-none opacity-[.14] ${l.k ? 'h-12' : 'h-20'}`} />
         <div className={`relative flex items-center justify-between font-bold ${l.k ? 'text-[10.5px]' : 'text-[12px]'}`}>
           <span className={`inline-flex items-center gap-1.5 rounded-full bg-paper font-extrabold ${l.k ? 'px-1.5 py-px' : 'px-2 py-0.5'}`} style={{ color: b.ink }}><span className="h-2 w-2 rounded-full" style={{ background: b.head }} />{TYPE_LABEL[a.type]}</span>
           <span className="inline-flex items-center gap-1.5" style={{ color: b.status }}>{l.phase === 'live' && <LiveDot light />}{l.status}</span>

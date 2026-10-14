@@ -50,7 +50,7 @@ export function NotificationBell() {
                   <button onClick={() => { setOpen(false); if (n.link) nav(n.link) }}
                     className={`flex w-full gap-3 border-b border-line/60 px-4 py-3 text-start hover:bg-stone ${n.read ? '' : 'bg-gold-soft/40'}`}>
                     {n.kind === 'won'
-                      ? <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-gradient-to-b from-[#E2C27E] to-[#AE832C] text-paper"><Icon name="trophy" className="h-3.5 w-3.5" /></span>
+                      ? <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-gradient-to-b from-[#E2C27E] to-[#C99532] text-paper"><Icon name="trophy" className="h-3.5 w-3.5" /></span>
                       : <span className={`mt-2 h-2 w-2 shrink-0 rounded-full ${DOT[n.kind]}`} />}
                     <span className="min-w-0">
                       <span className="block text-[14.5px] font-bold">{n.title}</span>

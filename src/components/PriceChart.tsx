@@ -40,7 +40,7 @@ export function PriceChart({ a, bids }: { a: Auction; bids: Bid[] }) {
           setHover(best)
         }}>
         <defs>
-          <linearGradient id="pc-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#AE832C" stopOpacity=".28" /><stop offset="1" stopColor="#AE832C" stopOpacity="0" /></linearGradient>
+          <linearGradient id="pc-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#C99532" stopOpacity=".28" /><stop offset="1" stopColor="#C99532" stopOpacity="0" /></linearGradient>
         </defs>
         {ticks.map((v) => (
           <g key={v}>
@@ -49,8 +49,8 @@ export function PriceChart({ a, bids }: { a: Auction; bids: Bid[] }) {
           </g>
         ))}
         <path d={area} fill="url(#pc-fill)" />
-        <path d={d} fill="none" stroke="#AE832C" strokeWidth="2.5" strokeLinejoin="round" />
-        {pts.map((p, i) => <circle key={i} cx={x(p.t)} cy={y(p.v)} r={hover === i ? 5.5 : 3} fill={p.auto ? '#fff' : '#AE832C'} stroke="#AE832C" strokeWidth="2" />)}
+        <path d={d} fill="none" stroke="#C99532" strokeWidth="2.5" strokeLinejoin="round" />
+        {pts.map((p, i) => <circle key={i} cx={x(p.t)} cy={y(p.v)} r={hover === i ? 5.5 : 3} fill={p.auto ? '#fff' : '#C99532'} stroke="#C99532" strokeWidth="2" />)}
         <text x={P.l} y={H - 6} fontSize="12" fill="#6B7280" fontFamily="Tajawal">{stamp(t0)}</text>
         <text x={W - P.r} y={H - 6} fontSize="12" fill="#6B7280" fontFamily="Tajawal" textAnchor="end">{stamp(t1)}</text>
       </svg>

@@ -266,7 +266,7 @@ function Leaderboard({ title, rows }: { title: string; rows: Row[] }) {
         {rows.map((r, i) => (
           <li key={r.key} className="border-b border-line/70 last:border-0">
             <Link to={r.to} className="flex items-center gap-4 px-6 py-3.5 hover:bg-stone">
-              <span className={`num flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[14px] font-extrabold ${i === 0 ? 'bg-gold text-paper' : 'bg-pine-soft text-pine'}`}>{i + 1}</span>
+              <span className={`num flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[14px] font-extrabold ${i === 0 ? 'bg-gold text-pine-deep' : 'bg-pine-soft text-pine'}`}>{i + 1}</span>
               {r.avatar && <Avatar name={r.main} src={r.avatar.src} size={46} ring={i === 0} />}
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2 text-[16px] font-bold">

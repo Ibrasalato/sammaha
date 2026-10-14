@@ -36,7 +36,7 @@ export function printReport(opts: { title: string; subtitle?: string; by?: strin
   .report-note { margin-top: 6px; color: #888; font-size: 9.5px; text-align: center; }
 </style></head><body>
 <div class="report-head">
-  <div class="report-brand"><img src="${asset('sammha-logo.png')}" alt="سمّها"><div><h1>${esc(opts.title)}</h1>${opts.subtitle ? `<p>${esc(opts.subtitle)}</p>` : ''}</div></div>
+  <div class="report-brand"><img src="${asset('sammha-logo.svg')}" alt="سمّها"><div><h1>${esc(opts.title)}</h1>${opts.subtitle ? `<p>${esc(opts.subtitle)}</p>` : ''}</div></div>
   <div style="text-align:left"><b>منصة سمّها · السجل الدولي لأسماء الإبل</b><p style="color:#9C7425;font-weight:700">لأن الأسماء تصنع المجد</p><p>${esc(when)}${opts.by ? ` · طُبع بواسطة ${esc(opts.by)}` : ''}</p></div>
 </div>
 ${opts.el.outerHTML}

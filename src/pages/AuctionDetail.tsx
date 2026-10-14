@@ -89,13 +89,13 @@ export default function AuctionDetail() {
           <div className="mt-6 flex flex-col items-start gap-6 sm:flex-row sm:items-center">
             <NameSeal name={a.name} type={a.type} size="lg" />
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2"><TypeBadge type={a.type} />{a.investment && <Link to="/invest" className="pill bg-gold text-pine hover:bg-gold-light">{tr('استثمار الاسم', 'Name investment')}</Link>}{resale && <Link to="/market" className="pill bg-gold text-pine hover:bg-gold-light">{tr('إعادة بيع من مالكه', 'Resale by its owner')}</Link>}<AuctionStatePill a={a} phase={phase === 'paused' ? 'live' : phase} />{a.number && <span className="num pill bg-stone text-muted">{tr('مزاد رقم', 'Auction')} {a.number}</span>}{(a.extensions ?? 0) > 0 && phase === 'live' && <span className="pill bg-gold text-paper">{tr(`مُدّد ${num(a.extensions!)} مرة`, `Extended ${num(a.extensions!)}×`)}</span>}</div>
+              <div className="flex flex-wrap items-center gap-2"><TypeBadge type={a.type} />{a.investment && <Link to="/invest" className="pill bg-gold text-pine hover:bg-gold-light">{tr('استثمار الاسم', 'Name investment')}</Link>}{resale && <Link to="/market" className="pill bg-gold text-pine hover:bg-gold-light">{tr('إعادة بيع من مالكه', 'Resale by its owner')}</Link>}<AuctionStatePill a={a} phase={phase === 'paused' ? 'live' : phase} />{a.number && <span className="num pill bg-stone text-muted">{tr('مزاد رقم', 'Auction')} {a.number}</span>}{(a.extensions ?? 0) > 0 && phase === 'live' && <span className="pill bg-gold text-pine-deep">{tr(`مُدّد ${num(a.extensions!)} مرة`, `Extended ${num(a.extensions!)}×`)}</span>}</div>
               <h1 className="mt-3 text-[40px] font-extrabold leading-none text-paper sm:text-[48px]">{a.name}</h1>
               <p className="mt-2 text-paper/65">{TYPE_HINT[a.type]}</p>
             </div>
             {user && (
               <button onClick={watch} disabled={busy} aria-pressed={!!mine?.watching}
-                className={`flex items-center gap-2 rounded-full border px-4 py-2 text-[14px] font-bold transition ${mine?.watching ? 'border-gold bg-gold text-paper' : 'border-paper/30 text-paper hover:bg-paper/10'}`}>
+                className={`flex items-center gap-2 rounded-full border px-4 py-2 text-[14px] font-bold transition ${mine?.watching ? 'border-gold bg-gold text-pine-deep' : 'border-paper/30 text-paper hover:bg-paper/10'}`}>
                 <Heart on={!!mine?.watching} />{mine?.watching ? tr('في قائمة المتابعة', 'Watching') : tr('تابع المزاد', 'Watch')}
               </button>
             )}
@@ -152,7 +152,7 @@ export default function AuctionDetail() {
                     <tbody>
                       {data.bids.map((b, i) => (
                         <tr key={b.id} className={i === 0 ? 'bg-gold-soft/40 font-semibold' : ''}>
-                          <td>{user?.id === b.userId ? tr('أنت', 'You') : b.bidderLabel}{i === 0 && <span className="pill ms-2 bg-gold text-paper">{phase === 'ended' ? tr('الفائز', 'Winner') : tr('الأعلى', 'Top')}</span>}</td>
+                          <td>{user?.id === b.userId ? tr('أنت', 'You') : b.bidderLabel}{i === 0 && <span className="pill ms-2 bg-gold text-pine-deep">{phase === 'ended' ? tr('الفائز', 'Winner') : tr('الأعلى', 'Top')}</span>}</td>
                           <td className="num">{sar(b.amount)}</td>
                           <td className="text-[13px] text-muted">{b.auto ? tr('تلقائية', 'Auto') : tr('يدوية', 'Manual')}</td>
                           <td className="text-muted">{time(b.createdAt)}، {new Date(b.createdAt).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })}</td>

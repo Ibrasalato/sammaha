@@ -145,7 +145,7 @@ export function AdminUsers() {
                   <tr key={u.id} className={u.active === false ? 'opacity-60' : ''}>
                     <td className="font-semibold">
                       {u.role === 'owner' ? <OwnerCell id={u.id} name={u.fullName} hidePhone /> : u.fullName}
-                      {isSuper(u) && <span className="pill ms-2 bg-gold text-paper">المدير الرئيسي</span>}
+                      {isSuper(u) && <span className="pill ms-2 bg-gold text-pine-deep">المدير الرئيسي</span>}
                       {u.id === me?.id && !isSuper(u) && <span className="ms-2 text-[12px] text-muted">(أنت)</span>}
                     </td>
                     <td className="num" dir="ltr" style={{ textAlign: 'right' }}>{u.phone}</td>

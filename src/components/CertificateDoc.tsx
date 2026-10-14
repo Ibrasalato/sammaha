@@ -9,7 +9,7 @@ import { IcoLogo, Logo } from './Layout'
 /** Official name-registration certificate (A4 landscape when printed). */
 export function CertificateDoc({ r }: { r: ReservedName }) {
   const [qr, setQr] = useState('')
-  useEffect(() => { QRCode.toDataURL(verifyUrl(r), { margin: 1, width: 220, color: { dark: '#0F3B24', light: '#FFFFFF' } }).then(setQr) }, [r])
+  useEffect(() => { QRCode.toDataURL(verifyUrl(r), { margin: 1, width: 220, color: { dark: '#00513B', light: '#FFFFFF' } }).then(setQr) }, [r])
   return (
     <article className="certificate relative mx-auto aspect-[1.414] w-full max-w-4xl overflow-hidden rounded-lg border border-line bg-white text-ink shadow-card print:rounded-none print:border-0 print:shadow-none">
       <div className="sadu" aria-hidden />

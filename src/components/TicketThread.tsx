@@ -40,7 +40,7 @@ export function TicketThread({ t, staffView }: { t: Ticket; staffView?: boolean 
           <div className="mb-1 flex flex-wrap items-center gap-2 text-[13px] text-muted">
             <b className="text-ink">{m.by === 'staff' ? (staffView ? m.author : tr('فريق سمّها', 'Sammha team')) : m.author}</b>
             <span>·</span><span className="num">{dateTime(m.createdAt)}</span>
-            {m.internal && <span className="pill bg-gold text-paper">ملاحظة داخلية</span>}
+            {m.internal && <span className="pill bg-gold text-pine-deep">ملاحظة داخلية</span>}
           </div>
           <p className="whitespace-pre-line leading-8">{m.body}</p>
         </li>

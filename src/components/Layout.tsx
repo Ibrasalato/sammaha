@@ -23,7 +23,7 @@ const PUBLIC_NAV = (): [string, string][] => [
 ]
 
 export function Logo({ light, className = 'h-12' }: { light?: boolean; className?: string }) {
-  return <img src={light ? './sammha-logo-light.png' : './sammha-logo.png'} alt={tr('سمّها لأسماء الإبل الدولية', 'Sammha International Camel Names')} className={`${className} w-auto max-w-none object-contain`} />
+  return <img src={light ? './sammha-logo-light.svg' : './sammha-logo.svg'} alt={tr('سمّها لأسماء الإبل الدولية', 'Sammha International Camel Names')} className={`${className} w-auto max-w-none object-contain`} />
 }
 
 export function IcoLogo({ light, className = 'h-9' }: { light?: boolean; className?: string }) {

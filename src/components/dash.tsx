@@ -96,7 +96,7 @@ export function Alert({ icon = 'alert', tone = 'gold', to, children, aside }: {
 export function WinAlert({ name, note, to, aside }: { name: string; note?: ReactNode; to?: string; aside?: ReactNode }) {
   const inner = (
     <>
-      <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-b from-[#E2C27E] to-[#AE832C] text-paper shadow-[0_6px_16px_-6px_rgba(174,131,44,.8)] ring-4 ring-gold/15">
+      <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-b from-[#E2C27E] to-[#C99532] text-paper shadow-[0_6px_16px_-6px_rgba(174,131,44,.8)] ring-4 ring-gold/15">
         <Icon name="trophy" className="h-6 w-6" />
         <span className="absolute -end-0.5 -top-0.5 text-[13px]" aria-hidden>✦</span>
       </span>

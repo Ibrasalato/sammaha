@@ -25,7 +25,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[15px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary { @apply btn bg-pine text-paper hover:bg-pine-3; }
-  .btn-gold { @apply btn bg-gold text-paper hover:bg-gold-deep; }
+  .btn-gold { @apply btn bg-gold text-pine-deep hover:bg-gold-light; }
   .btn-ghost { @apply btn border border-line bg-paper text-pine hover:border-pine; }
   .btn-on-dark { @apply btn border border-paper/30 text-paper hover:bg-paper hover:text-pine; }
   .btn-danger { @apply btn border border-bad/40 bg-paper text-bad hover:bg-bad hover:text-paper; }

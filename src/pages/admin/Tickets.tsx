@@ -103,7 +103,7 @@ export function AdminTicket() {
             <form onSubmit={reply} className="panel space-y-3 p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <label className="label mb-0" htmlFor="rb">{internal ? 'ملاحظة داخلية (لا تظهر للعميل)' : 'الرد على العميل'}</label>
-                <label className="flex cursor-pointer items-center gap-2 text-[14px]"><input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)} className="h-4 w-4 accent-[#AE832C]" />ملاحظة داخلية</label>
+                <label className="flex cursor-pointer items-center gap-2 text-[14px]"><input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)} className="h-4 w-4 accent-[#C99532]" />ملاحظة داخلية</label>
               </div>
               <textarea id="rb" className={`field ${internal ? 'border-gold/60 bg-gold-soft/30' : ''}`} rows={5} maxLength={3000} value={body} onChange={(e) => setBody(e.target.value)} required
                 placeholder={internal ? 'ملاحظة للفريق فقط' : `مرحبًا ${t.name.split(' ')[0]}، …`} />

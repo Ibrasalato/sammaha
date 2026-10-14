@@ -1,4 +1,4 @@
-const TONES = ['bg-pine text-paper', 'bg-gold text-paper', 'bg-info text-paper', 'bg-rose text-paper', 'bg-pine-3 text-paper']
+const TONES = ['bg-pine text-paper', 'bg-gold text-pine-deep', 'bg-info text-paper', 'bg-rose text-paper', 'bg-pine-3 text-paper']
 
 /** Owner photo, or the first letter of the name in a brand colour when there is no (public) photo. */
 export function Avatar({ name, src, size = 40, ring }: { name: string; src?: string; size?: number; ring?: boolean }) {
