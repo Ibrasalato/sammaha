@@ -1881,7 +1881,7 @@ const rawApi: SammhaApi = {
     if (hasBidDeposit(db, a.id, u.id)) return view(db, a)
     const amount = a.bidDeposit ?? RULES.resaleBidDeposit
     if (method === 'wallet' && balanceOf(db, u.id) < amount) throw new ApiError('رصيد المحفظة لا يكفي، اشحن المحفظة أو ادفع بالبطاقة')
-    if (method === 'card') db.txs.push({ id: uid(db, 't'), userId: u.id, amount, kind: 'topup', note: `دفع بالبطاقة لضمان مزاد «${a.name}»`, createdAt: iso(now()) })
+    if (method !== 'wallet') db.txs.push({ id: uid(db, 't'), userId: u.id, amount, kind: 'topup', note: `دفع بالبطاقة لضمان مزاد «${a.name}»`, createdAt: iso(now()) })
     db.txs.push({ id: uid(db, 't'), userId: u.id, amount: -amount, kind: 'bid_deposit', note: `ضمان دخول مزاد «${a.name}»`, createdAt: iso(now()) })
     ;(db.bidDeposits ??= []).push({ auctionId: a.id, userId: u.id, amount, state: 'held', createdAt: iso(now()) })
     return view(db, a)

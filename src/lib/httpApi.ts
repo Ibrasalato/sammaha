@@ -150,8 +150,8 @@ function resetHub() {
 }
 
 /** Card: Moyasar's hosted page (the webhook completes the action), or an immediate simulated charge in development. */
-async function card(purpose: 'topup' | 'deposit' | 'invoice' | 'bid_deposit' | 'listing' | 'transfer', ref: string | null, amount = 0) {
-  const r = await post<{ url?: string; simulated: boolean }>('/api/payments/card', { purpose, ref, amount, callback: location.href })
+async function card(purpose: 'topup' | 'deposit' | 'invoice' | 'bid_deposit' | 'listing' | 'transfer', ref: string | null, amount = 0, method?: PayMethod) {
+  const r = await post<{ url?: string; simulated: boolean }>('/api/payments/card', { purpose, ref, amount, callback: location.href.replace(/[?&]payment=[a-z]+/, ''), method: method && method !== 'wallet' ? method : null })
   if (r.url) { location.href = r.url; await new Promise(() => {}) }
 }
 
@@ -231,7 +231,7 @@ export const httpApi: SammhaApi = {
   createInvestmentRequest: (type, names) => post('/api/me/requests/investment', { type, names }),
   myInvestments: () => get('/api/me/investments'),
   async payDeposit(requestId, method: PayMethod) {
-    if (method === 'card') await card('deposit', requestId)
+    if (method !== 'wallet') await card('deposit', requestId, 0, method)
     return post<LogoRequest>(`/api/me/requests/${requestId}/pay`)
   },
   cancelMyRequest: (requestId, reason) => post(`/api/me/requests/${requestId}/cancel`, { reason: reason ?? null }),
@@ -243,8 +243,8 @@ export const httpApi: SammhaApi = {
   },
   myInvoices: () => get('/api/me/invoices'),
   // invoices, purchases and fees: payment channels only (the wallet is for guarantees)
-  async payInvoice(id) {
-    await card('invoice', id)
+  async payInvoice(id, method) {
+    await card('invoice', id, 0, method)
     return post<Invoice>(`/api/me/invoices/${id}/pay`)
   },
   myBids: () => get('/api/me/bids'),
@@ -273,12 +273,12 @@ export const httpApi: SammhaApi = {
   cancelListing: (id) => post(`/api/me/listings/${id}/cancel`),
   myListings: () => get('/api/me/listings'),
   marketListings: () => get('/api/market'),
-  async buyListing(id) {
-    await card('listing', id)
+  async buyListing(id, method) {
+    await card('listing', id, 0, method)
     return post<NameListing>(`/api/market/${id}/buy`)
   },
   async payBidDeposit(auctionId, method) {
-    if (method === 'card') await card('bid_deposit', auctionId)
+    if (method !== 'wallet') await card('bid_deposit', auctionId, 0, method)
     return post<AuctionView>(`/api/auctions/${auctionId}/deposit`)
   },
   updateMyProfile: ({ avatarUrl, showAvatar }) => put('/api/me/profile', { avatarUrl: avatarUrl ?? null, avatarSet: avatarUrl !== undefined, showAvatar }),

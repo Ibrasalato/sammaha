@@ -31,7 +31,8 @@ export function readSettings(): Omit<AdminSettings, 'rules'> {
 
 export function publicOf(s: Omit<AdminSettings, 'rules'>): PublicSettings {
   const { announcementOn, maxLoginAttempts: _a, lockoutMinutes: _b, updatedAt: _c, updatedBy: _d, ...rest } = s
-  return { ...rest, announcement: announcementOn && s.announcement ? s.announcement : undefined }
+  // the demo simulates every channel
+  return { ...rest, announcement: announcementOn && s.announcement ? s.announcement : undefined, paymentChannels: ['mada', 'card', 'applepay'], paymentProvider: 'simulated' }
 }
 
 export function readLog(): SettingsChange[] {

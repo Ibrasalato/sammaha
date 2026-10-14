@@ -71,8 +71,16 @@ const TITLES: [RegExp, string, string][] = [
 function RouteTitle() {
   const { pathname } = useLocation()
   // every page change picks up the latest service switches and prices
-  const { reloadSettings } = useApp()
+  const { reloadSettings, toast } = useApp()
   useEffect(() => { void reloadSettings() }, [pathname, reloadSettings])
+  // back from the payment page (HyperPay / Moyasar): say how it went
+  const { search } = useLocation()
+  useEffect(() => {
+    const r = new URLSearchParams(search).get('payment')
+    if (r === 'paid') toast(tr('تم الدفع بنجاح', 'Payment successful'))
+    else if (r === 'pending') toast(tr('الدفع قيد المعالجة لدى البنك، سيصلك إشعار عند اكتماله', 'The payment is being processed by the bank; you will be notified'), 'bad')
+    else if (r === 'failed') toast(tr('لم تكتمل عملية الدفع، حاول مرة أخرى', 'The payment did not go through. Please try again'), 'bad')
+  }, [search, toast])
   const { lang } = useLang()
   const hit = /^\/auctions\/[^/]+$/.test(pathname) ? null : TITLES.find(([re]) => re.test(pathname))
   usePageTitle(hit === null ? undefined : hit ? (lang === 'ar' ? hit[1] : hit[2]) || undefined : undefined)

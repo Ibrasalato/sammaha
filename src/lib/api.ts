@@ -25,7 +25,8 @@ export interface SignUpInput {
   code?: string
 }
 
-export type PayMethod = 'wallet' | 'card'
+/** wallet, or a payment channel: mada, Visa/Mastercard (card), Apple Pay */
+export type PayMethod = 'wallet' | 'card' | 'mada' | 'applepay'
 
 export interface OtpChallenge {
   challenge: string

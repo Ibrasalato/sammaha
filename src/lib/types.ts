@@ -606,6 +606,9 @@ export interface PublicSettings {
   resaleCommission: number
   instantCommission: number
   /** the admin's description of each e-service (empty = the built-in text) */
+  /** the payment channels on offer (mada, card, applepay) and who processes them */
+  paymentChannels?: ('mada' | 'card' | 'applepay')[]
+  paymentProvider?: string
   serviceTexts?: Partial<Record<ServiceKey, { ar?: string; en?: string; termsAr?: string; termsEn?: string }>>
 }
 
