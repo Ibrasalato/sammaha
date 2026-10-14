@@ -9,7 +9,7 @@ import { ServicesGrid } from '../components/Services'
 import { CalendarRow, useCalendar } from './Events'
 import { Countdown, Loading, NameSeal, Segmented } from '../components/ui'
 import { NAME_TYPES, RULES, TYPE_GROUPS, TYPE_LABEL, typeOptions, TYPE_CLS, SLOGAN } from '../lib/config'
-import { num, sar } from '../lib/format'
+import { num, openingText, sar } from '../lib/format'
 import { getLang, tr } from '../lib/i18n'
 import { api, useApp, useLoad } from '../lib/store'
 import type { NameCheck, NameType } from '../lib/types'
@@ -20,7 +20,7 @@ const STEPS = (): [string, string][] => [
   [tr('طلب الشعار', 'Request a name'), tr(`${RULES.namesPerRequest} أسماء مقترحة مع تحقق فوري من التطابق.`, `${RULES.namesPerRequest} proposed names, checked instantly for matches.`)],
   [tr('سداد الضمان', 'Pay the guarantee'), tr(`${RULES.depositAmount} ⃁، يُعاد إلى محفظتك بعد المزاد.`, `⃁ ${RULES.depositAmount}, returned to your wallet after the auction.`)],
   [tr('مراجعة اللجنة', 'Committee review'), tr('تدقيق الأسماء الشبيهة وقبول كل اسم أو رفضه.', 'Similar names are reviewed; each name is approved or declined.')],
-  [tr('المزاد العلني', 'Public auction'), tr(`سعر افتتاحي ${RULES.openingPrice} ⃁ وموعد محدد.`, `Opening price ⃁ ${RULES.openingPrice}, on a set schedule.`)],
+  [tr('المزاد العلني', 'Public auction'), tr(`سعر افتتاحي ${openingText()} وموعد محدد.`, `Opening price ${openingText()}, on a set schedule.`)],
   [tr('الترسية والفاتورة', 'Award and invoice'), tr('تسجيل الاسم للفائز وإصدار فاتورة إلكترونية.', 'The name is registered to the winner with an e-invoice.')],
 ]
 

@@ -37,6 +37,7 @@ const TX: Record<string, string> = {
   get purchase() { return tr('شراء اسم', 'Name purchase') },
   get withdrawal() { return tr('استرداد للبنك', 'Refund to bank') },
   get adjustment() { return tr('تسوية', 'Adjustment') },
+  get fine() { return tr('سداد مخالفة', 'Violation fine') },
 }
 
 /** the IBAN certificate in a dialog: PDF inline, images as images, and a download link */

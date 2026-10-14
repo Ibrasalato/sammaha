@@ -21,6 +21,7 @@ import { tr } from '../../lib/i18n'
 import { localizeServerText as L } from '../../lib/serverText'
 import { Approx } from '../../components/Region'
 import { InvoiceStatus } from '../../components/InvoiceStatus'
+import { LinkChipModal } from './Camels'
 
 export function DashHome() {
   const { user } = useApp()
@@ -148,7 +149,7 @@ export function DashHome() {
   )
 }
 
-const txLabels = () => ({ topup: tr('شحن', 'Top up'), deposit: tr('ضمان مزاد', 'Auction guarantee'), refund: tr('استرداد', 'Refund'), invoice_payment: tr('سداد فاتورة', 'Invoice payment'), service_fee: tr('رسوم استثمار الاسم', 'Name investment fee'), investment_payout: tr('عائد استثمار الاسم', 'Name investment payout'), bid_deposit: tr('ضمان دخول مزاد', 'Participation guarantee'), sale_payout: tr('ثمن بيع اسم', 'Name sale proceeds'), purchase: tr('شراء اسم', 'Name purchase'), withdrawal: tr('استرداد إلى البنك', 'Refund to bank'), adjustment: tr('تسوية', 'Adjustment') })
+const txLabels = () => ({ topup: tr('شحن', 'Top up'), deposit: tr('ضمان مزاد', 'Auction guarantee'), refund: tr('استرداد', 'Refund'), invoice_payment: tr('سداد فاتورة', 'Invoice payment'), service_fee: tr('رسوم استثمار الاسم', 'Name investment fee'), investment_payout: tr('عائد استثمار الاسم', 'Name investment payout'), bid_deposit: tr('ضمان دخول مزاد', 'Participation guarantee'), sale_payout: tr('ثمن بيع اسم', 'Name sale proceeds'), purchase: tr('شراء اسم', 'Name purchase'), withdrawal: tr('استرداد إلى البنك', 'Refund to bank'), adjustment: tr('تسوية', 'Adjustment'), fine: tr('سداد مخالفة', 'Violation fine') })
 
 export function WalletPage() {
   const { toast, user } = useApp()
@@ -423,8 +424,18 @@ function MarkLogo({ n, onChange }: { n: ReservedName; onChange: () => void }) {
 }
 
 export function MyNames() {
+  const { user, toast } = useApp()
   const { data, loading, reload } = useLoad(() => api.myNames(), [])
   const [compoundFor, setCompoundFor] = useState<ReservedName | null>(null)
+  const [linking, setLinking] = useState<ReservedName | null>(null)
+  const [unlinking, setUnlinking] = useState<ReservedName | null>(null)
+  const [unlinkBusy, setUnlinkBusy] = useState(false)
+  async function unlink() {
+    if (!unlinking?.camelId) return
+    setUnlinkBusy(true)
+    try { await api.unlinkCamel(unlinking.camelId); toast(tr(`فُك ربط «${unlinking.name}» بالشريحة`, `«${unlinking.name}» was unlinked from its chip`)); setUnlinking(null); reload() }
+    catch (e) { toast((e as Error).message, 'bad') } finally { setUnlinkBusy(false) }
+  }
   const invoices = useLoad(() => api.myInvoices(), [])
   const unpaidFor = (name: string) => invoices.data?.find((i) => i.name === name && i.status === 'unpaid')
   return (
@@ -452,12 +463,30 @@ export function MyNames() {
                           <Link to={`/dashboard/transfers?name=${n.id}`} className="btn-ghost btn-sm">{tr('نقل الملكية', 'Transfer ownership')}</Link>
                         </>}
                   </div>}
+              {n.type !== 'manqiya' && (n.camelChip
+                ? <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-lg bg-pine-soft/60 px-3 py-1.5 text-[13.5px]">
+                    <Icon name="shield" className="h-4 w-4 text-pine" />{tr('مربوط بالشريحة', 'Linked to chip')} <b className="num" dir="ltr">{n.camelChip}</b>
+                    {!user?.acting && <button className="font-bold text-bad underline" onClick={() => setUnlinking(n)}>{tr('فك الربط', 'Unlink')}</button>}
+                  </div>
+                : !user?.acting && !unpaidFor(n.name) && <button className="btn-ghost btn-sm border-pine/40 text-pine" onClick={() => setLinking(n)}><Icon name="shield" className="h-4 w-4" />{tr('ربط بشريحة', 'Link to chip')}</button>)}
               <MarkLogo n={n} onChange={reload} />
             </li>
           ))}
         </ul>
       ) : <Empty title={tr('لا تملك أسماء بعد', 'You do not own any names yet')}><p className="text-muted">{tr('تظهر هنا الأسماء التي ترسو عليك في المزادات.', 'Names awarded to you in auctions appear here.')}</p></Empty>}
       {compoundFor && <CompoundName base={compoundFor} onClose={() => setCompoundFor(null)} />}
+      {linking && <LinkChipModal name={linking} onClose={() => setLinking(null)} onDone={() => { setLinking(null); reload() }} />}
+      <Modal open={!!unlinking} onClose={() => !unlinkBusy && setUnlinking(null)} title={tr('فك ربط الاسم بالشريحة', 'Unlink name from chip')}>
+        {unlinking && (
+          <div className="space-y-4">
+            <p className="text-[15px] leading-7">{tr(`فك ربط «${unlinking.name}» بالشريحة ${unlinking.camelChip}؟ يبقى الاسم مسجلًا باسمك، ويمكنك ربطه بشريحة أخرى.`, `Unlink «${unlinking.name}» from chip ${unlinking.camelChip}? The name stays registered to you and can be linked to another chip.`)}</p>
+            <div className="flex gap-2">
+              <button className="btn-danger flex-1" disabled={unlinkBusy} onClick={unlink}>{unlinkBusy ? '…' : tr('فك الربط', 'Unlink')}</button>
+              <button className="btn-ghost" disabled={unlinkBusy} onClick={() => setUnlinking(null)}>{tr('رجوع', 'Back')}</button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </>
   )
 }

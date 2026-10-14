@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { RULES } from '../lib/config'
 import { tr } from '../lib/i18n'
+import { openingText } from '../lib/format'
 
 export default function About() {
   return (
@@ -58,7 +59,7 @@ export default function About() {
           {[
             tr(`ضمان مزاد ${RULES.depositAmount} ⃁ مع كل طلب، ويُعاد إن رُفض الطلب أو أُلغي.`, `A ⃁ ${RULES.depositAmount} guarantee with each request, refunded if it is declined or cancelled.`),
             tr('يُرفض أي اسم مطابق تمامًا لاسم مسجل، وتُراجع الأسماء الشبيهة.', 'Exact matches are rejected; similar names are reviewed.'),
-            tr(`سعر افتتاحي ${RULES.openingPrice} ⃁ وأقل زيادة ${RULES.minIncrement} ⃁، بتوقيت الرياض.`, `Opening price ⃁ ${RULES.openingPrice}, minimum raise ⃁ ${RULES.minIncrement}, Riyadh time.`),
+            tr(`سعر افتتاحي ${openingText()} وأقل زيادة ${RULES.minIncrement} ⃁، بتوقيت الرياض.`, `Opening price ${openingText()}, minimum raise ⃁ ${RULES.minIncrement}, Riyadh time.`),
             tr('إن لم يزايد أحد يرسو الاسم على مقدم الطلب بالسعر الافتتاحي.', 'If nobody bids, the requester gets the name at the opening price.'),
             tr('فاتورة إلكترونية متوافقة مع هيئة الزكاة والضريبة والجمارك.', 'A ZATCA-compliant e-invoice is issued to the winner.'),
             tr('شهادة تسجيل برمز QR يتحقق منها أي شخص.', 'A registration certificate with a QR code anyone can verify.'),

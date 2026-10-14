@@ -1,7 +1,8 @@
 import type {
   AppNotification, CamelEvent, AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
   ActivityFilter, ActivityPage, IcoName, Certificate, CertificatePage, CertificateScope, CertificateVerify, Delegation, DelegationInput, AuditRow, BankAccount, BankAccountInput, BankStatus, DepositRow, DocumentFile, IbanCheck, MarkRow, OwnerCrm, StaffBankAccount, WalletDetail, WalletRow, Withdrawal, WithdrawalStatus,
-  AddressInput, AdminSettings, AuctionActionResult, AuctionScope, AuctionView, PersonalInput, StaffRole, TicketRouting, InvestmentItem, ListingMode, NameListing, Preferences, PublicSettings, PublicStats, SecuritySummary, SessionInfo, SettingsChange, SettingsPatch, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet, MyTransfers, NameTransfer, TransferReason, TransferStatus, LogoRow, LogoStatus, PayoutStatus } from './types'
+  AddressInput, AdminSettings, AuctionActionResult, AuctionScope, AuctionView, PersonalInput, StaffRole, TicketRouting, InvestmentItem, ListingMode, NameListing, Preferences, PublicSettings, PublicStats, SecuritySummary, SessionInfo, SettingsChange, SettingsPatch, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet, MyTransfers, NameTransfer, TransferReason, TransferStatus, LogoRow, LogoStatus, PayoutStatus, MyCamels, OwnedCamel,
+  Festival, Violation, ViolationInput, ViolationOwner, ViolationPage, ViolationStatus, ViolationType } from './types'
 
 /** owner sign-up (the address is completed later in the dashboard) */
 export interface SignUpInput {
@@ -105,6 +106,11 @@ export interface SammhaApi {
   payInvoice(id: string, method: PayMethod): Promise<Invoice>
   myBids(): Promise<(Bid & { auction: Auction })[]>
   myNames(): Promise<ReservedName[]>
+  /** «إبلي»: camels registered to the owner on the camel registry platform */
+  myCamels(): Promise<MyCamels>
+  /** «ربط بشريحة»: one of the owner's قعدان or بكار names on one of their camels (the account holder only) */
+  linkCamel(camelId: string, reservedId: string): Promise<OwnedCamel>
+  unlinkCamel(camelId: string): Promise<OwnedCamel>
   /** «بيع اسم»: put a name the user owns up for sale */
   createListing(reservedId: string, mode: ListingMode, price: number): Promise<NameListing>
   cancelListing(id: string): Promise<NameListing>
@@ -247,6 +253,27 @@ export interface SammhaApi {
   adminLogos(status?: LogoStatus | 'all'): Promise<LogoRow[]>
   adminLogoImage(id: string): Promise<string | null>
   reviewLogo(id: string, approve: boolean, reason?: string): Promise<LogoRow>
+  // «المخالفات»: types (settings.manage), issuing and cancelling (violations.manage), the list (violations.view)
+  violationTypes(activeOnly?: boolean): Promise<ViolationType[]>
+  saveViolationType(id: string | null, input: { name: string; nameEn?: string; amount: number; active: boolean; allowsNameResolution: boolean }): Promise<ViolationType>
+  deleteViolationType(id: string): Promise<void>
+  festivals(activeOnly?: boolean): Promise<Festival[]>
+  saveFestival(id: string | null, input: { name: string; nameEn?: string; year?: number; startsOn?: string; endsOn?: string; active: boolean }): Promise<Festival>
+  deleteFestival(id: string): Promise<void>
+  adminViolations(f?: { q?: string; status?: ViolationStatus | 'all'; festivalId?: string; page?: number; size?: number }): Promise<ViolationPage>
+  /** the owner to issue to, by mobile or identity number */
+  findViolationOwner(q: string): Promise<ViolationOwner>
+  issueViolation(input: ViolationInput): Promise<Violation>
+  cancelViolation(id: string, reason: string): Promise<Violation>
+  /** «تسوية بتسجيل اسم»: an unpaid violation closes with no payment once the owner registered a name (types that allow it) */
+  resolveViolationByName(id: string, note?: string): Promise<Violation>
+  /** «منع من المشاركة»: the camel is barred from the festival */
+  banViolation(id: string, reason: string): Promise<Violation>
+  violationAttachment(id: string): Promise<DocumentFile>
+  // the owner's violations; fines are paid through the payment channels only (card)
+  myViolations(): Promise<Violation[]>
+  myViolationAttachment(id: string): Promise<DocumentFile>
+  payViolation(id: string): Promise<Violation>
   // direct payouts of refund requests
   payoutStatus(): Promise<PayoutStatus>
   payoutWithdrawal(id: string): Promise<Withdrawal>

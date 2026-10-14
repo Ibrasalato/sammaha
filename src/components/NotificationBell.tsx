@@ -8,7 +8,7 @@ import { tr } from '../lib/i18n'
 import { localizeServerText } from '../lib/serverText'
 
 const DOT: Record<AppNotification['kind'], string> = {
-  outbid: 'bg-bad', won: 'bg-ok', lost: 'bg-muted', reviewed: 'bg-info', auction_opened: 'bg-gold', auction_update: 'bg-info', refund: 'bg-ok', ticket: 'bg-pine', reminder: 'bg-gold', delegation: 'bg-pine-3', certificate: 'bg-gold', legacy: 'bg-muted', transfer: 'bg-pine',
+  outbid: 'bg-bad', won: 'bg-ok', lost: 'bg-muted', reviewed: 'bg-info', auction_opened: 'bg-gold', auction_update: 'bg-info', refund: 'bg-ok', ticket: 'bg-pine', reminder: 'bg-gold', delegation: 'bg-pine-3', certificate: 'bg-gold', legacy: 'bg-muted', transfer: 'bg-pine', violation: 'bg-bad',
 }
 
 export function NotificationBell() {

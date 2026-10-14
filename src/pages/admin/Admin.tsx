@@ -10,7 +10,7 @@ import { InvoiceDoc } from '../../components/InvoiceDoc'
 import { Countdown, Empty, ErrorBox, Loading, Modal, NameSeal, PageHead, AuctionStatePill, RequestStatusPill, Segmented, TypeBadge } from '../../components/ui'
 import { RULES, TYPE_LABEL, typeOptions } from '../../lib/config'
 import { phaseOf } from '../../lib/demoApi'
-import { date, dateTime, fromLocalInput, namesCount, num, sar, toLocalInput } from '../../lib/format'
+import { date, dateTime, fromLocalInput, namesCount, num, openingText, sar, toLocalInput } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
 import type { Auction, AuctionScope, CamelEvent, EventKind, Invoice, NameType, RequestStatus, ReviewDecision } from '../../lib/types'
 import { EVENT_KIND } from '../../lib/events'
@@ -303,7 +303,8 @@ export function AdminSchedule() {
   const [gap, setGap] = useState(10)
   const base = useMemo(() => { const d = new Date(); d.setMinutes(0, 0, 0); return d.getTime() + 3600_000 }, [])
   const [starts, setStarts] = useState(toLocalInput(base))
-  const [ends, setEnds] = useState(toLocalInput(base + 3 * 86400_000))
+  // the default length is an admin setting («إعدادات المزادات»)
+  const [ends, setEnds] = useState(toLocalInput(base + RULES.auctionDays * 86400_000))
   const [busy, setBusy] = useState(false)
 
   const tf = useTableFilter(data, {
@@ -319,7 +320,7 @@ export function AdminSchedule() {
 
   return (
     <>
-      <PageHead title={tr('فتح المزادات', 'Open auctions')} sub={tr(`الأسماء المقبولة بانتظار تحديد موعد المزاد. السعر الافتتاحي ${sar(RULES.openingPrice)}، والتوقيت بتوقيت الرياض.`, `Accepted names awaiting an auction date. Opening price ${sar(RULES.openingPrice)}; times are Riyadh time.`)} />
+      <PageHead title={tr('فتح المزادات', 'Open auctions')} sub={tr(`الأسماء المقبولة بانتظار تحديد موعد المزاد. السعر الافتتاحي ${openingText()}، وأقل زيادة ${sar(RULES.minIncrement)}، والتوقيت بتوقيت الرياض.`, `Accepted names awaiting an auction date. Opening price ${openingText()}, minimum raise ${sar(RULES.minIncrement)}; times are Riyadh time.`)} />
       {loading && !data ? <Loading /> : data?.length ? (
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <div>
@@ -348,7 +349,7 @@ export function AdminSchedule() {
             <input id="st" type="datetime-local" className="field num" value={starts} onChange={(e) => setStarts(e.target.value)} />
             <label className="label mt-3" htmlFor="en">{tr('النهاية', 'End')}</label>
             <input id="en" type="datetime-local" className="field num" value={ends} onChange={(e) => setEnds(e.target.value)} />
-            <div className="mt-2 flex gap-2">{[1, 3, 7].map((d) => <button key={d} className="btn-ghost btn-sm flex-1" onClick={() => dur(d)}>{d === 1 ? tr('يوم', '1 day') : tr(`${d} أيام`, `${d} days`)}</button>)}</div>
+            <div className="mt-2 flex gap-2">{[...new Set([1, RULES.auctionDays, 3, 7])].sort((x, y) => x - y).map((d) => <button key={d} className="btn-ghost btn-sm flex-1" onClick={() => dur(d)}>{d === 1 ? tr('يوم', '1 day') : tr(`${d} أيام`, `${d} days`)}</button>)}</div>
 
             <div className="mt-5 border-t border-line pt-4">
               <label className="flex cursor-pointer items-start gap-2">

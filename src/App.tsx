@@ -51,6 +51,9 @@ const AdminCertificates = pick(() => import('./pages/admin/Certificates'), 'Admi
 const AdminIcoNames = pick(() => import('./pages/admin/IcoNames'), 'AdminIcoNames')
 const AdminOwnerRequests = pick(() => import('./pages/admin/OwnerRequests'), 'AdminOwnerRequests')
 const TransfersPage = pick(() => import('./pages/owner/Transfers'), 'TransfersPage')
+const MyCamelsPage = pick(() => import('./pages/owner/Camels'), 'MyCamelsPage')
+const MyViolationsPage = pick(() => import('./pages/owner/Violations'), 'MyViolationsPage')
+const AdminViolations = pick(() => import('./pages/admin/Violations'), 'AdminViolations')
 const ServicesPage = pick(() => import('./pages/owner/Services'), 'ServicesPage')
 const PublicServices = pick(() => import('./pages/owner/Services'), 'PublicServices')
 const AdminTickets = pick(() => import('./pages/admin/Tickets'), 'AdminTickets'), AdminTicket = pick(() => import('./pages/admin/Tickets'), 'AdminTicket')
@@ -103,9 +106,11 @@ const OWNER_NAV: NavItem[] = [
   { to: '/dashboard/bids', get label() { return tr('مزايداتي', 'My bids') }, icon: 'gavel' },
   { to: '/dashboard/watchlist', get label() { return tr('قائمة المتابعة', 'Watchlist') }, get short() { return tr('المتابعة', 'Watchlist') }, icon: 'clock' },
   { to: '/dashboard/names', get label() { return tr('أسمائي', 'My names') }, icon: 'tag' },
+  { to: '/dashboard/camels', get label() { return tr('إبلي', 'My camels') }, icon: 'shield' },
   { to: '/dashboard/certificates', get label() { return tr('شهاداتي', 'My certificates') }, icon: 'file' },
   { to: '/dashboard/wallet', get label() { return tr('المحفظة', 'Wallet') }, icon: 'wallet' },
   { to: '/dashboard/invoices', get label() { return tr('الفواتير', 'Invoices') }, icon: 'receipt' },
+  { to: '/dashboard/violations', get label() { return tr('المخالفات', 'Violations') }, icon: 'alert' },
   { to: '/dashboard/tickets', get label() { return tr('الشكاوى والاستفسارات', 'Complaints & enquiries') }, icon: 'alert' },
   { to: '/dashboard/profile', get label() { return tr('حسابي', 'My account') }, icon: 'users' },
   { to: '/dashboard/settings', get label() { return tr('الإعدادات', 'Settings') }, icon: 'settings' },
@@ -125,6 +130,7 @@ const ADMIN_NAV: (NavItem & { perms?: Permission[] })[] = [
   { to: '/admin/wallets', get label() { return tr('المحافظ والاسترداد', 'Wallets & refunds') }, get short() { return tr('المحافظ', 'Wallets') }, icon: 'wallet', perms: ['wallets.view', 'wallets.refund', 'banks.verify'] },
   { to: '/admin/deposits', get label() { return tr('الضمانات', 'Guarantees') }, icon: 'lock', perms: ['deposits.view'] },
   { to: '/admin/tickets', get label() { return tr('الشكاوى والبلاغات', 'Complaints & reports') }, icon: 'alert', perms: ['tickets.view'] },
+  { to: '/admin/violations', get label() { return tr('المخالفات', 'Violations') }, icon: 'alert', perms: ['violations.view', 'violations.manage'] },
   { to: '/admin/events', get label() { return tr('المواعيد والفعاليات', 'Dates & events') }, icon: 'list', perms: ['events.manage'] },
   { to: '/admin/users', get label() { return tr('المستخدمون', 'Users') }, icon: 'users', perms: ['users.view'] },
   { to: '/admin/roles', get label() { return tr('الأدوار والصلاحيات', 'Roles & permissions') }, get short() { return tr('الأدوار', 'Roles') }, icon: 'shield', perms: ['roles.manage'] },
@@ -199,6 +205,7 @@ function AppRoutes() {
             <Route path="requests/:id" element={<RequestDetail />} />
             <Route path="bids" element={<MyBids />} />
             <Route path="names" element={<MyNames />} />
+            <Route path="camels" element={<MyCamelsPage />} />
             <Route path="services" element={<ServicesPage />} />
             <Route path="transfers" element={<TransfersPage />} />
             <Route path="names/:id/certificate" element={<CertificatePage />} />
@@ -207,6 +214,7 @@ function AppRoutes() {
             <Route path="wallet" element={<WalletPage />} />
             <Route path="invoices" element={<MyInvoices />} />
             <Route path="invoices/:id" element={<InvoicePage />} />
+            <Route path="violations" element={<MyViolationsPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="tickets" element={<MyTickets />} />
             <Route path="watchlist" element={<WatchlistPage />} />
@@ -238,6 +246,7 @@ function AppRoutes() {
             <Route path="events" element={<Can perms={['events.manage']}><AdminEvents /></Can>} />
             <Route path="tickets" element={<Can perms={['tickets.view']}><AdminTickets /></Can>} />
             <Route path="tickets/:id" element={<Can perms={['tickets.view']}><AdminTicket /></Can>} />
+            <Route path="violations" element={<Can perms={['violations.view', 'violations.manage']}><AdminViolations /></Can>} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

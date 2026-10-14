@@ -5,6 +5,7 @@ import { CardStylePicker } from '../components/AuctionCard'
 const ActivityPanel = lazy(() => import('./admin/Activity').then((m) => ({ default: m.ActivityPanel })))
 const DelegationPanel = lazy(() => import('./owner/Delegation').then((m) => ({ default: m.DelegationPanel })))
 const BankAccountCard = lazy(() => import('./owner/Bank').then((m) => ({ default: m.BankAccountCard })))
+const ViolationSettingsPanel = lazy(() => import('./admin/Violations').then((m) => ({ default: m.ViolationSettingsPanel })))
 import { Icon } from '../components/dash'
 import type { IconName } from '../components/dash'
 import { SettingRow, Switch } from '../components/SettingsUi'
@@ -385,13 +386,33 @@ function GeneralPanel({ d, set, rules }: { d: Draft; set: (p: SettingsPatch) => 
       <Card icon="receipt" title={tr('قواعد المنصة والرسوم', 'Platform rules and fees')} sub={tr('مرجع للاطلاع. تُعدَّل من إعدادات الخادم (PlatformOptions) لأنها تؤثر على المبالغ والفواتير.', 'For reference. Changed in the server settings (PlatformOptions) because they affect amounts and invoices.')}>
         <dl className="grid gap-px bg-line/70 sm:grid-cols-2 lg:grid-cols-3">
           {([
-            [tr('ضمان طلب الشعارات', 'Mark request guarantee'), sar(rules.depositAmount)], [tr('أسماء في الطلب', 'Names per request'), num(rules.namesPerRequest)], [tr('السعر الافتتاحي', 'Opening price'), sar(rules.openingPrice)],
-            [tr('أقل زيادة في المزايدة', 'Minimum bid raise'), sar(rules.minIncrement)], [tr('تمديد المزاد عند آخر مزايدة', 'Auction extension on a late bid'), `${num(rules.extendMinutes)} ${tr('دقيقة', 'min')}`], [tr('ضريبة القيمة المضافة', 'VAT'), pct(rules.vatRate)],
+            [tr('ضمان طلب الشعارات', 'Mark request guarantee'), sar(rules.depositAmount)], [tr('أسماء في الطلب', 'Names per request'), num(rules.namesPerRequest)],
+            [tr('تمديد المزاد عند آخر مزايدة', 'Auction extension on a late bid'), `${num(rules.extendMinutes)} ${tr('دقيقة', 'min')}`], [tr('ضريبة القيمة المضافة', 'VAT'), pct(rules.vatRate)],
             [tr('رسوم دراسة الاستثمار', 'Investment study fee'), sar(rules.investFee)], [tr('نصيب صاحب الاسم المستثمَر', 'Invested name owner\'s share'), pct(rules.investOwnerShare)], [tr('أسماء طلب الاستثمار', 'Names per investment request'), num(rules.investMaxNames)],
             [tr('إعلان مزاد إعادة البيع', 'Resale auction notice'), `${num(rules.resaleNoticeHours)} ${tr('ساعة', 'h')}`], [tr('مدة مزاد إعادة البيع', 'Resale auction duration'), `${num(rules.resaleAuctionDays)} ${tr('أيام', 'days')}`], [tr('عمولة إعادة البيع', 'Resale commission'), pct(rules.resaleCommission)],
             [tr('ضمان دخول مزاد إعادة البيع', 'Resale auction entry guarantee'), sar(rules.resaleBidDeposit)], [tr('مدة البيع الفوري', 'Instant sale duration'), `${num(rules.instantSaleHours)} ${tr('ساعة', 'h')}`], [tr('عمولة البيع الفوري', 'Instant sale commission'), pct(rules.instantCommission)],
           ] as [string, string][]).map(([k, v]) => <div key={k} className="bg-paper px-5 py-3"><dt className="text-[13px] text-muted">{k}</dt><dd className="num font-bold">{v}</dd></div>)}
         </dl>
+      </Card>
+    </div>
+  )
+}
+
+/** «إعدادات المزادات»: opening prices, the minimum raise and the default length (values carried over from the old platform's C_Settings) */
+function AuctionRulesPanel({ d, set }: { d: Draft; set: (p: SettingsPatch) => void }) {
+  return (
+    <div className="space-y-6">
+      <Card icon="gavel" title={tr('إعدادات المزادات', 'Auction settings')} sub={tr('تُطبَّق على المزادات التي تفتحها اللجنة أو المنظمة من الآن، ولا تغيّر المزادات القائمة. مزاد إعادة البيع يبدأ بالسعر الذي يحدده البائع.', 'Applies to auctions the committee or the organization opens from now on; running auctions do not change. A resale auction opens at the seller\'s price.')}>
+        <div className="grid gap-5 p-5 sm:grid-cols-2">
+          <NumberField id="a-open" label={tr('السعر الافتتاحي (قعدان وبكار) ⃁', 'Opening price (qaadan and bakkar) ⃁')} hint={tr('وهو أقل سعر يُعرض به اسم للبيع', 'Also the lowest price a name can be listed for sale at')} value={d.openingPrice} min={0} max={10_000_000} onChange={(v) => set({ openingPrice: v })} />
+          <NumberField id="a-manq" label={tr('السعر الافتتاحي للمنقية ⃁', 'Manqiya opening price ⃁')} hint={tr('لمزادات أسماء المنقيات', 'For manqiya name auctions')} value={d.manqiyaOpeningPrice} min={0} max={10_000_000} onChange={(v) => set({ manqiyaOpeningPrice: v })} />
+          <NumberField id="a-inc" label={tr('أقل زيادة في المزايدة ⃁', 'Minimum bid raise ⃁')} hint={tr('فوق السعر الحالي، ومنها مزادات إعادة البيع', 'Over the current price, resale auctions included')} value={d.minIncrement} min={1} max={1_000_000} onChange={(v) => set({ minIncrement: v })} />
+          <NumberField id="a-days" label={tr('مدة المزاد الافتراضية بالأيام', 'Default auction length (days)')} hint={tr('تُقترح عند جدولة مزاد، وللجنة أن تغيّرها', 'Suggested when scheduling an auction; the committee can change it')} value={d.auctionDays} min={1} max={60} onChange={(v) => set({ auctionDays: v })} />
+        </div>
+        <p className="border-t border-line/70 px-5 py-3 text-[14px] text-muted">
+          {tr(`مثال: شعار فردي يبدأ بـ ${sar(d.openingPrice || 0)} وأول مزايدة ${sar((d.openingPrice || 0) + (d.minIncrement || 0))}، ومنقية تبدأ بـ ${sar(d.manqiyaOpeningPrice || 0)}، ومدة المزاد ${num(d.auctionDays || 0)} ${d.auctionDays === 1 ? 'يوم' : 'أيام'}.`,
+            `Example: a single name opens at ${sar(d.openingPrice || 0)} with a first bid of ${sar((d.openingPrice || 0) + (d.minIncrement || 0))}, a manqiya opens at ${sar(d.manqiyaOpeningPrice || 0)}, and the auction runs ${num(d.auctionDays || 0)} ${d.auctionDays === 1 ? 'day' : 'days'}.`)}
+        </p>
       </Card>
     </div>
   )
@@ -681,7 +702,9 @@ function IntakeStatus() {
 const STAFF_TABS: (Tab & { perms?: Permission[] })[] = [
   { id: 'intake', get label() { return tr('الخدمات الإلكترونية', 'E-services') }, icon: 'file', perms: ['settings.manage'] },
   { id: 'auctions', get label() { return tr('المزادات', 'Auctions') }, icon: 'gavel', perms: ['auctions.manage', 'auctions.cancel'] },
+  { id: 'auctionRules', get label() { return tr('إعدادات المزادات', 'Auction settings') }, icon: 'coins', perms: ['settings.manage'] },
   { id: 'tickets', get label() { return tr('الشكاوى والبلاغات', 'Complaints & reports') }, icon: 'alert', perms: ['settings.manage'] },
+  { id: 'violations', get label() { return tr('المخالفات', 'Violations') }, icon: 'receipt', perms: ['settings.manage'] },
   { id: 'general', get label() { return tr('الإعدادات العامة', 'General settings') }, icon: 'settings', perms: ['settings.manage'] },
   { id: 'policy', get label() { return tr('سياسة الأمان', 'Security policy') }, icon: 'lock', perms: ['security.manage'] },
   { id: 'activity', get label() { return tr('سجل النشاط', 'Activity log') }, icon: 'history', perms: ['logs.view'] },
@@ -730,7 +753,7 @@ function AdminSettingsPage({ tabs }: { tabs: Tab[] }) {
   }
 
   const set = (p: SettingsPatch) => setDraft((d) => (d ? { ...d, ...p } : d))
-  const needsData = tab === 'intake' || tab === 'general' || tab === 'policy'
+  const needsData = tab === 'intake' || tab === 'general' || tab === 'policy' || tab === 'auctionRules'
   return (
     <>
       <PageHead title={canSettings ? tr('إعدادات المنصة', 'Platform settings') : tr('الإعدادات', 'Settings')} sub={data?.updatedBy ? `${tr('آخر تعديل', 'Last changed')}: ${data.updatedBy}${data.updatedAt ? `${tr('، ', ', ')}${dateTime(data.updatedAt)}` : ''}` : tr('حسب صلاحيات دورك.', 'Based on your role permissions.')} />
@@ -739,6 +762,7 @@ function AdminSettingsPage({ tabs }: { tabs: Tab[] }) {
         <div className={dirty ? 'pb-24' : ''}>
           {tab === 'intake' && <IntakePanel d={draft} set={set} />}
           {tab === 'general' && <GeneralPanel d={draft} set={set} rules={data.rules} />}
+          {tab === 'auctionRules' && <AuctionRulesPanel d={draft} set={set} />}
           {tab === 'policy' && <PolicyPanel d={draft} set={set} />}
         </div>
       ))}
@@ -746,6 +770,7 @@ function AdminSettingsPage({ tabs }: { tabs: Tab[] }) {
       {tab === 'activity' && <Suspense fallback={<Loading />}><ActivityPanel /></Suspense>}
       {tab === 'auctions' && <AuctionsPanel />}
       {tab === 'tickets' && <TicketsPanel />}
+      {tab === 'violations' && <Suspense fallback={<Loading />}><ViolationSettingsPanel /></Suspense>}
       {tab === 'status' && <IntakeStatus />}
       {tab === 'account' && <SecuritySettings />}
 

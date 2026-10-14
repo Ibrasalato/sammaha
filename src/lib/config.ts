@@ -7,10 +7,14 @@ export const RULES = {
   depositAmount: 50,
   /** hours an auction winner has to pay (the live value comes from the platform settings) */
   paymentDeadlineHours: 72,
-  /** Opening price of every name in auction (⃁) */
+  /** Opening price of قعدان and بكار names in auction (⃁; the live value comes from the platform settings) */
   openingPrice: 50,
-  /** Minimum raise over the current price (⃁) */
+  /** Opening price of «منقية» names (⃁; the same as openingPrice unless the admin sets it) */
+  manqiyaOpeningPrice: 50,
+  /** Minimum raise over the current price (⃁; the live value comes from the platform settings) */
   minIncrement: 10,
+  /** default auction length in days when the committee schedules an auction */
+  auctionDays: 2,
   /** A bid in the last N minutes extends the auction by N minutes (anti-sniping) */
   extendMinutes: 2,
   /** Names per logo request */
@@ -36,6 +40,9 @@ export const RULES = {
   instantSaleHours: 72,
   instantCommission: 0.15,
 }
+
+/** the opening price of a committee auction for this name type */
+export const openingPriceFor = (t: NameType) => (t === 'manqiya' ? RULES.manqiyaOpeningPrice : RULES.openingPrice)
 
 /** the platform's slogan */
 export const SLOGAN = { ar: 'لأن الأسماء تصنع المجد', en: 'Because names make glory' }

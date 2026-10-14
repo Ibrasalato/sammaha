@@ -14,20 +14,36 @@ export const DEFAULT_SETTINGS: Omit<AdminSettings, 'rules'> = {
   passwordMinLength: 8, maxLoginAttempts: 5, lockoutMinutes: 15, staffIdleMinutes: 30,
   depositAmount: RULES.depositAmount, paymentDeadlineHours: 72, transferFee: 0, transferOpen: true, comingSoon: [],
   investFee: RULES.investFee, compoundFee: 0, resaleCommission: RULES.resaleCommission, instantCommission: RULES.instantCommission, serviceTexts: {},
+  openingPrice: RULES.openingPrice, manqiyaOpeningPrice: RULES.openingPrice, minIncrement: RULES.minIncrement, auctionDays: RULES.auctionDays,
+}
+
+/** what is stored: the manqiya opening price stays unset (following the general one) until the admin sets it */
+type Stored = Omit<AdminSettings, 'rules' | 'manqiyaOpeningPrice'> & { manqiyaOpeningPrice?: number }
+const STORED_DEFAULTS: Stored = { ...DEFAULT_SETTINGS, manqiyaOpeningPrice: undefined }
+
+function readStored(): Stored {
+  try { return { ...STORED_DEFAULTS, ...(JSON.parse(localStorage.getItem(KEY) || '{}') as object) } } catch { return { ...STORED_DEFAULTS } }
 }
 
 export function demoRules(): AdminSettings['rules'] {
+  const s = readSettings()
   return {
-    depositAmount: readSettings().depositAmount, namesPerRequest: RULES.namesPerRequest, openingPrice: RULES.openingPrice, minIncrement: RULES.minIncrement,
+    depositAmount: s.depositAmount, namesPerRequest: RULES.namesPerRequest, openingPrice: s.openingPrice, minIncrement: s.minIncrement,
     extendMinutes: RULES.extendMinutes, vatRate: RULES.vatRate, investFee: RULES.investFee, investOwnerShare: RULES.investOwnerShare,
     investMaxNames: RULES.investMaxNames, resaleNoticeHours: RULES.resaleNoticeHours, resaleAuctionDays: RULES.resaleAuctionDays,
     resaleCommission: RULES.resaleCommission, resaleBidDeposit: RULES.resaleBidDeposit, instantSaleHours: RULES.instantSaleHours, instantCommission: RULES.instantCommission,
+    manqiyaOpeningPrice: s.manqiyaOpeningPrice, auctionDays: s.auctionDays,
   }
 }
 
+/** the settings in force (the manqiya opening price follows the general one unless set) */
 export function readSettings(): Omit<AdminSettings, 'rules'> {
-  try { return { ...DEFAULT_SETTINGS, ...(JSON.parse(localStorage.getItem(KEY) || '{}') as object) } } catch { return { ...DEFAULT_SETTINGS } }
+  const s = readStored()
+  return { ...s, manqiyaOpeningPrice: s.manqiyaOpeningPrice ?? s.openingPrice }
 }
+
+/** the opening price of a committee or organization auction for this name type (demo) */
+export const demoOpeningPrice = (type: string) => { const s = readSettings(); return type === 'manqiya' ? s.manqiyaOpeningPrice : s.openingPrice }
 
 export function publicOf(s: Omit<AdminSettings, 'rules'>): PublicSettings {
   const { announcementOn, maxLoginAttempts: _a, lockoutMinutes: _b, updatedAt: _c, updatedBy: _d, ...rest } = s
@@ -55,11 +71,16 @@ export function writeSettings(patch: SettingsPatch, by: string): Omit<AdminSetti
     if (patch[k] != null && !(patch[k]! >= 0 && patch[k]! <= 0.5)) throw new ApiError(tr('العمولة بين 0% و50%', 'The commission must be between 0% and 50%'))
   if (patch.serviceTexts) patch = { ...patch, serviceTexts: { ...(readSettings().serviceTexts ?? {}), ...patch.serviceTexts } }
   if (patch.comingSoon && patch.comingSoon.some((k) => !(k in LABEL))) throw new ApiError(tr('خدمة غير معروفة', 'Unknown service'))
+  for (const [k, label, labelEn] of [['openingPrice', 'السعر الافتتاحي', 'The opening price'], ['manqiyaOpeningPrice', 'السعر الافتتاحي للمنقية', 'The manqiya opening price']] as const)
+    if (patch[k] != null && !(patch[k]! >= 0 && patch[k]! <= 10_000_000)) throw new ApiError(tr(`${label} بين 0 و10,000,000 ⃁`, `${labelEn} must be between 0 and 10,000,000 riyals`))
+  if (patch.minIncrement != null && !(patch.minIncrement >= 1 && patch.minIncrement <= 1_000_000)) throw new ApiError(tr('أقل زيادة في المزايدة بين 1 و1,000,000 ⃁', 'The minimum raise must be between 1 and 1,000,000 riyals'))
+  range(patch.auctionDays, 1, 60, tr('مدة المزاد الافتراضية بالأيام', 'Default auction length (days)'))
   if (patch.transferFee != null && !(patch.transferFee >= 0 && patch.transferFee <= 100_000)) throw new ApiError(tr('رسوم نقل الملكية بين 0 و100,000 ⃁', 'The transfer fee must be between 0 and 100,000 riyals'))
   if (patch.supportEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patch.supportEmail.trim())) throw new ApiError(tr('بريد الدعم غير صحيح', 'The support email is not valid'))
   const cur = readSettings()
   const log = readLog()
-  const next = { ...cur }
+  // stored values, so an unset manqiya price keeps following the general one
+  const next: Stored = { ...readStored() }
   const at = new Date().toISOString()
   for (const [k, raw] of Object.entries(patch) as [keyof typeof cur, unknown][]) {
     if (raw === undefined) continue
@@ -71,7 +92,7 @@ export function writeSettings(patch: SettingsPatch, by: string): Omit<AdminSetti
   next.updatedAt = at
   next.updatedBy = by
   try { localStorage.setItem(KEY, JSON.stringify(next)); localStorage.setItem(LOG, JSON.stringify(log.slice(0, 300))) } catch { /* ignore */ }
-  return next
+  return { ...next, manqiyaOpeningPrice: next.manqiyaOpeningPrice ?? next.openingPrice }
 }
 
 export function logAction(field: string, by: string, value?: string) {

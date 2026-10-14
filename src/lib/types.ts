@@ -342,6 +342,9 @@ export interface ReservedName {
   auctionId?: string
   /** approved logo: API path (live) or data URL (demo) */
   logo?: string
+  /** the caller's own names only: the camel carrying this name («ربط بشريحة») and its first chip number */
+  camelId?: string
+  camelChip?: string
   /** the owner's own view: status of the logo they uploaded */
   logoStatus?: LogoStatus
 }
@@ -384,7 +387,7 @@ export interface CertificateVerify {
 }
 export interface CertificatePage { items: Certificate[]; total: number }
 
-export type TxKind = 'topup' | 'deposit' | 'refund' | 'invoice_payment' | 'service_fee' | 'investment_payout' | 'bid_deposit' | 'sale_payout' | 'purchase' | 'withdrawal' | 'adjustment'
+export type TxKind = 'topup' | 'deposit' | 'refund' | 'invoice_payment' | 'service_fee' | 'investment_payout' | 'bid_deposit' | 'sale_payout' | 'purchase' | 'withdrawal' | 'adjustment' | 'fine'
 
 export interface WalletTx {
   id: string
@@ -534,7 +537,7 @@ export interface CamelEvent {
 export interface AppNotification {
   id: string
   userId: string
-  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'auction_update' | 'refund' | 'ticket' | 'reminder' | 'delegation' | 'certificate' | 'legacy' | 'transfer'
+  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'auction_update' | 'refund' | 'ticket' | 'reminder' | 'delegation' | 'certificate' | 'legacy' | 'transfer' | 'violation'
   title: string
   body: string
   link?: string
@@ -619,6 +622,11 @@ export interface PublicSettings {
   compoundFee: number
   resaleCommission: number
   instantCommission: number
+  /** «إعدادات المزادات» in force: opening prices (فردي and منقية), the minimum raise and the default auction length */
+  openingPrice: number
+  manqiyaOpeningPrice: number
+  minIncrement: number
+  auctionDays: number
   /** the admin's description of each e-service (empty = the built-in text) */
   /** the payment channels on offer (mada, card, applepay) and who processes them */
   paymentChannels?: ('mada' | 'card' | 'applepay')[]
@@ -628,7 +636,7 @@ export interface PublicSettings {
 
 export type ServiceKey = 'requests' | 'compound' | 'resale' | 'instant' | 'investment' | 'transfer'
 
-/** fees and rules from the server configuration (read-only in the dashboard) */
+/** the fees and rules in force (the admin's values where set, otherwise the server configuration) */
 export interface PlatformRules {
   depositAmount: number
   namesPerRequest: number
@@ -645,6 +653,8 @@ export interface PlatformRules {
   resaleBidDeposit: number
   instantSaleHours: number
   instantCommission: number
+  manqiyaOpeningPrice: number
+  auctionDays: number
 }
 
 export interface AdminSettings extends Omit<PublicSettings, 'announcement'> {
@@ -690,4 +700,132 @@ export interface SecuritySummary {
   lastLoginAt?: string
   activeSessions: number
   passwordMinLength: number
+}
+
+/** «إبلي»: a camel registered to the owner on the camel registry platform */
+export interface OwnedCamel {
+  id: string
+  /** the camel's id on the registry platform */
+  externalId?: string
+  name?: string
+  /** up to 4 microchip numbers */
+  chipNumbers: string[]
+  sex?: 'male' | 'female' | string
+  color?: string
+  /** breed or category, as the registry gives it */
+  type?: string
+  age?: string
+  status?: string
+  /** the owner's registered name this camel carries */
+  reservedId?: string
+  reservedName?: string
+  reservedType?: NameType
+  linkedAt?: string
+  syncedAt?: string
+}
+
+export interface MyCamels {
+  camels: OwnedCamel[]
+  lastSyncedAt?: string
+  /** false until the platform is linked with the camel registry */
+  connected: boolean
+}
+
+// ───────────── «المخالفات»: fines and penalties issued to owners ─────────────
+
+/** a kind of violation managed in the settings; amount 0 = a penalty without a fine */
+export interface ViolationType {
+  id: string
+  name: string
+  nameEn?: string
+  amount: number
+  active: boolean
+  /** «تقبل التسوية بتسجيل اسم»: the owner may settle it by registering a name for the camel */
+  allowsNameResolution: boolean
+  createdAt: string
+  /** violations issued with this type (a used type is switched off, not deleted) */
+  used: number
+}
+
+/** a festival violations are issued at (managed in settings → «المخالفات») */
+export interface Festival {
+  id: string
+  name: string
+  nameEn?: string
+  year?: number
+  /** yyyy-mm-dd */
+  startsOn?: string
+  endsOn?: string
+  active: boolean
+  createdAt: string
+  /** violations issued at it (a used festival is switched off, not deleted) */
+  used: number
+}
+
+/** unpaid: a fine waiting for payment; recorded: a penalty without a fine */
+export type ViolationStatus = 'unpaid' | 'paid' | 'recorded' | 'cancelled' | 'resolved_name' | 'banned'
+/** how an unpaid violation was closed: paid and kept taking part, settled by registering a name, or barred from the festival */
+export type ViolationResolution = 'paid_continue' | 'resolved_name' | 'banned'
+
+export interface Violation {
+  id: string
+  /** VL-YYYY-NNNNN */
+  number: string
+  ownerId: string
+  ownerName: string
+  /** staff only: masked unless owners.full */
+  ownerPhone?: string
+  typeId: string
+  typeName: string
+  typeNameEn?: string
+  amount: number
+  description: string
+  attachmentName?: string
+  attachmentType?: string
+  status: ViolationStatus
+  issuedAt: string
+  /** staff only */
+  issuedByName?: string
+  /** the receipt: fines are not subject to VAT, so no tax invoice is issued */
+  paidAt?: string
+  paymentId?: string
+  paymentMethod?: string
+  cancelledAt?: string
+  cancelReason?: string
+  /** staff only */
+  cancelledByName?: string
+  /** the festival it was issued at (name as it was) and the camel's chip number */
+  festivalId?: string
+  festivalName?: string
+  camelChip?: string
+  /** the type lets the owner settle it by registering a name */
+  allowsNameResolution: boolean
+  resolution?: ViolationResolution
+  resolvedAt?: string
+  /** staff only */
+  resolvedByName?: string
+  /** staff's note on a name settlement, or the reason for a ban */
+  resolutionNote?: string
+}
+
+export interface ViolationPage {
+  items: Violation[]
+  total: number
+  page: number
+  size: number
+  counts: { all: number; unpaid: number; paid: number; recorded: number; cancelled: number; resolvedName: number; banned: number }
+}
+
+/** the owner a violation is issued to (phone and ID masked unless owners.full) */
+export interface ViolationOwner { id: string; fullName: string; phone: string; nationalId?: string; /** first chip of each of the owner's camels (KACF) */ chips: string[] }
+
+export interface ViolationInput {
+  ownerId?: string
+  /** the owner's mobile or identity number, when ownerId is not known */
+  owner?: string
+  typeId: string
+  description: string
+  festivalId?: string
+  camelChip?: string
+  attachment?: { fileName: string; contentType: string; dataBase64: string }
 }

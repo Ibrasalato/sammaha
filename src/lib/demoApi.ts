@@ -5,10 +5,11 @@
  */
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'
+import type { Festival, OwnedCamel, Violation, ViolationStatus, ViolationType } from './types'
 import type { ActivityEntry, ActivityFilter, Certificate, CertificateItem, CertificateScope, CertificateStatus, Delegation, DelegationScope, AuctionActionResult, AuctionScope, AuctionView, AuditRow, BankAccount, DepositRow, IbanCheck, MarkRow, NameListing, OwnerCrm, OwnerProfile, Preferences, SimilarHit, StaffBankAccount, StaffRole, TicketRouting, WalletRow, Withdrawal, NameTransfer, LogoRow } from './types'
 import { ALL_PERMISSIONS, COMMITTEE_DEFAULT, COMMITTEE_ROLE_ID, permissionLabel } from './permissions'
 import type { Permission } from './permissions'
-import { demoRules, ensureOpen, ensureWritable, logAction, publicOf, readLog, readRouting, readSettings, writeRouting, writeSettings } from './demoSettings'
+import { demoOpeningPrice, demoRules, ensureOpen, ensureWritable, logAction, publicOf, readLog, readRouting, readSettings, writeRouting, writeSettings } from './demoSettings'
 import { NAME_TYPES, OTP, RULES, SUPER_ADMIN_EMAIL } from './config'
 import { maskEmail, maskPhone, otpDigits } from './otp'
 import { namesCount } from './format'
@@ -74,7 +75,16 @@ interface DB {
   transfers?: NameTransfer[]
   logos?: (LogoRow & { dataUrl: string })[]
   transferSeq?: number
+  /** «إبلي»: sample camels (the demo has no KACF link), added on first use */
+  camels?: DemoCamel[]
+  /** «المخالفات»: types from the settings and the violations issued */
+  violationTypes?: Omit<ViolationType, 'used'>[]
+  violations?: DemoViolation[]
+  violationSeq?: number
+  festivals?: Omit<Festival, 'used'>[]
 }
+type DemoCamel = OwnedCamel & { userId: string }
+type DemoViolation = Omit<Violation, 'ownerName' | 'ownerPhone' | 'typeNameEn' | 'allowsNameResolution'> & { attachmentBase64?: string }
 interface BidDeposit { auctionId: string; userId: string; amount: number; state: 'held' | 'refunded' | 'applied' | 'forfeited'; createdAt: string }
 
 const KEY = 'sammha-demo-db'
@@ -1173,6 +1183,97 @@ function need(db: DB, perm: Permission): DemoUser {
 }
 const DEFAULT_PREFS: Preferences = { notifyOutbid: true, notifyReminders: true, notifyResults: true, notifyRequests: true }
 
+// ───────────────────────── «ربط بشريحة» and «المخالفات» (demo) ─────────────────────────
+/** the demo has no KACF link: three sample camels for the sample owner (made-up chip numbers), plus a قعود and a بكرة name to link */
+function demoCamels(db: DB): DemoCamel[] {
+  if (!db.camels) {
+    const t = now()
+    const demo = 'بيانات تجريبية'
+    db.camels = [
+      { id: 'cm-demo-1', userId: 'u-owner', name: 'جمل تجريبي ١', chipNumbers: ['9821000000001'], sex: 'male', color: 'مجهم', type: 'مجاهيم', age: 'حق', status: demo, syncedAt: iso(t - D) },
+      { id: 'cm-demo-2', userId: 'u-owner', name: 'جمل تجريبي ٢', chipNumbers: ['9821000000002', '9821000000012'], sex: 'male', color: 'أشعل', type: 'شعل', age: 'لقي', status: demo, syncedAt: iso(t - D) },
+      { id: 'cm-demo-3', userId: 'u-owner', name: 'ناقة تجريبية', chipNumbers: ['9821000000003'], sex: 'female', color: 'وضحاء', type: 'وضح', age: 'جذعة', status: demo, syncedAt: iso(t - D) },
+    ]
+    const owner = db.users.find((u) => u.id === 'u-owner')
+    if (owner) for (const [name, type] of [['الوافي', 'qaadan'], ['الدانة', 'bakkar']] as [string, NameType][])
+      if (!db.reserved.some((r) => r.normalized === normalizeName(name)))
+        db.reserved.push({ id: uid(db, 'r'), name, normalized: normalizeName(name), type, ownerId: owner.id, ownerName: owner.fullName, price: 1500, acquiredAt: iso(t - 40 * D), source: 'legacy' })
+  }
+  // a name that changed hands (transfer, sale, forfeit) leaves the previous owner's camel, like the API
+  for (const c of db.camels) if (c.reservedId && !db.reserved.some((r) => r.id === c.reservedId && r.ownerId === c.userId)) { c.reservedId = undefined; c.linkedAt = undefined }
+  return db.camels
+}
+function camelDto(db: DB, c: DemoCamel): OwnedCamel {
+  const { userId: _u, ...rest } = c
+  const r = c.reservedId ? db.reserved.find((x) => x.id === c.reservedId && x.ownerId === c.userId) : undefined
+  return { ...rest, reservedName: r?.name, reservedType: r?.type }
+}
+const sexOfCamel = (s?: string) => (s === 'male' || s === 'ذكر' ? 'male' : s === 'female' || s === 'أنثى' ? 'female' : null)
+
+/** sample violation types (and one violation for the sample owner) on first use */
+function demoViolations(db: DB): DemoViolation[] {
+  if (!db.violationTypes) {
+    const t = now()
+    db.violationTypes = [
+      { id: 'vt-demo-1', name: 'تأخير سداد قيمة شعار', nameEn: 'Late payment of a mark price', amount: 500, active: true, allowsNameResolution: false, createdAt: iso(t - 30 * D) },
+      { id: 'vt-demo-2', name: 'استخدام شعار غير معتمد', nameEn: 'Use of an unapproved mark', amount: 1000, active: true, allowsNameResolution: false, createdAt: iso(t - 30 * D) },
+    ]
+    db.violationSeq = 1
+    db.violations ??= [{
+      id: 'vl-demo-1', number: `VL-${new Date(t).getFullYear()}-00001`, ownerId: 'u-owner', typeId: 'vt-demo-1', typeName: 'تأخير سداد قيمة شعار', amount: 500,
+      description: 'تأخر سداد قيمة الشعار عن المهلة المحددة بعد الفوز بالمزاد (مخالفة تجريبية).', status: 'unpaid', issuedAt: iso(t - 2 * D), issuedByName: 'إبراهيم صلاح',
+    }]
+    for (const v of db.violations ?? []) notify(db, v.ownerId, 'violation', `صدرت بحقك مخالفة «${v.typeName}» (${v.number})`, `قيمة الغرامة ${v.amount} ريال. اطّلع على التفاصيل وسدّدها من صفحة المخالفات.`, '/dashboard/violations')
+  }
+  const list = (db.violations ??= [])
+  if (!db.festivals) {
+    // festivals, and a fine for taking part with a camel that has no registered name (the owner can pay, register a name, or be barred)
+    const t = now(), y = new Date(t).getFullYear()
+    db.festivals = [
+      { id: 'fs-demo-1', name: `مهرجان الملك عبدالعزيز للإبل ${y}`, nameEn: `King Abdulaziz Camel Festival ${y}`, year: y, startsOn: `${y}-12-01`, endsOn: `${y}-12-31`, active: true, createdAt: iso(t - 30 * D) },
+      { id: 'fs-demo-2', name: `مهرجان ولي العهد للهجن ${y}`, nameEn: `Crown Prince Camel Racing Festival ${y}`, year: y, active: true, createdAt: iso(t - 30 * D) },
+    ]
+    if (!db.violationTypes.some((x) => x.id === 'vt-demo-3'))
+      db.violationTypes.push({ id: 'vt-demo-3', name: 'المشاركة بجمل بدون اسم مسجل', nameEn: 'Taking part with a camel without a registered name', amount: 5000, active: true, allowsNameResolution: true, createdAt: iso(t - 30 * D) })
+    db.violationSeq = (db.violationSeq ?? 1) + 1
+    const v: DemoViolation = {
+      id: 'vl-demo-2', number: `VL-${y}-${String(db.violationSeq).padStart(5, '0')}`, ownerId: 'u-owner', typeId: 'vt-demo-3', typeName: 'المشاركة بجمل بدون اسم مسجل', amount: 5000,
+      description: 'شارك المالك في المهرجان بجمل ليس له اسم مسجل في سمّها (مخالفة تجريبية).', festivalId: 'fs-demo-1', festivalName: db.festivals[0].name, camelChip: '9821000000002',
+      status: 'unpaid', issuedAt: iso(t - D), issuedByName: 'إبراهيم صلاح',
+    }
+    list.push(v)
+    notify(db, v.ownerId, 'violation', `صدرت بحقك مخالفة «${v.typeName}» (${v.number})`, `قيمة الغرامة ${v.amount} ريال. اطّلع على التفاصيل وسدّدها من صفحة المخالفات.`, '/dashboard/violations')
+  }
+  return list
+}
+const VIOLATION_CLOSED: Partial<Record<ViolationStatus, string>> = {
+  paid: 'سُدّدت هذه المخالفة وأُغلقت', resolved_name: 'سُوّيت هذه المخالفة بتسجيل اسم وأُغلقت', banned: 'صدر قرار المنع من المشاركة في هذه المخالفة وأُغلقت', cancelled: 'أُلغيت هذه المخالفة',
+}
+const closedWhyViolation = (v: DemoViolation) => VIOLATION_CLOSED[v.status] ?? 'لا يمكن تغيير حالة هذه المخالفة'
+const atFestival = (v: DemoViolation) => (v.festivalName ? ` في «${v.festivalName}»` : '')
+const maskId = (v?: string) => (!v ? v : v.length <= 5 ? '•'.repeat(v.length) : v.slice(0, 2) + '•'.repeat(v.length - 5) + v.slice(-3))
+function violationDto(db: DB, v: DemoViolation, staffView: boolean, full = false): Violation {
+  const { attachmentBase64: _a, issuedByName, cancelledByName, resolvedByName, ...rest } = v
+  const o = db.users.find((u) => u.id === v.ownerId)
+  const t = db.violationTypes?.find((x) => x.id === v.typeId)
+  return {
+    ...rest, ownerName: o?.fullName ?? '', typeNameEn: t?.nameEn, allowsNameResolution: !!t?.allowsNameResolution,
+    ...(staffView ? { ownerPhone: full ? o?.phone : maskId(o?.phone), issuedByName, cancelledByName, resolvedByName } : {}),
+  }
+}
+function needAny(db: DB, perms: Permission[]): DemoUser {
+  const u = staff(db)
+  if (!perms.some((p) => permsOf(db, u).includes(p))) throw new ApiError(`ليست لديك صلاحية «${permissionLabel(perms[0])}»، تواصل مع مدير النظام`)
+  return u
+}
+function violationOwner(db: DB, q: string): DemoUser | undefined {
+  const t = q.trim()
+  if (!t) return undefined
+  const p = normalizePhone(t)
+  return db.users.find((u) => u.role === 'owner' && (u.phone === p || (!!u.nationalId && u.nationalId === t.replace(/\s/g, '').toUpperCase())))
+}
+const sniffAttachment = (b64: string) => (b64.startsWith('JVBER') ? 'application/pdf' : sniffImage(b64))
+
 // ───────────────────────── API ─────────────────────────
 const rawApi: SammhaApi = {
   currentUser: () => tx((db) => {
@@ -1690,8 +1791,237 @@ const rawApi: SammhaApi = {
 
   myNames: () => tx((db) => {
     const u = me(db)
+    const camels = demoCamels(db)
     return db.reserved.filter((r) => r.ownerId === u.id).sort((a, b) => Date.parse(b.acquiredAt) - Date.parse(a.acquiredAt))
-      .map((r) => ({ ...r, logoStatus: db.logos?.find((l) => l.reservedId === r.id)?.status }))
+      .map((r) => {
+        const c = camels.find((x) => x.userId === u.id && x.reservedId === r.id)
+        return { ...r, logoStatus: db.logos?.find((l) => l.reservedId === r.id)?.status, camelId: c?.id, camelChip: c?.chipNumbers[0] }
+      })
+  }),
+
+  // «إبلي»: in production filled by the KACF integration; the demo shows sample camels
+  myCamels: () => tx((db) => {
+    const u = me(db)
+    const list = demoCamels(db).filter((c) => c.userId === u.id)
+    return { camels: list.map((c) => camelDto(db, c)), lastSyncedAt: list[0]?.syncedAt, connected: list.length > 0 }
+  }),
+  linkCamel: (camelId, reservedId) => tx((db) => {
+    const u = transferOwner(db, 'ربط الأسماء بالشرائح لصاحب الحساب فقط')
+    ensureWritable(u.role)
+    const camels = demoCamels(db)
+    const c = camels.find((x) => x.id === camelId && x.userId === u.id)
+    if (!c) throw new ApiError('هذه الشريحة ليست ضمن إبلك')
+    const r = db.reserved.find((x) => x.id === reservedId && x.ownerId === u.id)
+    if (!r) throw new ApiError('الاسم غير مسجل باسمك')
+    const want = r.type === 'qaadan' ? 'male' : r.type === 'bakkar' ? 'female' : null
+    if (!want) throw new ApiError('المنقية لا تُربط بشريحة؛ الربط لأسماء القعدان والبكار فقط')
+    if (db.invoices.some((i) => i.userId === u.id && i.name === r.name && i.status === 'unpaid')) throw new ApiError('سدّد فاتورة الاسم أولًا')
+    if (c.reservedId) throw new ApiError(c.reservedId === r.id ? 'الاسم مربوط بهذه الشريحة مسبقًا' : 'هذه الشريحة مربوطة باسم آخر، فك الربط أولًا')
+    if (camels.some((x) => x.reservedId === r.id && x.id !== c.id)) throw new ApiError('الاسم مربوط بشريحة أخرى، فك الربط أولًا')
+    const sex = sexOfCamel(c.sex)
+    if (sex && sex !== want) throw new ApiError(want === 'male' ? 'أسماء القعدان للذكور: هذه الشريحة لأنثى' : 'أسماء البكار للإناث: هذه الشريحة لذكر')
+    c.reservedId = r.id
+    c.linkedAt = iso(now())
+    return camelDto(db, c)
+  }),
+  unlinkCamel: (camelId) => tx((db) => {
+    const u = transferOwner(db, 'ربط الأسماء بالشرائح لصاحب الحساب فقط')
+    const c = demoCamels(db).find((x) => x.id === camelId && x.userId === u.id)
+    if (!c) throw new ApiError('هذه الشريحة ليست ضمن إبلك')
+    c.reservedId = undefined
+    c.linkedAt = undefined
+    return camelDto(db, c)
+  }),
+
+  // ───── «المخالفات» ─────
+  violationTypes: (activeOnly) => tx((db) => {
+    needAny(db, ['settings.manage', 'violations.manage', 'violations.view'])
+    const list = demoViolations(db)
+    return (db.violationTypes ?? []).filter((t) => !activeOnly || t.active).sort((a, b) => a.name.localeCompare(b.name, 'ar'))
+      .map((t) => ({ ...t, used: list.filter((v) => v.typeId === t.id).length }))
+  }),
+  saveViolationType: (id, input) => tx((db) => {
+    need(db, 'settings.manage')
+    const list = demoViolations(db)
+    const name = input.name.trim(), nameEn = (input.nameEn ?? '').trim()
+    if (name.length < 3) throw new ApiError('اكتب اسم المخالفة')
+    if (name.length > 100) throw new ApiError('اسم المخالفة طويل (100 حرف كحد أقصى)')
+    if (nameEn.length > 100) throw new ApiError('الاسم الإنجليزي طويل (100 حرف كحد أقصى)')
+    if (!(input.amount >= 0 && input.amount <= 1_000_000)) throw new ApiError('قيمة الغرامة بين 0 و1,000,000 ريال')
+    const types = (db.violationTypes ??= [])
+    if (types.some((t) => t.name === name && t.id !== id)) throw new ApiError('يوجد نوع مخالفة بهذا الاسم')
+    let t = id ? types.find((x) => x.id === id) : undefined
+    if (id && !t) throw new ApiError('نوع المخالفة غير موجود')
+    if (!t) { t = { id: uid(db, 'vt'), name, amount: 0, active: true, allowsNameResolution: false, createdAt: iso(now()) }; types.push(t) }
+    // violations already issued keep the name and amount they were issued with
+    Object.assign(t, { name, nameEn: nameEn || undefined, amount: round2(input.amount), active: input.active, allowsNameResolution: input.allowsNameResolution })
+    return { ...t, used: list.filter((v) => v.typeId === t!.id).length }
+  }),
+  festivals: (activeOnly) => tx((db) => {
+    needAny(db, ['settings.manage', 'violations.manage', 'violations.view'])
+    const list = demoViolations(db)
+    return (db.festivals ?? []).filter((f) => !activeOnly || f.active).sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || a.name.localeCompare(b.name, 'ar'))
+      .map((f) => ({ ...f, used: list.filter((v) => v.festivalId === f.id).length }))
+  }),
+  saveFestival: (id, input) => tx((db) => {
+    need(db, 'settings.manage')
+    const list = demoViolations(db)
+    const name = input.name.trim(), nameEn = (input.nameEn ?? '').trim()
+    if (name.length < 3) throw new ApiError('اكتب اسم المهرجان')
+    if (name.length > 150) throw new ApiError('اسم المهرجان طويل (150 حرفًا كحد أقصى)')
+    if (nameEn.length > 150) throw new ApiError('الاسم الإنجليزي طويل (150 حرفًا كحد أقصى)')
+    if (input.year != null && (input.year < 2000 || input.year > 2100)) throw new ApiError('سنة المهرجان بين 2000 و2100')
+    if (input.startsOn && input.endsOn && input.endsOn < input.startsOn) throw new ApiError('تاريخ نهاية المهرجان قبل بدايته')
+    const all = (db.festivals ??= [])
+    if (all.some((f) => f.name === name && f.id !== id)) throw new ApiError('يوجد مهرجان بهذا الاسم')
+    let f = id ? all.find((x) => x.id === id) : undefined
+    if (id && !f) throw new ApiError('المهرجان غير موجود')
+    if (!f) { f = { id: uid(db, 'fs'), name, active: true, createdAt: iso(now()) }; all.push(f) }
+    Object.assign(f, { name, nameEn: nameEn || undefined, year: input.year, startsOn: input.startsOn || undefined, endsOn: input.endsOn || undefined, active: input.active })
+    return { ...f, used: list.filter((v) => v.festivalId === f!.id).length }
+  }),
+  deleteFestival: (id) => tx((db) => {
+    need(db, 'settings.manage')
+    if (!db.festivals?.some((f) => f.id === id)) throw new ApiError('المهرجان غير موجود')
+    if (demoViolations(db).some((v) => v.festivalId === id)) throw new ApiError('صدرت مخالفات في هذا المهرجان، أوقفه بدل حذفه')
+    db.festivals = db.festivals.filter((f) => f.id !== id)
+  }),
+  deleteViolationType: (id) => tx((db) => {
+    need(db, 'settings.manage')
+    if (!db.violationTypes?.some((t) => t.id === id)) throw new ApiError('نوع المخالفة غير موجود')
+    if (demoViolations(db).some((v) => v.typeId === id)) throw new ApiError('صدرت مخالفات من هذا النوع، أوقفه بدل حذفه')
+    db.violationTypes = db.violationTypes.filter((t) => t.id !== id)
+  }),
+  adminViolations: (f = {}) => tx((db) => {
+    const u = needAny(db, ['violations.view', 'violations.manage'])
+    const full = permsOf(db, u).includes('owners.full')
+    let list = demoViolations(db).slice().sort((a, b) => b.issuedAt.localeCompare(a.issuedAt))
+    const q = f.q?.trim()
+    if (q) {
+      const digits = q.replace(/\D/g, '')
+      list = list.filter((v) => {
+        const o = db.users.find((x) => x.id === v.ownerId)
+        return v.number.includes(q) || v.typeName.includes(q) || !!o?.fullName.includes(q) || (digits.length >= 4 && (!!o?.phone.includes(digits) || o?.nationalId === digits))
+      })
+    }
+    if (f.festivalId) list = list.filter((v) => v.festivalId === f.festivalId)
+    const n = (st: ViolationStatus) => list.filter((v) => v.status === st).length
+    const counts = { all: list.length, unpaid: n('unpaid'), paid: n('paid'), recorded: n('recorded'), cancelled: n('cancelled'), resolvedName: n('resolved_name'), banned: n('banned') }
+    if (f.status && f.status !== 'all') list = list.filter((v) => v.status === f.status)
+    const size = Math.min(200, Math.max(10, f.size ?? 50)), page = Math.max(1, f.page ?? 1)
+    return { items: list.slice((page - 1) * size, page * size).map((v) => violationDto(db, v, true, full)), total: list.length, page, size, counts }
+  }),
+  findViolationOwner: (q) => tx((db) => {
+    const u = need(db, 'violations.manage')
+    const o = violationOwner(db, q)
+    if (!o) throw new ApiError('لا يوجد مالك مسجل بهذا الجوال أو رقم الهوية')
+    const full = permsOf(db, u).includes('owners.full')
+    const chips = [...new Set(demoCamels(db).filter((c) => c.userId === o.id).map((c) => c.chipNumbers[0]).filter(Boolean))]
+    return { id: o.id, fullName: o.fullName, phone: full ? o.phone : maskId(o.phone)!, nationalId: full ? o.nationalId : maskId(o.nationalId), chips }
+  }),
+  issueViolation: (input) => tx((db) => {
+    const u = need(db, 'violations.manage')
+    const list = demoViolations(db)
+    const o = input.ownerId ? db.users.find((x) => x.id === input.ownerId && x.role === 'owner') : violationOwner(db, input.owner ?? '')
+    if (!o) throw new ApiError('اختر المالك (بالجوال أو رقم الهوية)')
+    const t = db.violationTypes?.find((x) => x.id === input.typeId)
+    if (!t) throw new ApiError('اختر نوع المخالفة')
+    if (!t.active) throw new ApiError('نوع المخالفة هذا موقوف')
+    const description = input.description.trim()
+    if (description.length < 10) throw new ApiError('اكتب وصف المخالفة (10 أحرف على الأقل)')
+    if (description.length > 2000) throw new ApiError('الوصف طويل (2000 حرف كحد أقصى)')
+    const festival = input.festivalId ? db.festivals?.find((x) => x.id === input.festivalId) : undefined
+    if (input.festivalId && !festival) throw new ApiError('المهرجان غير موجود')
+    if (festival && !festival.active) throw new ApiError('هذا المهرجان موقوف')
+    const chip = (input.camelChip ?? '').trim()
+    if (chip.length > 40 || !/^[\p{L}\p{N}]*$/u.test(chip)) throw new ApiError('رقم الشريحة أرقام وحروف فقط (40 خانة كحد أقصى)')
+    let att: { name: string; type: string; b64: string } | undefined
+    if (input.attachment?.dataBase64) {
+      const b64 = input.attachment.dataBase64.includes(',') ? input.attachment.dataBase64.slice(input.attachment.dataBase64.indexOf(',') + 1) : input.attachment.dataBase64
+      if (b64.length * 0.75 > 5 * 1024 * 1024) throw new ApiError('حجم المرفق أكبر من 5 ميجابايت')
+      const type = sniffAttachment(b64)
+      if (!type) throw new ApiError('المرفق يكون PDF أو صورة PNG أو JPG أو WebP')
+      att = { name: (input.attachment.fileName || 'attachment').slice(0, 120), type, b64 }
+    }
+    db.violationSeq = (db.violationSeq ?? 0) + 1
+    const v: DemoViolation = {
+      id: uid(db, 'vl'), number: `VL-${new Date().getFullYear()}-${String(db.violationSeq).padStart(5, '0')}`, ownerId: o.id, typeId: t.id, typeName: t.name, amount: t.amount,
+      description, festivalId: festival?.id, festivalName: festival?.name, camelChip: chip || undefined, attachmentName: att?.name, attachmentType: att?.type, attachmentBase64: att?.b64, status: t.amount > 0 ? 'unpaid' : 'recorded',
+      issuedAt: iso(now()), issuedByName: u.fullName,
+    }
+    list.push(v)
+    notify(db, o.id, 'violation', `صدرت بحقك مخالفة «${t.name}» (${v.number})`, v.amount > 0 ? `قيمة الغرامة ${v.amount} ريال. اطّلع على التفاصيل وسدّدها من صفحة المخالفات.` : 'مخالفة مسجلة دون غرامة مالية. اطّلع على التفاصيل من صفحة المخالفات.', '/dashboard/violations')
+    return violationDto(db, v, true, permsOf(db, u).includes('owners.full'))
+  }),
+  cancelViolation: (id, reason) => tx((db) => {
+    const u = need(db, 'violations.manage')
+    const why = reason.trim()
+    if (why.length < 3) throw new ApiError('اكتب سبب الإلغاء، يصل للمالك')
+    if (why.length > 500) throw new ApiError('سبب الإلغاء طويل (500 حرف كحد أقصى)')
+    const v = demoViolations(db).find((x) => x.id === id)
+    if (!v) throw new ApiError('المخالفة غير موجودة')
+    if (v.status === 'cancelled') throw new ApiError('أُلغيت هذه المخالفة مسبقًا')
+    if (v.status === 'paid') throw new ApiError('سُدّدت هذه المخالفة ولا يمكن إلغاؤها')
+    if (v.status !== 'unpaid' && v.status !== 'recorded') throw new ApiError(closedWhyViolation(v))
+    Object.assign(v, { status: 'cancelled', cancelledAt: iso(now()), cancelReason: why, cancelledByName: u.fullName })
+    notify(db, v.ownerId, 'violation', `أُلغيت المخالفة ${v.number}`, `«${v.typeName}» — السبب: ${why}`, '/dashboard/violations')
+    return violationDto(db, v, true, permsOf(db, u).includes('owners.full'))
+  }),
+  resolveViolationByName: (id, note) => tx((db) => {
+    const u = need(db, 'violations.manage')
+    const n = (note ?? '').trim()
+    if (n.length > 500) throw new ApiError('الملاحظة طويلة (500 حرف كحد أقصى)')
+    const v = demoViolations(db).find((x) => x.id === id)
+    if (!v) throw new ApiError('المخالفة غير موجودة')
+    if (v.status !== 'unpaid') throw new ApiError(v.status === 'recorded' ? 'لا توجد غرامة على هذه المخالفة لتسويتها' : closedWhyViolation(v))
+    if (!db.violationTypes?.find((t) => t.id === v.typeId)?.allowsNameResolution) throw new ApiError('نوع هذه المخالفة لا يقبل التسوية بتسجيل اسم')
+    Object.assign(v, { status: 'resolved_name', resolution: 'resolved_name', resolvedAt: iso(now()), resolvedByName: u.fullName, resolutionNote: n || undefined })
+    notify(db, v.ownerId, 'violation', `سُوّيت المخالفة ${v.number} بتسجيل اسم`, `«${v.typeName}»${atFestival(v)}: أُغلقت المخالفة دون سداد بعد تسجيل اسم للجمل، ويمكنك مواصلة المشاركة.` + (n ? ` ملاحظة: ${n}` : ''), '/dashboard/violations')
+    return violationDto(db, v, true, permsOf(db, u).includes('owners.full'))
+  }),
+  banViolation: (id, reason) => tx((db) => {
+    const u = need(db, 'violations.manage')
+    const why = reason.trim()
+    if (why.length < 3) throw new ApiError('اكتب سبب المنع، يصل للمالك')
+    if (why.length > 500) throw new ApiError('سبب المنع طويل (500 حرف كحد أقصى)')
+    const v = demoViolations(db).find((x) => x.id === id)
+    if (!v) throw new ApiError('المخالفة غير موجودة')
+    if (v.status !== 'unpaid' && v.status !== 'recorded') throw new ApiError(closedWhyViolation(v))
+    Object.assign(v, { status: 'banned', resolution: 'banned', resolvedAt: iso(now()), resolvedByName: u.fullName, resolutionNote: why })
+    notify(db, v.ownerId, 'violation', `مُنع الجمل من المشاركة${atFestival(v)} (${v.number})`, `بسبب المخالفة «${v.typeName}»${v.camelChip ? ` للشريحة ${v.camelChip}` : ''}. السبب: ${why}`, '/dashboard/violations')
+    return violationDto(db, v, true, permsOf(db, u).includes('owners.full'))
+  }),
+  violationAttachment: (id) => tx((db) => {
+    needAny(db, ['violations.view', 'violations.manage'])
+    const v = demoViolations(db).find((x) => x.id === id)
+    if (!v?.attachmentBase64) throw new ApiError('لا يوجد مرفق لهذه المخالفة')
+    return { name: v.attachmentName ?? 'attachment', contentType: v.attachmentType ?? 'application/octet-stream', base64: v.attachmentBase64 }
+  }),
+  myViolations: () => tx((db) => {
+    const u = me(db)
+    return demoViolations(db).filter((v) => v.ownerId === u.id).sort((a, b) => b.issuedAt.localeCompare(a.issuedAt)).map((v) => violationDto(db, v, false))
+  }),
+  myViolationAttachment: (id) => tx((db) => {
+    const u = me(db)
+    const v = demoViolations(db).find((x) => x.id === id && x.ownerId === u.id)
+    if (!v) throw new ApiError('المخالفة غير موجودة')
+    if (!v.attachmentBase64) throw new ApiError('لا يوجد مرفق لهذه المخالفة')
+    return { name: v.attachmentName ?? 'attachment', contentType: v.attachmentType ?? 'application/octet-stream', base64: v.attachmentBase64 }
+  }),
+  payViolation: (id) => tx((db) => {
+    const u = writer(db)
+    const v = demoViolations(db).find((x) => x.id === id && x.ownerId === u.id)
+    if (!v) throw new ApiError('المخالفة غير موجودة')
+    if (v.status === 'paid') return violationDto(db, v, false)
+    if (v.status === 'cancelled') throw new ApiError('أُلغيت هذه المخالفة')
+    if (v.status === 'banned' || v.status === 'resolved_name') throw new ApiError(closedWhyViolation(v))
+    if (v.status !== 'unpaid') throw new ApiError('لا توجد غرامة مستحقة على هذه المخالفة')
+    // the demo simulates the card: in through the wallet and straight out; fines are not subject to VAT, so no tax invoice
+    db.txs.push({ id: uid(db, 't'), userId: u.id, amount: v.amount, kind: 'topup', note: `دفع بالبطاقة للمخالفة ${v.number}`, createdAt: iso(now()) })
+    db.txs.push({ id: uid(db, 't'), userId: u.id, amount: -v.amount, kind: 'fine', note: `سداد المخالفة ${v.number} — ${v.typeName}`, createdAt: iso(now()) })
+    Object.assign(v, { status: 'paid', paidAt: iso(now()), paymentId: uid(db, 'p'), paymentMethod: 'card', resolution: 'paid_continue', resolvedAt: iso(now()) })
+    notify(db, u.id, 'violation', `تم سداد المخالفة ${v.number}`, `سُدّد ${v.amount} ريال، ويظهر الإيصال في صفحة المخالفات.`, '/dashboard/violations')
+    return violationDto(db, v, false)
   }),
 
   // ───── «نقل ملكية اسم» ─────
@@ -1854,7 +2184,8 @@ const rawApi: SammhaApi = {
     if (db.invoices.some((i) => i.status === 'unpaid' && i.userId === u.id && i.name === r.name)) throw new ApiError('سدّد فاتورة الاسم أولًا قبل عرضه للبيع')
     if (db.auctions.some((a) => !a.settled && a.name === r.name)) throw new ApiError('للاسم مزاد قائم حاليًا')
     const p = Math.floor(Number(price))
-    if (!Number.isFinite(p) || p < RULES.openingPrice) throw new ApiError(`أقل قيمة ${RULES.openingPrice} ⃁`)
+    const lowest = readSettings().openingPrice
+    if (!Number.isFinite(p) || p < lowest) throw new ApiError(`أقل قيمة ${lowest} ⃁`)
     if (p > 10_000_000) throw new ApiError('القيمة كبيرة جدًا')
     const t = now()
     const auction = mode === 'auction'
@@ -1867,7 +2198,7 @@ const rawApi: SammhaApi = {
       createdAt: iso(t), startsAt: iso(startsAt), endsAt: iso(endsAt),
     }
     if (auction) {
-      const a: Auction = { id: uid(db, 'a'), requestId: l.id, candidateId: l.id, name: l.name, type: l.type, requesterId: u.id, openingPrice: p, minIncrement: RULES.minIncrement,
+      const a: Auction = { id: uid(db, 'a'), requestId: l.id, candidateId: l.id, name: l.name, type: l.type, requesterId: u.id, openingPrice: p, minIncrement: readSettings().minIncrement,
         startsAt: l.startsAt, endsAt: l.endsAt, currentPrice: p, bidCount: 0, settled: false, listingId: l.id, bidDeposit: RULES.resaleBidDeposit }
       db.auctions.push(a); l.auctionId = a.id
     }
@@ -2124,10 +2455,11 @@ const rawApi: SammhaApi = {
       const c = r?.candidates.find((x) => x.id === cid)
       if (!r || !c || c.status !== 'accepted' || c.auctionId) continue
       const s = base.s + out.length * stagger * 60_000, e = base.e + out.length * stagger * 60_000
+      const opening = demoOpeningPrice(r.type)
       const a: Auction = {
         id: uid(db, 'a'), requestId: r.id, candidateId: c.id, name: c.name, type: r.type, requesterId: r.userId,
-        openingPrice: RULES.openingPrice, minIncrement: RULES.minIncrement, startsAt: iso(s), endsAt: iso(e),
-        currentPrice: RULES.openingPrice, bidCount: 0, settled: false, investment: r.kind === 'investment' || undefined,
+        openingPrice: opening, minIncrement: readSettings().minIncrement, startsAt: iso(s), endsAt: iso(e),
+        currentPrice: opening, bidCount: 0, settled: false, investment: r.kind === 'investment' || undefined,
         bidDeposit: (!r.kind || r.kind === 'standard') && readSettings().depositAmount > 0 ? readSettings().depositAmount : undefined,
       }
       c.auctionId = a.id
@@ -2855,10 +3187,10 @@ const rawApi: SammhaApi = {
     if (!rn) throw new ApiError('الاسم غير موجود')
     if (rn.ownerId || rn.source !== 'exception') throw new ApiError('هذا الاسم ليس من أسماء المنظمة')
     if (db.auctions.some((a) => a.icoReservedId === rn.id && !a.settled && !a.cancelled)) throw new ApiError('للاسم مزاد قائم أو مجدول')
-    const opening = round2(openingPrice ?? RULES.openingPrice)
+    const opening = round2(openingPrice ?? demoOpeningPrice(rn.type))
     const entry = readSettings().depositAmount
     const a: Auction = {
-      id: uid(db, 'a'), requestId: '', candidateId: '', icoReservedId: rn.id, name: rn.name, type: rn.type, requesterId: '', openingPrice: opening, minIncrement: RULES.minIncrement,
+      id: uid(db, 'a'), requestId: '', candidateId: '', icoReservedId: rn.id, name: rn.name, type: rn.type, requesterId: '', openingPrice: opening, minIncrement: readSettings().minIncrement,
       startsAt: iso(s), endsAt: iso(e), currentPrice: opening, bidCount: 0, settled: false, bidDeposit: entry > 0 ? entry : undefined,
     }
     db.auctions.push(a)
@@ -2974,7 +3306,7 @@ const ACT_KEY = 'sammha-demo-activity'
 const ACTING_KEY = 'sammha-demo-acting'
 const ACT_CATEGORIES: Record<string, string> = {
   auth: 'الدخول', account: 'الحساب', requests: 'طلبات الشعارات', auctions: 'المزادات', payments: 'المدفوعات', finance: 'المالية',
-  users: 'المستخدمون والأدوار', settings: 'الإعدادات', tickets: 'الشكاوى والبلاغات', delegation: 'التفويض', content: 'المحتوى', reports: 'التقارير', certificates: 'الشهادات',
+  users: 'المستخدمون والأدوار', settings: 'الإعدادات', tickets: 'الشكاوى والبلاغات', delegation: 'التفويض', content: 'المحتوى', reports: 'التقارير', certificates: 'الشهادات', violations: 'المخالفات',
 }
 /** each write and its label in the log (same labels as the API) */
 const ACT: Record<string, [string, string]> = {
@@ -2997,12 +3329,17 @@ const ACT: Record<string, [string, string]> = {
   submitTicket: ['تقديم شكوى أو استفسار', 'tickets'], followUpTicket: ['متابعة تذكرة', 'tickets'], replyTicket: ['رد على تذكرة', 'tickets'], updateTicket: ['تحديث تذكرة', 'tickets'],
   saveEvent: ['حفظ فعالية', 'content'], deleteEvent: ['حذف فعالية', 'content'], logOwnersReport: ['طباعة أو تصدير بيانات العملاء', 'reports'],
   saveDelegation: ['حفظ تفويض', 'delegation'], revokeDelegation: ['إلغاء تفويض', 'delegation'], actAs: ['الدخول بتفويض', 'delegation'], stopActing: ['الخروج من التفويض', 'delegation'],
+  linkCamel: ['ربط اسم بشريحة', 'account'], unlinkCamel: ['فك ربط اسم بشريحة', 'account'],
+  saveViolationType: ['حفظ نوع مخالفة', 'settings'], deleteViolationType: ['حذف نوع مخالفة', 'settings'],
+  saveFestival: ['حفظ مهرجان', 'settings'], deleteFestival: ['حذف مهرجان', 'settings'],
+  resolveViolationByName: ['تسوية مخالفة بتسجيل اسم', 'violations'], banViolation: ['منع من المشاركة بسبب مخالفة', 'violations'],
+  issueViolation: ['إصدار مخالفة', 'violations'], cancelViolation: ['إلغاء مخالفة', 'violations'], payViolation: ['سداد مخالفة', 'payments'],
 }
 /** the scope each owner write needs in a delegated session (same map as the API) */
 const SCOPE_OF: Record<string, DelegationScope> = {
   createRequest: 'requests', payDeposit: 'requests', cancelMyRequest: 'requests', withdrawName: 'requests', createCompoundRequest: 'requests', createInvestmentRequest: 'invest',
   placeBid: 'bids', setAutoBid: 'bids', cancelAutoBid: 'bids', toggleWatch: 'bids', payBidDeposit: 'bids', buyListing: 'bids',
-  topUp: 'payments', payInvoice: 'payments', createListing: 'sales', cancelListing: 'sales', submitTicket: 'tickets', followUpTicket: 'tickets',
+  topUp: 'payments', payInvoice: 'payments', payViolation: 'payments', createListing: 'sales', cancelListing: 'sales', submitTicket: 'tickets', followUpTicket: 'tickets',
 }
 const SCOPE_LABEL: Record<DelegationScope, string> = { requests: 'طلبات الشعارات', invest: 'استثمار الاسم', bids: 'المزايدة والشراء', payments: 'المحفظة والفواتير', sales: 'بيع الأسماء', tickets: 'الشكاوى والاستفسارات' }
 const ALWAYS = new Set(['signOut', 'markNotificationsRead', 'stopActing'])

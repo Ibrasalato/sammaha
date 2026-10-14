@@ -1,6 +1,6 @@
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi } from './api'
-import type { AppNotification, Auction, AuctionView, BankAccount, Invoice, LogoRequest, NameListing, User, Wallet, NameTransfer } from './types'
+import type { AppNotification, Auction, AuctionView, BankAccount, Invoice, LogoRequest, NameListing, User, Wallet, NameTransfer, Violation } from './types'
 
 /**
  * The production backend: Sammha API (ASP.NET Core + SQL Server, repo Ibrasalato/sammaha-api).
@@ -150,7 +150,7 @@ function resetHub() {
 }
 
 /** Card: Moyasar's hosted page (the webhook completes the action), or an immediate simulated charge in development. */
-async function card(purpose: 'topup' | 'deposit' | 'invoice' | 'bid_deposit' | 'listing' | 'transfer', ref: string | null, amount = 0, method?: PayMethod) {
+async function card(purpose: 'topup' | 'deposit' | 'invoice' | 'bid_deposit' | 'listing' | 'transfer' | 'violation', ref: string | null, amount = 0, method?: PayMethod) {
   const r = await post<{ url?: string; simulated: boolean }>('/api/payments/card', { purpose, ref, amount, callback: location.href.replace(/[?&]payment=[a-z]+/, ''), method: method && method !== 'wallet' ? method : null })
   if (r.url) { location.href = r.url; await new Promise(() => {}) }
 }
@@ -249,6 +249,9 @@ export const httpApi: SammhaApi = {
   },
   myBids: () => get('/api/me/bids'),
   myNames: () => get('/api/me/names'),
+  myCamels: () => get('/api/me/camels'),
+  linkCamel: (camelId, reservedId) => post(`/api/me/camels/${camelId}/link`, { reservedId }),
+  unlinkCamel: (camelId) => del(`/api/me/camels/${camelId}/link`),
   myTransfers: () => get('/api/me/transfers'),
   findRecipient: (phone) => post('/api/me/transfers/recipient', { phone }),
   createTransfer: (input) => post('/api/me/transfers', { ...input, note: input.note ?? null }),
@@ -267,6 +270,29 @@ export const httpApi: SammhaApi = {
   adminLogos: (status) => get(`/api/admin/logos${qs({ status })}`),
   adminLogoImage: (id) => image(`/api/admin/logos/${id}/image`),
   reviewLogo: (id, approve, reason) => post(`/api/admin/logos/${id}/review`, { approve, reason: reason ?? null }),
+  violationTypes: (activeOnly) => get(`/api/admin/violation-types${activeOnly ? '?active=true' : ''}`),
+  saveViolationType: (id, input) => (id ? put(`/api/admin/violation-types/${id}`, { ...input, nameEn: input.nameEn || null }) : post('/api/admin/violation-types', { ...input, nameEn: input.nameEn || null })),
+  deleteViolationType: async (id) => { await del(`/api/admin/violation-types/${id}`) },
+  festivals: (activeOnly) => get(`/api/admin/festivals${activeOnly ? '?active=true' : ''}`),
+  saveFestival: (id, input) => {
+    const body = { ...input, nameEn: input.nameEn || null, year: input.year ?? null, startsOn: input.startsOn || null, endsOn: input.endsOn || null }
+    return id ? put(`/api/admin/festivals/${id}`, body) : post('/api/admin/festivals', body)
+  },
+  deleteFestival: async (id) => { await del(`/api/admin/festivals/${id}`) },
+  adminViolations: (f = {}) => get(`/api/admin/violations${qs({ q: f.q, status: f.status, festivalId: f.festivalId, page: f.page ? String(f.page) : undefined, size: f.size ? String(f.size) : undefined })}`),
+  findViolationOwner: (q) => post('/api/admin/violations/owner', { q }),
+  issueViolation: (input) => post('/api/admin/violations', { ...input, ownerId: input.ownerId ?? null, owner: input.owner ?? null, festivalId: input.festivalId ?? null, camelChip: input.camelChip ?? null, attachment: input.attachment ?? null }),
+  cancelViolation: (id, reason) => post(`/api/admin/violations/${id}/cancel`, { reason }),
+  resolveViolationByName: (id, note) => post(`/api/admin/violations/${id}/resolve-name`, { note: note ?? null }),
+  banViolation: (id, reason) => post(`/api/admin/violations/${id}/ban`, { reason }),
+  violationAttachment: (id) => get(`/api/admin/violations/${id}/attachment`),
+  myViolations: () => get('/api/me/violations'),
+  myViolationAttachment: (id) => get(`/api/me/violations/${id}/attachment`),
+  // fines: payment channels only (the wallet is for guarantees)
+  async payViolation(id) {
+    await card('violation', id)
+    return post<Violation>(`/api/me/violations/${id}/pay`)
+  },
   payoutStatus: () => get('/api/admin/payouts'),
   payoutWithdrawal: (id) => post(`/api/admin/withdrawals/${id}/payout`),
   createListing: (reservedId, mode, price) => post('/api/me/listings', { reservedId, mode, price }),

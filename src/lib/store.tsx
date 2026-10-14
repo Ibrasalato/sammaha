@@ -74,6 +74,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (typeof s.compoundFee === 'number') RULES.compoundFee = s.compoundFee
       if (typeof s.resaleCommission === 'number') RULES.resaleCommission = s.resaleCommission
       if (typeof s.instantCommission === 'number') RULES.instantCommission = s.instantCommission
+      if (typeof s.openingPrice === 'number') RULES.openingPrice = s.openingPrice
+      if (typeof s.manqiyaOpeningPrice === 'number') RULES.manqiyaOpeningPrice = s.manqiyaOpeningPrice
+      if (typeof s.minIncrement === 'number') RULES.minIncrement = s.minIncrement
+      if (typeof s.auctionDays === 'number') RULES.auctionDays = s.auctionDays
       setSettings(s)
     } catch { /* keep the last known */ }
   }, [])

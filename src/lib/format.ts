@@ -1,5 +1,5 @@
 import { RULES } from './config'
-import { getLang, locale } from './i18n'
+import { getLang, locale, tr } from './i18n'
 import { differsFromRiyadh, userTz } from './region'
 
 const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
@@ -8,6 +8,9 @@ export const num = (n: number) => nf.format(n)
 export const RIYAL = '\u20C1'
 export const sar = (n: number) => (getLang() === 'ar' ? `${nf.format(n)}\u00A0${RIYAL}` : `${RIYAL}\u00A0${nf.format(n)}`)
 export const cur = () => RIYAL
+/** the opening price in words: one amount, or فردي and منقية when the admin set them apart */
+export const openingText = () => (RULES.manqiyaOpeningPrice === RULES.openingPrice ? sar(RULES.openingPrice)
+  : tr(`${sar(RULES.openingPrice)} للفردي و${sar(RULES.manqiyaOpeningPrice)} للمنقية`, `${sar(RULES.openingPrice)} for single names and ${sar(RULES.manqiyaOpeningPrice)} for manqiya`))
 
 /** shown in the viewer's time zone (Settings → Display); Riyadh by default for viewers in Saudi Arabia */
 const fmt = (o: Intl.DateTimeFormatOptions, tz = userTz()) => new Intl.DateTimeFormat(locale(), { timeZone: tz, ...o })

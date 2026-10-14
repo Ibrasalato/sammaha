@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Icon } from '../../components/dash'
 import { NoResults, TableTools, useTableFilter } from '../../components/TableTools'
 import { Empty, ErrorBox, Loading, Modal, PageHead, TypeBadge } from '../../components/ui'
-import { RULES, typeOptions } from '../../lib/config'
+import { RULES, openingPriceFor, typeOptions } from '../../lib/config'
 import { dateTime, fromLocalInput, num, sar, toLocalInput } from '../../lib/format'
 import { tr } from '../../lib/i18n'
 import { api, useApp, useLoad } from '../../lib/store'
@@ -13,8 +13,10 @@ function AuctionDialog({ n, onClose, onDone }: { n: IcoName; onClose: () => void
   const { toast, settings } = useApp()
   const base = (() => { const d = new Date(); d.setMinutes(0, 0, 0); return d.getTime() + 3600_000 })()
   const [starts, setStarts] = useState(toLocalInput(base))
-  const [ends, setEnds] = useState(toLocalInput(base + 3 * 86400_000))
-  const [opening, setOpening] = useState(String(n.forfeitedPrice ? Math.max(RULES.openingPrice, Math.round(n.forfeitedPrice / 2)) : RULES.openingPrice))
+  const [ends, setEnds] = useState(toLocalInput(base + RULES.auctionDays * 86400_000))
+  // the admin's opening price for this name type; a name lost by an unpaid win starts at no less than half its old price
+  const floor = openingPriceFor(n.type)
+  const [opening, setOpening] = useState(String(n.forfeitedPrice ? Math.max(floor, Math.round(n.forfeitedPrice / 2)) : floor))
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   async function go() {

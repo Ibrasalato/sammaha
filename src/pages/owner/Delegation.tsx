@@ -16,7 +16,7 @@ export const SCOPES: { key: DelegationScope; label: string; description: string 
   scope('requests', ['طلبات الشعارات', 'تقديم طلبات الشعارات والأسماء المركبة، ودفع ضمانها، وسحب اسم أو إلغاء الطلب'], ['Name requests', 'Submit name and compound name requests, pay their guarantee, and withdraw a name or cancel a request']),
   scope('invest', ['استثمار الاسم', 'تقديم طلبات استثمار الاسم ودفع رسوم الدراسة'], ['Name investment', 'Submit name investment requests and pay the review fee']),
   scope('bids', ['المزايدة والشراء', 'المزايدة والمزايدة الآلية والمتابعة، وضمان دخول المزاد، وشراء الأسماء المعروضة'], ['Bidding and buying', 'Bid, auto-bid and watch, pay the participation guarantee, and buy listed names']),
-  scope('payments', ['المحفظة والفواتير', 'شحن المحفظة وسداد الفواتير'], ['Wallet and invoices', 'Top up the wallet and pay invoices']),
+  scope('payments', ['المحفظة والفواتير', 'شحن المحفظة وسداد الفواتير والمخالفات'], ['Wallet and invoices', 'Top up the wallet and pay invoices and violation fines']),
   scope('sales', ['بيع الأسماء', 'عرض أسمائك للبيع بالمزاد أو بسعر ثابت وإلغاء العرض'], ['Selling names', 'List your names for sale by auction or at a fixed price, and cancel listings']),
   scope('tickets', ['الشكاوى والاستفسارات', 'تقديم الشكاوى والاستفسارات ومتابعتها'], ['Complaints & inquiries', 'Submit and follow up on complaints and inquiries']),
 ]
