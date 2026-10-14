@@ -14,12 +14,12 @@ export const DEFAULT_SETTINGS: Omit<AdminSettings, 'rules'> = {
   passwordMinLength: 8, maxLoginAttempts: 5, lockoutMinutes: 15, staffIdleMinutes: 30,
   depositAmount: RULES.depositAmount, paymentDeadlineHours: 72, transferFee: 0, transferOpen: true, comingSoon: [],
   investFee: RULES.investFee, compoundFee: 0, resaleCommission: RULES.resaleCommission, instantCommission: RULES.instantCommission, serviceTexts: {},
-  openingPrice: RULES.openingPrice, manqiyaOpeningPrice: RULES.openingPrice, minIncrement: RULES.minIncrement, auctionDays: RULES.auctionDays,
+  openingPrice: RULES.openingPrice, manqiyaOpeningPrice: RULES.manqiyaOpeningPrice, minIncrement: RULES.minIncrement, auctionDays: RULES.auctionDays,
 }
 
 /** what is stored: the manqiya opening price stays unset (following the general one) until the admin sets it */
 type Stored = Omit<AdminSettings, 'rules' | 'manqiyaOpeningPrice'> & { manqiyaOpeningPrice?: number }
-const STORED_DEFAULTS: Stored = { ...DEFAULT_SETTINGS, manqiyaOpeningPrice: undefined }
+const STORED_DEFAULTS: Stored = { ...DEFAULT_SETTINGS }
 
 function readStored(): Stored {
   try { return { ...STORED_DEFAULTS, ...(JSON.parse(localStorage.getItem(KEY) || '{}') as object) } } catch { return { ...STORED_DEFAULTS } }

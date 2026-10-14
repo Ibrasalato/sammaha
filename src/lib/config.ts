@@ -10,9 +10,9 @@ export const RULES = {
   /** Opening price of قعدان and بكار names in auction (⃁; the live value comes from the platform settings) */
   openingPrice: 50,
   /** Opening price of «منقية» names (⃁; the same as openingPrice unless the admin sets it) */
-  manqiyaOpeningPrice: 50,
+  manqiyaOpeningPrice: 3000,
   /** Minimum raise over the current price (⃁; the live value comes from the platform settings) */
-  minIncrement: 10,
+  minIncrement: 500,
   /** default auction length in days when the committee schedules an auction */
   auctionDays: 2,
   /** A bid in the last N minutes extends the auction by N minutes (anti-sniping) */

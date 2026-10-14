@@ -289,6 +289,7 @@ export const httpApi: SammhaApi = {
   myViolations: () => get('/api/me/violations'),
   myViolationAttachment: (id) => get(`/api/me/violations/${id}/attachment`),
   // fines: payment channels only (the wallet is for guarantees)
+  linkNameToViolation: (id, reservedId) => post(`/api/me/violations/${id}/link-name`, { reservedId }),
   async payViolation(id) {
     await card('violation', id)
     return post<Violation>(`/api/me/violations/${id}/pay`)

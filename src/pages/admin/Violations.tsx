@@ -139,7 +139,7 @@ function DetailDialog({ v, onClose, onChanged }: { v: Violation; onClose: () => 
   const ACTION: Record<Action, { label: string; field: string; done: string; min: number; danger: boolean }> = {
     cancel: { label: tr('إلغاء المخالفة', 'Cancel violation'), field: tr('سبب الإلغاء (يصل للمالك)', 'Cancellation reason (sent to the owner)'), done: tr(`أُلغيت المخالفة ${v.number} وأُبلغ المالك`, `Violation ${v.number} cancelled and the owner notified`), min: 3, danger: true },
     ban: { label: tr('منع من المشاركة', 'Bar from taking part'), field: tr('سبب المنع (يصل للمالك)', 'Reason for the bar (sent to the owner)'), done: tr(`صدر قرار المنع في المخالفة ${v.number} وأُبلغ المالك`, `Bar recorded on violation ${v.number}; the owner was notified`), min: 3, danger: true },
-    resolve: { label: tr('تسوية بتسجيل اسم', 'Settle by a registered name'), field: tr('ملاحظة (اختياري، مثل الاسم المسجل)', 'Note (optional, e.g. the registered name)'), done: tr(`سُوّيت المخالفة ${v.number} بتسجيل اسم`, `Violation ${v.number} settled by a registered name`), min: 0, danger: false },
+    resolve: { label: tr('تسوية بربط اسم', 'Settle by a linked name'), field: tr('ملاحظة (اختياري، مثل الاسم والشريحة)', 'Note (optional, e.g. the name and chip)'), done: tr(`سُوّيت المخالفة ${v.number} بربط اسم`, `Violation ${v.number} settled by a linked name`), min: 0, danger: false },
   }
   async function run() {
     if (!action) return
@@ -160,7 +160,7 @@ function DetailDialog({ v, onClose, onChanged }: { v: Violation; onClose: () => 
           <Row k={tr('شريحة الجمل', 'Camel chip')}>{v.camelChip ? <span className="num" dir="ltr">{v.camelChip}</span> : <span className="text-muted">—</span>}</Row>
           <Row k={tr('صدرت', 'Issued')}>{dateTime(v.issuedAt)}{v.issuedByName && <span className="block text-[13px] text-muted">{v.issuedByName}</span>}</Row>
           {v.status === 'paid' && <Row k={tr('السداد ومواصلة المشاركة', 'Paid, keeps taking part')}>{dateTime(v.paidAt)} · {payMethodLabel(v.paymentMethod)}</Row>}
-          {(v.status === 'resolved_name' || v.status === 'banned') && <Row k={v.status === 'banned' ? tr('المنع من المشاركة', 'Barred') : tr('التسوية بتسجيل اسم', 'Settled by a name')}>{dateTime(v.resolvedAt)}{v.resolvedByName && ` · ${v.resolvedByName}`}{v.resolutionNote && <span className={`block text-[13px] ${v.status === 'banned' ? 'text-bad' : 'text-muted'}`}>{v.resolutionNote}</span>}</Row>}
+          {(v.status === 'resolved_name' || v.status === 'banned') && <Row k={v.status === 'banned' ? tr('المنع من المشاركة', 'Barred') : tr('التسوية بربط اسم', 'Settled by a name')}>{dateTime(v.resolvedAt)}{v.resolvedByName && ` · ${v.resolvedByName}`}{v.resolutionNote && <span className={`block text-[13px] ${v.status === 'banned' ? 'text-bad' : 'text-muted'}`}>{v.resolutionNote}</span>}</Row>}
           {v.status === 'cancelled' && <Row k={tr('الإلغاء', 'Cancelled')}>{dateTime(v.cancelledAt)}{v.cancelledByName && ` · ${v.cancelledByName}`}{v.cancelReason && <span className="block text-[13px] text-bad">{v.cancelReason}</span>}</Row>}
         </dl>
         <div><span className="label">{tr('الوصف', 'Description')}</span><p className="whitespace-pre-line rounded-lg bg-stone p-3 text-[15px] leading-7">{v.description}</p></div>
@@ -316,7 +316,7 @@ export function ViolationTypesPanel() {
             <div><label className="label" htmlFor="vt-en">{tr('الاسم بالإنجليزية (اختياري)', 'English name (optional)')}</label><input id="vt-en" className="field" dir="ltr" maxLength={100} value={edit.nameEn} onChange={(e) => setEdit({ ...edit, nameEn: e.target.value })} /></div>
             <div><label className="label" htmlFor="vt-amount">{tr('الغرامة (ريال)', 'Fine (SAR)')}</label><input id="vt-amount" className="field num" dir="ltr" inputMode="decimal" value={edit.amount} onChange={(e) => setEdit({ ...edit, amount: e.target.value.replace(/[^\d.]/g, '') })} placeholder="0" /></div>
           </div>
-          <label className="flex items-center gap-2 text-[14.5px]"><input type="checkbox" checked={edit.allowsNameResolution} onChange={(e) => setEdit({ ...edit, allowsNameResolution: e.target.checked })} />{tr('تقبل التسوية بتسجيل اسم (يرى المالك خيار تسجيل اسم للجمل بدل السداد)', 'Can be settled by registering a name (the owner sees that option instead of paying)')}</label>
+          <label className="flex items-center gap-2 text-[14.5px]"><input type="checkbox" checked={edit.allowsNameResolution} onChange={(e) => setEdit({ ...edit, allowsNameResolution: e.target.checked })} />{tr('تقبل التسوية بربط اسم (يربط المالك اسم قعود أو بكار يملكه بشريحة الجمل بدل السداد)', 'Can be settled by linking a name (the owner links a qaadan or bakkar name they own to the camel chip instead of paying)')}</label>
           <label className="flex items-center gap-2 text-[14.5px]"><input type="checkbox" checked={edit.active} onChange={(e) => setEdit({ ...edit, active: e.target.checked })} />{tr('مفعّل (يظهر عند إصدار مخالفة)', 'Active (offered when issuing a violation)')}</label>
           <div className="flex gap-2">
             <button className="btn-primary btn-sm" disabled={!valid || busy} onClick={save}>{busy ? tr('جارٍ الحفظ…', 'Saving…') : tr('حفظ', 'Save')}</button>
@@ -330,7 +330,7 @@ export function ViolationTypesPanel() {
             <li key={t.id} className={`flex flex-wrap items-center gap-3 px-5 py-3.5 ${t.active ? '' : 'opacity-60'}`}>
               <div className="min-w-[12rem] flex-1">
                 <b className="text-[15.5px]">{t.name}</b>{t.nameEn && <span className="ms-2 text-[13px] text-muted" dir="ltr">{t.nameEn}</span>}
-                <p className="text-[13px] text-muted">{tr(`${num(t.used)} مخالفة صادرة`, `${num(t.used)} issued`)}{t.allowsNameResolution && ` · ${tr('تقبل التسوية بتسجيل اسم', 'Name settlement allowed')}`}{!t.active && ` · ${tr('موقوف', 'Off')}`}</p>
+                <p className="text-[13px] text-muted">{tr(`${num(t.used)} مخالفة صادرة`, `${num(t.used)} issued`)}{t.allowsNameResolution && ` · ${tr('تقبل التسوية بربط اسم', 'Name settlement allowed')}`}{!t.active && ` · ${tr('موقوف', 'Off')}`}</p>
               </div>
               <span className="num font-extrabold">{t.amount > 0 ? sar(t.amount) : tr('بلا غرامة', 'No fine')}</span>
               <div className="flex gap-1.5">

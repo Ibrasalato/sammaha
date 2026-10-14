@@ -274,6 +274,8 @@ export interface SammhaApi {
   myViolations(): Promise<Violation[]>
   myViolationAttachment(id: string): Promise<DocumentFile>
   payViolation(id: string): Promise<Violation>
+  /** settle a no-name fine by linking a قعود/بكرة name the owner already owns to the fined camel's chip */
+  linkNameToViolation(id: string, reservedId: string): Promise<Violation>
   // direct payouts of refund requests
   payoutStatus(): Promise<PayoutStatus>
   payoutWithdrawal(id: string): Promise<Withdrawal>

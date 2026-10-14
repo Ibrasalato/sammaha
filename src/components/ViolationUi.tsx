@@ -8,7 +8,7 @@ export const VIOLATION_STATUS: Record<ViolationStatus, [string, string]> = {
   get paid(): [string, string] { return [tr('مسددة', 'Paid'), 'bg-[#E2F0E8] text-ok'] },
   get recorded(): [string, string] { return [tr('مسجلة بلا غرامة', 'Recorded, no fine'), 'bg-info-soft text-info-deep'] },
   get cancelled(): [string, string] { return [tr('ملغاة', 'Cancelled'), 'bg-stone-deep text-muted'] },
-  get resolved_name(): [string, string] { return [tr('تمت التسوية بتسجيل اسم', 'Settled by a name'), 'bg-pine-soft text-pine'] },
+  get resolved_name(): [string, string] { return [tr('تمت التسوية بربط اسم', 'Settled by a name'), 'bg-pine-soft text-pine'] },
   get banned(): [string, string] { return [tr('ممنوع من المشاركة', 'Barred from taking part'), 'bg-bad text-paper'] },
 }
 

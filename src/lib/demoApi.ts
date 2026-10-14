@@ -1247,7 +1247,7 @@ function demoViolations(db: DB): DemoViolation[] {
   return list
 }
 const VIOLATION_CLOSED: Partial<Record<ViolationStatus, string>> = {
-  paid: 'سُدّدت هذه المخالفة وأُغلقت', resolved_name: 'سُوّيت هذه المخالفة بتسجيل اسم وأُغلقت', banned: 'صدر قرار المنع من المشاركة في هذه المخالفة وأُغلقت', cancelled: 'أُلغيت هذه المخالفة',
+  paid: 'سُدّدت هذه المخالفة وأُغلقت', resolved_name: 'سُوّيت هذه المخالفة بربط اسم بالشريحة وأُغلقت', banned: 'صدر قرار المنع من المشاركة في هذه المخالفة وأُغلقت', cancelled: 'أُلغيت هذه المخالفة',
 }
 const closedWhyViolation = (v: DemoViolation) => VIOLATION_CLOSED[v.status] ?? 'لا يمكن تغيير حالة هذه المخالفة'
 const atFestival = (v: DemoViolation) => (v.festivalName ? ` في «${v.festivalName}»` : '')
@@ -1974,9 +1974,9 @@ const rawApi: SammhaApi = {
     const v = demoViolations(db).find((x) => x.id === id)
     if (!v) throw new ApiError('المخالفة غير موجودة')
     if (v.status !== 'unpaid') throw new ApiError(v.status === 'recorded' ? 'لا توجد غرامة على هذه المخالفة لتسويتها' : closedWhyViolation(v))
-    if (!db.violationTypes?.find((t) => t.id === v.typeId)?.allowsNameResolution) throw new ApiError('نوع هذه المخالفة لا يقبل التسوية بتسجيل اسم')
+    if (!db.violationTypes?.find((t) => t.id === v.typeId)?.allowsNameResolution) throw new ApiError('نوع هذه المخالفة لا يقبل التسوية بربط اسم')
     Object.assign(v, { status: 'resolved_name', resolution: 'resolved_name', resolvedAt: iso(now()), resolvedByName: u.fullName, resolutionNote: n || undefined })
-    notify(db, v.ownerId, 'violation', `سُوّيت المخالفة ${v.number} بتسجيل اسم`, `«${v.typeName}»${atFestival(v)}: أُغلقت المخالفة دون سداد بعد تسجيل اسم للجمل، ويمكنك مواصلة المشاركة.` + (n ? ` ملاحظة: ${n}` : ''), '/dashboard/violations')
+    notify(db, v.ownerId, 'violation', `سُوّيت المخالفة ${v.number} بربط اسم`, `«${v.typeName}»${atFestival(v)}: أُغلقت المخالفة دون سداد بعد ربط اسم بشريحة الجمل، ويمكنك مواصلة المشاركة.` + (n ? ` ملاحظة: ${n}` : ''), '/dashboard/violations')
     return violationDto(db, v, true, permsOf(db, u).includes('owners.full'))
   }),
   banViolation: (id, reason) => tx((db) => {
@@ -2008,6 +2008,35 @@ const rawApi: SammhaApi = {
     if (!v.attachmentBase64) throw new ApiError('لا يوجد مرفق لهذه المخالفة')
     return { name: v.attachmentName ?? 'attachment', contentType: v.attachmentType ?? 'application/octet-stream', base64: v.attachmentBase64 }
   }),
+  linkNameToViolation: (id, reservedId) => tx((db) => {
+    const u = transferOwner(db, 'ربط الأسماء بالشرائح لصاحب الحساب فقط')
+    ensureWritable(u.role)
+    const v = demoViolations(db).find((x) => x.id === id && x.ownerId === u.id)
+    if (!v) throw new ApiError('المخالفة غير موجودة')
+    if (v.status !== 'unpaid') throw new ApiError(v.status === 'recorded' ? 'لا توجد غرامة على هذه المخالفة لتسويتها' : closedWhyViolation(v))
+    if (!db.violationTypes?.find((t) => t.id === v.typeId)?.allowsNameResolution) throw new ApiError('نوع هذه المخالفة لا يقبل التسوية بربط اسم')
+    const chip = (v.camelChip ?? '').trim()
+    if (!chip) throw new ApiError('لم تُسجَّل شريحة الجمل في هذه المخالفة، تواصل مع الإدارة')
+    const r = db.reserved.find((x) => x.id === reservedId && x.ownerId === u.id)
+    if (!r) throw new ApiError('الاسم غير مسجل باسمك')
+    const want = r.type === 'qaadan' ? 'male' : r.type === 'bakkar' ? 'female' : null
+    if (!want) throw new ApiError('المنقية لا تُربط بشريحة؛ الربط لأسماء القعدان والبكار فقط')
+    if (db.invoices.some((i) => i.userId === u.id && i.name === r.name && i.status === 'unpaid')) throw new ApiError('سدّد فاتورة الاسم أولًا')
+    const camels = demoCamels(db)
+    let c = camels.find((x) => x.userId === u.id && x.chipNumbers.includes(chip))
+    if (camels.some((x) => x.reservedId === r.id && x !== c)) throw new ApiError('الاسم مربوط بشريحة أخرى، اختر اسمًا غير مربوط')
+    if (!c) { c = { id: uid(db, 'cm'), userId: u.id, chipNumbers: [chip] } as DemoCamel; camels.push(c) }
+    else {
+      if (c.reservedId && c.reservedId !== r.id) throw new ApiError('هذه الشريحة مربوطة باسم آخر')
+      const sex = sexOfCamel(c.sex)
+      if (sex && sex !== want) throw new ApiError(want === 'male' ? 'أسماء القعدان للذكور: شريحة هذا الجمل لأنثى' : 'أسماء البكار للإناث: شريحة هذا الجمل لذكر')
+    }
+    c.reservedId = r.id
+    c.linkedAt = iso(now())
+    Object.assign(v, { status: 'resolved_name', resolution: 'resolved_name', resolvedAt: iso(now()), resolvedByName: u.fullName, resolutionNote: `رُبط الاسم «${r.name}» بالشريحة ${chip}` })
+    notify(db, u.id, 'violation', `سُوّيت المخالفة ${v.number} بربط اسم`, `رُبط «${r.name}» بالشريحة ${chip}، وأُغلقت المخالفة دون سداد، ويمكنك مواصلة المشاركة.`, '/dashboard/violations')
+    return violationDto(db, v, false)
+  }),
   payViolation: (id) => tx((db) => {
     const u = writer(db)
     const v = demoViolations(db).find((x) => x.id === id && x.ownerId === u.id)
@@ -2020,7 +2049,7 @@ const rawApi: SammhaApi = {
     db.txs.push({ id: uid(db, 't'), userId: u.id, amount: v.amount, kind: 'topup', note: `دفع بالبطاقة للمخالفة ${v.number}`, createdAt: iso(now()) })
     db.txs.push({ id: uid(db, 't'), userId: u.id, amount: -v.amount, kind: 'fine', note: `سداد المخالفة ${v.number} — ${v.typeName}`, createdAt: iso(now()) })
     Object.assign(v, { status: 'paid', paidAt: iso(now()), paymentId: uid(db, 'p'), paymentMethod: 'card', resolution: 'paid_continue', resolvedAt: iso(now()) })
-    notify(db, u.id, 'violation', `تم سداد المخالفة ${v.number}`, `سُدّد ${v.amount} ريال، ويظهر الإيصال في صفحة المخالفات.`, '/dashboard/violations')
+    notify(db, u.id, 'violation', `تم سداد المخالفة ${v.number}`, `سُدّد ${v.amount} ريال، ويظهر سند السداد في صفحة المخالفات.`, '/dashboard/violations')
     return violationDto(db, v, false)
   }),
 
@@ -3332,8 +3361,8 @@ const ACT: Record<string, [string, string]> = {
   linkCamel: ['ربط اسم بشريحة', 'account'], unlinkCamel: ['فك ربط اسم بشريحة', 'account'],
   saveViolationType: ['حفظ نوع مخالفة', 'settings'], deleteViolationType: ['حذف نوع مخالفة', 'settings'],
   saveFestival: ['حفظ مهرجان', 'settings'], deleteFestival: ['حذف مهرجان', 'settings'],
-  resolveViolationByName: ['تسوية مخالفة بتسجيل اسم', 'violations'], banViolation: ['منع من المشاركة بسبب مخالفة', 'violations'],
-  issueViolation: ['إصدار مخالفة', 'violations'], cancelViolation: ['إلغاء مخالفة', 'violations'], payViolation: ['سداد مخالفة', 'payments'],
+  resolveViolationByName: ['تسوية مخالفة بربط اسم', 'violations'], banViolation: ['منع من المشاركة بسبب مخالفة', 'violations'],
+  issueViolation: ['إصدار مخالفة', 'violations'], cancelViolation: ['إلغاء مخالفة', 'violations'], payViolation: ['سداد مخالفة', 'payments'], linkNameToViolation: ['تسوية مخالفة بربط اسم', 'account'],
 }
 /** the scope each owner write needs in a delegated session (same map as the API) */
 const SCOPE_OF: Record<string, DelegationScope> = {
