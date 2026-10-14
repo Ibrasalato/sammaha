@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon, StatTile } from '../../components/dash'
+import { OWNER_COLUMNS, OwnerCell, ownerColumns, useOwners } from '../../components/OwnerCell'
 import { Empty, ErrorBox, Loading, PageHead, Segmented, TypeBadge } from '../../components/ui'
 import { NoResults, TableTools, useTableFilter } from '../../components/TableTools'
 import { TYPE_LABEL, typeOptions } from '../../lib/config'
@@ -17,6 +18,7 @@ const KIND: Record<MarkRow['kind'], string> = { request: 'طلب شعار', inve
 
 export function AdminMarksReport() {
   const { user } = useApp()
+  const owners = useOwners()
   const [state, setState] = useState('sold')
   const [type, setType] = useState<NameType | 'all'>('all')
   const [from, setFrom] = useState('')
@@ -43,9 +45,9 @@ export function AdminMarksReport() {
       <PageHead title="تقرير الشعارات" sub="كل مزاد برقمه التسلسلي: الطلب والمالك والفائز وقيمة الفوز والفاتورة والشهادة."
         action={<div className="flex gap-2">
           <button className="btn-ghost" onClick={() => downloadCsv(`تقرير-الشعارات-${new Date().toISOString().slice(0, 10)}.csv`, [
-            ['رقم المزاد', 'الشعار', 'الفئة', 'المصدر', 'رقم الطلب', 'المالك', 'الحالة', 'البداية', 'النهاية', 'السعر الافتتاحي', 'قيمة الفوز', 'المزايدات', 'المزايدون', 'الفائز', 'الفاتورة', 'حالة الفاتورة', 'الضريبة', 'الشهادة', 'التمديدات'],
-            ...list.map((r) => [r.number, r.name, TYPE_LABEL[r.type], KIND[r.kind], r.requestNumber ?? r.listingNumber ?? '', r.ownerName, STATUS[r.status][0], date(r.startsAt), date(r.endsAt), r.openingPrice, r.price, r.bidCount, r.bidders,
-              r.winnerName ? `${r.winnerName}${r.wonByRequester ? ' (مقدم الطلب)' : ''}` : '', r.invoiceNumber ?? '', r.invoiceStatus === 'paid' ? 'مدفوعة' : r.invoiceStatus === 'unpaid' ? 'غير مدفوعة' : '', r.vat ?? '', r.certCode ?? '', r.extensions]),
+            ['رقم المزاد', 'الشعار', 'الفئة', 'المصدر', 'رقم الطلب', 'المالك', ...OWNER_COLUMNS, 'الحالة', 'البداية', 'النهاية', 'السعر الافتتاحي', 'قيمة الفوز', 'المزايدات', 'المزايدون', 'الفائز', 'هوية وجنسية وجوال الفائز', 'الفاتورة', 'حالة الفاتورة', 'الضريبة', 'الشهادة', 'التمديدات'],
+            ...list.map((r) => [r.number, r.name, TYPE_LABEL[r.type], KIND[r.kind], r.requestNumber ?? r.listingNumber ?? '', r.ownerName, ...ownerColumns(owners.get(r.ownerId)), STATUS[r.status][0], date(r.startsAt), date(r.endsAt), r.openingPrice, r.price, r.bidCount, r.bidders,
+              r.winnerName ? `${r.winnerName}${r.wonByRequester ? ' (مقدم الطلب)' : ''}` : '', r.winnerId ? ownerColumns(owners.get(r.winnerId)).filter(Boolean).join(' · ') : '', r.invoiceNumber ?? '', r.invoiceStatus === 'paid' ? 'مدفوعة' : r.invoiceStatus === 'unpaid' ? 'غير مدفوعة' : '', r.vat ?? '', r.certCode ?? '', r.extensions]),
           ])}>تصدير Excel</button>
           <button className="btn-primary" onClick={() => printReport({ title: 'تقرير الشعارات', subtitle, by: user?.fullName, el: ref.current, landscape: true })}><Icon name="file" className="h-4 w-4" />طباعة التقرير</button>
         </div>} />
@@ -74,13 +76,13 @@ export function AdminMarksReport() {
                   <td className="num whitespace-nowrap font-semibold"><Link to={`/auctions/${r.auctionId}`} className="hover:underline">{r.number}</Link></td>
                   <td><span className="flex items-center gap-1.5 font-extrabold"><TypeBadge type={r.type} />{r.name}</span><span className="text-[12px] text-muted">{KIND[r.kind]}</span></td>
                   <td className="num whitespace-nowrap">{r.requestNumber ?? r.listingNumber ?? '—'}</td>
-                  <td>{r.ownerName}</td>
+                  <td><OwnerCell id={r.ownerId} name={r.ownerName} /></td>
                   <td><span className={`pill ${STATUS[r.status][1]}`}>{STATUS[r.status][0]}</span></td>
                   <td className="whitespace-nowrap text-[13px]">{date(r.endsAt)}</td>
                   <td className="num whitespace-nowrap text-muted">{sar(r.openingPrice)}</td>
                   <td className="num whitespace-nowrap font-bold">{r.status === 'cancelled' ? '—' : sar(r.price)}</td>
                   <td className="num">{num(r.bidCount)}<span className="text-[12px] text-muted"> / {num(r.bidders)} مزايد</span></td>
-                  <td className="text-[13.5px]">{r.winnerName ? <>{r.winnerName}{r.wonByRequester && <span className="block text-[12px] text-muted">مقدم الطلب</span>}</> : '—'}</td>
+                  <td className="text-[13.5px]">{r.winnerName ? <OwnerCell id={r.winnerId} name={r.winnerName} note={r.wonByRequester && <span className="block text-[12px] text-muted">مقدم الطلب</span>} /> : '—'}</td>
                   <td className="num whitespace-nowrap text-[13px]">{r.invoiceNumber ? <>{r.invoiceNumber}<span className={`block ${r.invoiceStatus === 'paid' ? 'text-ok' : 'text-gold-deep'}`}>{r.invoiceStatus === 'paid' ? 'مدفوعة' : 'غير مدفوعة'}</span></> : '—'}</td>
                   <td className="num text-[12.5px] text-muted">{r.certCode ?? '—'}</td>
                 </tr>

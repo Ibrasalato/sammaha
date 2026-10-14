@@ -8,6 +8,7 @@ import { date, num } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
 import type { Role, StaffInput, StaffRole, User } from '../../lib/types'
 import { Link } from 'react-router-dom'
+import { OwnerCell } from '../../components/OwnerCell'
 import { COMMITTEE_ROLE_ID, can } from '../../lib/permissions'
 
 export const ROLE_LABEL: Record<Role, string> = { owner: 'مالك إبل', committee: 'لجنة الاعتماد', admin: 'مدير النظام' }
@@ -143,7 +144,7 @@ export function AdminUsers() {
                 return (
                   <tr key={u.id} className={u.active === false ? 'opacity-60' : ''}>
                     <td className="font-semibold">
-                      {u.fullName}
+                      {u.role === 'owner' ? <OwnerCell id={u.id} name={u.fullName} hidePhone /> : u.fullName}
                       {isSuper(u) && <span className="pill ms-2 bg-gold text-paper">المدير الرئيسي</span>}
                       {u.id === me?.id && !isSuper(u) && <span className="ms-2 text-[12px] text-muted">(أنت)</span>}
                     </td>

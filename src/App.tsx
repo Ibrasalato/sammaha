@@ -11,6 +11,7 @@ import { LangProvider, useLang } from './lib/i18n'
 import { AppProvider, useApp } from './lib/store'
 import type { Role } from './lib/types'
 import { canAny } from './lib/permissions'
+import { OwnerDirectory } from './components/OwnerCell'
 import type { Permission } from './lib/permissions'
 import About from './pages/About'
 import AuctionDetail from './pages/AuctionDetail'
@@ -119,7 +120,7 @@ const ADMIN_NAV: (NavItem & { perms?: Permission[] })[] = [
 function AdminShell() {
   const { user } = useApp()
   const nav = ADMIN_NAV.filter((n) => !n.perms || canAny(user, n.perms))
-  return <Shell nav={nav} title={user?.role === 'admin' ? 'إدارة المنصة' : user?.staffRoleName || 'لجنة الاعتماد'} />
+  return <OwnerDirectory><Shell nav={nav} title={user?.role === 'admin' ? 'إدارة المنصة' : user?.staffRoleName || 'لجنة الاعتماد'} /></OwnerDirectory>
 }
 
 /** a staff page the role cannot open shows a short notice instead of failing on every call */

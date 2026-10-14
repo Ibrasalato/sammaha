@@ -197,7 +197,7 @@ export function OwnerSettings() {
 type Draft = Omit<AdminSettings, 'rules' | 'updatedAt' | 'updatedBy'>
 
 const INTAKES: { flag: 'requestsOpen' | 'compoundOpen' | 'resaleAuctionOpen' | 'instantSaleOpen' | 'investmentOpen'; note: 'requestsClosedNote' | 'compoundClosedNote' | 'saleClosedNote' | 'investmentClosedNote'; title: string; desc: string; icon: IconName }[] = [
-  { flag: 'requestsOpen', note: 'requestsClosedNote', title: 'طلبات الشعارات', desc: 'طلبات تسجيل أسماء جديدة (ثلاثة أسماء بضمان) تُراجعها اللجنة ثم تُطرح في المزاد.', icon: 'file' },
+  { flag: 'requestsOpen', note: 'requestsClosedNote', title: 'طلبات الشعارات', desc: 'طلبات تسجيل أسماء جديدة (ثلاثة أسماء مقترحة بضمان، يُقبل منها اسم واحد) تُراجعها اللجنة ثم تُطرح في المزاد.', icon: 'file' },
   { flag: 'compoundOpen', note: 'compoundClosedNote', title: 'الأسماء المركبة', desc: 'إضافة كلمة إلى اسم يملكه المالك، تُسجَّل بعد اعتماد اللجنة دون مزاد.', icon: 'plus' },
   { flag: 'resaleAuctionOpen', note: 'saleClosedNote', title: 'إعادة البيع بالمزاد', desc: '«بيع اسم»: يعرض المالك اسمه في مزاد إعادة بيع بحد أدنى يحدده.', icon: 'gavel' },
   { flag: 'instantSaleOpen', note: 'saleClosedNote', title: 'البيع الفوري', desc: '«بيع اسم»: يعرض المالك اسمه بسعر ثابت في سوق الأسماء.', icon: 'tag' },

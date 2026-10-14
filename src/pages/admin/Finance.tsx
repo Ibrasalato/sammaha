@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Icon, StatTile } from '../../components/dash'
+import { OWNER_COLUMNS, OwnerCell, ownerColumns, useOwners } from '../../components/OwnerCell'
 import { Empty, ErrorBox, Loading, Modal, PageHead, Segmented, TypeBadge } from '../../components/ui'
 import { NoResults, TableTools, useTableFilter } from '../../components/TableTools'
 import { TYPE_LABEL } from '../../lib/config'
@@ -64,7 +65,7 @@ function WithdrawalsTable({ list, onChange }: { list: Withdrawal[]; onChange: ()
           {list.map((w) => (
             <tr key={w.id}>
               <td className="num font-semibold">{w.number}{w.byStaff && <span className="block text-[12px] font-normal text-muted">من الإدارة المالية</span>}</td>
-              <td>{w.ownerName}</td>
+              <td><OwnerCell id={w.userId} name={w.ownerName} /></td>
               <td className="num whitespace-nowrap font-bold">{sar(w.amount)}</td>
               <td className="text-[13px]"><span className="num" dir="ltr">{w.iban}</span><span className="block text-muted">{w.bankName} · {w.accountName}</span></td>
               <td><span className={`pill ${WD[w.status][1]}`}>{WD[w.status][0]}</span>{w.transferRef && <span className="num block text-[12px] text-muted">حوالة {w.transferRef}</span>}{w.note && <span className="block max-w-[14rem] text-[12px] text-muted">{w.note}</span>}</td>
@@ -163,7 +164,7 @@ function BanksTable({ list, onChange }: { list: StaffBankAccount[]; onChange: ()
             const mismatch = b.account.accountName.replace(/\s+/g, '') !== b.ownerName.replace(/\s+/g, '')
             return (
               <tr key={b.userId}>
-                <td className="font-semibold">{b.ownerName}</td>
+                <td><OwnerCell id={b.userId} name={b.ownerName} /></td>
                 <td className="num whitespace-nowrap" dir="ltr" style={{ textAlign: 'right' }}>{b.account.iban}</td>
                 <td>{b.account.bankName}</td>
                 <td>{b.account.accountName}{mismatch && <span className="block text-[12px] text-gold-deep">يختلف عن اسم الحساب في المنصة، تحقق من الشهادة</span>}</td>
@@ -187,6 +188,7 @@ function BanksTable({ list, onChange }: { list: StaffBankAccount[]; onChange: ()
 
 export function AdminWallets() {
   const { user } = useApp()
+  const owners = useOwners()
   const [params, setParams] = useSearchParams()
   const tab = (params.get('tab') as 'wallets' | 'withdrawals' | 'banks') ?? (can(user, 'wallets.view') ? 'wallets' : can(user, 'banks.verify') ? 'banks' : 'withdrawals')
   const [wStatus, setWStatus] = useState<WithdrawalStatus | 'all'>('pending')
@@ -213,8 +215,8 @@ export function AdminWallets() {
     <>
       <PageHead title="المحافظ والاسترداد" sub="أرصدة محافظ الملاك، وطلبات الاسترداد إلى الحسابات البنكية، واعتماد شهادات الآيبان."
         action={tab === 'wallets' && <div className="flex gap-2">
-          <button className="btn-ghost" onClick={() => downloadCsv(`المحافظ-${new Date().toISOString().slice(0, 10)}.csv`, [['المالك', 'الجوال', 'الرصيد', 'الوارد', 'المصروف', 'استرداد قيد التنفيذ', 'عدد الحركات', 'آخر حركة', 'الحساب البنكي'],
-            ...list.map((w) => [w.ownerName, w.phone, w.balance, w.totalIn, w.totalOut, w.pendingWithdrawals, w.txCount, w.lastTxAt ? date(w.lastTxAt) : '', w.bankStatus ? `${w.bankName} (${BANK[w.bankStatus][0]})` : 'بدون'])])}>تصدير Excel</button>
+          <button className="btn-ghost" onClick={() => downloadCsv(`المحافظ-${new Date().toISOString().slice(0, 10)}.csv`, [['المالك', ...OWNER_COLUMNS, 'الرصيد', 'الوارد', 'المصروف', 'استرداد قيد التنفيذ', 'عدد الحركات', 'آخر حركة', 'الحساب البنكي'],
+            ...list.map((w) => [w.ownerName, ...ownerColumns(owners.get(w.userId)), w.balance, w.totalIn, w.totalOut, w.pendingWithdrawals, w.txCount, w.lastTxAt ? date(w.lastTxAt) : '', w.bankStatus ? `${w.bankName} (${BANK[w.bankStatus][0]})` : 'بدون'])])}>تصدير Excel</button>
           <button className="btn-primary" onClick={() => printReport({ title: 'تقرير المحافظ', subtitle: `${num(list.length)} محفظة · إجمالي الأرصدة ${sar(total)}`, by: user?.fullName, el: ref.current, landscape: true })}><Icon name="file" className="h-4 w-4" />طباعة التقرير</button>
         </div>} />
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -234,13 +236,12 @@ export function AdminWallets() {
           <TableTools t={tf} placeholder="بحث باسم المالك أو الجوال" />
           <div ref={ref} className="panel overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>المالك</th><th>الجوال</th><th>الرصيد</th><th>الوارد</th><th>المصروف</th><th>استرداد قيد التنفيذ</th><th>آخر حركة</th><th>الحساب البنكي</th><th className="no-print"></th></tr></thead>
+              <thead><tr><th>المالك</th><th>الرصيد</th><th>الوارد</th><th>المصروف</th><th>استرداد قيد التنفيذ</th><th>آخر حركة</th><th>الحساب البنكي</th><th className="no-print"></th></tr></thead>
               <tbody>
-                {!list.length && <NoResults cols={9} onReset={tf.reset} />}
+                {!list.length && <NoResults cols={8} onReset={tf.reset} />}
                 {list.map((w) => (
                   <tr key={w.userId}>
-                    <td className="font-semibold">{w.ownerName}</td>
-                    <td className="num" dir="ltr" style={{ textAlign: 'right' }}>{w.phone}</td>
+                    <td><OwnerCell id={w.userId} name={w.ownerName} /></td>
                     <td className="num whitespace-nowrap font-bold">{sar(w.balance)}</td>
                     <td className="num whitespace-nowrap text-ok">{sar(w.totalIn)}</td>
                     <td className="num whitespace-nowrap text-muted">{sar(w.totalOut)}</td>
@@ -251,7 +252,7 @@ export function AdminWallets() {
                   </tr>
                 ))}
               </tbody>
-              {list.length > 0 && <tfoot><tr className="bg-stone font-bold"><td colSpan={2}>الإجمالي</td><td className="num whitespace-nowrap">{sar(total)}</td><td colSpan={6}></td></tr></tfoot>}
+              {list.length > 0 && <tfoot><tr className="bg-stone font-bold"><td>الإجمالي</td><td className="num whitespace-nowrap">{sar(total)}</td><td colSpan={6}></td></tr></tfoot>}
             </table>
           </div>
         </>
@@ -274,6 +275,7 @@ const CONTEXT: Record<string, string> = { under_review: 'تحت المراجعة
 
 export function AdminDeposits() {
   const { user, toast } = useApp()
+  const owners = useOwners()
   const [state, setState] = useState<'held' | 'all' | 'refunded' | 'applied'>('held')
   const { data, loading, error, reload } = useLoad(() => api.deposits(state), [state])
   const [refund, setRefund] = useState<DepositRow | null>(null)
@@ -288,8 +290,8 @@ export function AdminDeposits() {
     <>
       <PageHead title="الضمانات" sub="ضمانات طلبات الشعارات (تُخصم من الفاتورة عند الفوز أو تُرد) وضمانات دخول مزادات إعادة البيع."
         action={<div className="flex gap-2">
-          <button className="btn-ghost" onClick={() => downloadCsv(`الضمانات-${new Date().toISOString().slice(0, 10)}.csv`, [['المالك', 'النوع', 'المرجع', 'رقم المزاد', 'الأسماء', 'الفئة', 'المبلغ', 'الحالة', 'الوضع', 'التاريخ'],
-            ...list.map((d) => [d.ownerName, d.kind === 'request' ? 'ضمان طلب' : 'ضمان دخول مزاد', d.reference, d.auctionNumber ?? '', d.names, TYPE_LABEL[d.type], d.amount, DEP_STATE[d.state][0], CONTEXT[d.context] ?? d.context, date(d.at)])])}>تصدير Excel</button>
+          <button className="btn-ghost" onClick={() => downloadCsv(`الضمانات-${new Date().toISOString().slice(0, 10)}.csv`, [['المالك', ...OWNER_COLUMNS, 'النوع', 'المرجع', 'رقم المزاد', 'الأسماء', 'الفئة', 'المبلغ', 'الحالة', 'الوضع', 'التاريخ'],
+            ...list.map((d) => [d.ownerName, ...ownerColumns(owners.get(d.userId)), d.kind === 'request' ? 'ضمان طلب' : 'ضمان دخول مزاد', d.reference, d.auctionNumber ?? '', d.names, TYPE_LABEL[d.type], d.amount, DEP_STATE[d.state][0], CONTEXT[d.context] ?? d.context, date(d.at)])])}>تصدير Excel</button>
           <button className="btn-primary" onClick={() => printReport({ title: 'تقرير الضمانات', subtitle: `${num(list.length)} ضمان · المحجوز ${sar(held.reduce((s, d) => s + d.amount, 0))}`, by: user?.fullName, el: ref.current, landscape: true })}><Icon name="file" className="h-4 w-4" />طباعة التقرير</button>
         </div>} />
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-3">
@@ -308,7 +310,7 @@ export function AdminDeposits() {
               {!list.length && <NoResults cols={9} onReset={tf.reset} />}
               {list.map((d) => (
                 <tr key={`${d.kind}-${d.requestId ?? d.auctionId}-${d.userId}`}>
-                  <td className="font-semibold">{d.ownerName}</td>
+                  <td><OwnerCell id={d.userId} name={d.ownerName} /></td>
                   <td className="whitespace-nowrap text-[13px]">{d.kind === 'request' ? 'ضمان طلب شعار' : 'ضمان دخول مزاد'}</td>
                   <td className="num whitespace-nowrap text-[13px]">{d.reference || '—'}{d.auctionNumber && <span className="block text-muted">{d.auctionNumber}</span>}</td>
                   <td><span className="flex items-center gap-1.5"><TypeBadge type={d.type} /><span className="font-bold">{d.names}</span></span></td>

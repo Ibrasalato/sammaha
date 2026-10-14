@@ -127,7 +127,7 @@ export function MyRequests() {
 
   return (
     <>
-      <PageHead title="طلبات الشعارات" sub="كل طلب يضم ثلاثة أسماء وضمان مزاد قدره 50 ريال. ولأي اسم تملكه تقدر تطلب له اسمًا مركبًا."
+      <PageHead title="طلبات الشعارات" sub="كل طلب يضم ثلاثة أسماء مقترحة وضمان مزاد قدره 50 ريال، وتقبل اللجنة اسمًا واحدًا منها. ولأي اسم تملكه تقدر تطلب له اسمًا مركبًا."
         action={<div className="flex flex-wrap gap-2"><Link to="/dashboard/names" className="btn-ghost">طلب اسم مركب</Link><Link to="/dashboard/requests/new" className="btn-gold">طلب شعار جديد</Link></div>} />
       {loading && !data ? <Loading /> : data?.length ? (
         <>
@@ -213,7 +213,7 @@ export function NewRequest() {
 
   return (
     <>
-      <PageHead title="طلب شعار جديد" sub="اختر نوع الشعار ثم اكتب ثلاثة أسماء مقترحة." />
+      <PageHead title="طلب شعار جديد" sub="اختر نوع الشعار ثم اكتب ثلاثة أسماء مقترحة بالترتيب الذي تفضّله. تقبل اللجنة اسمًا واحدًا منها فقط ويُطرح في المزاد." />
       <section className="panel p-5">
         <h2 className="text-lg">نوع الشعار</h2>
         <div className="mt-3"><TypePicker value={type} onChange={setType} /></div>

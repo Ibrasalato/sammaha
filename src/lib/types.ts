@@ -94,6 +94,7 @@ export interface AuditMatch { name: string; type: NameType; source: SimilarHit['
 export interface AuditRow {
   requestId: string; number: string; kind: string; type: NameType; ownerName: string; requestStatus: RequestStatus; submittedAt?: string
   candidateId: string; name: string; status: CandidateStatus; rejectReason?: string; verdict: 'exact' | 'similar' | 'clear'; matches: AuditMatch[]; topPrice?: AuditMatch
+  ownerId: string
 }
 
 export interface OwnedName { id: string; name: string; type: NameType; price: number; acquiredAt: string; source: string; certCode: string }
@@ -107,7 +108,7 @@ export interface MarkRow {
   auctionId: string; number: string; name: string; type: NameType; kind: 'request' | 'investment' | 'resale'; requestNumber?: string; listingNumber?: string
   ownerName: string; status: 'scheduled' | 'live' | 'paused' | 'settling' | 'sold' | 'cancelled'; startsAt: string; endsAt: string; openingPrice: number
   price: number; bidCount: number; bidders: number; winnerName?: string; wonByRequester?: boolean; invoiceNumber?: string; invoiceStatus?: 'paid' | 'unpaid'
-  vat?: number; certCode?: string; extensions: number
+  vat?: number; certCode?: string; extensions: number; ownerId: string; winnerId?: string
 }
 
 export interface IbanCheck { valid: boolean; iban: string; country?: string; bankCode?: string; bankName?: string; message: string }

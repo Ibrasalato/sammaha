@@ -1,4 +1,6 @@
 import { AuctionActionDialog, useAuctionRights } from '../../components/AuctionControls'
+import { OwnerCell, useOwner } from '../../components/OwnerCell'
+import { countryName } from '../../lib/countries'
 import type { AuctionAction } from '../../components/AuctionControls'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -126,7 +128,7 @@ export function AdminRequests() {
               {list.map((r) => (
                 <tr key={r.id}>
                   <td><Link to={`/admin/requests/${r.id}`} className="num font-semibold underline-offset-4 hover:underline">{r.number}</Link>{r.kind === 'compound' && <span className="pill ms-2 bg-gold-soft text-gold-deep">اسم مركب</span>}{r.kind === 'investment' && <span className="pill ms-2 bg-invest-soft text-invest-deep">استثمار الاسم</span>}</td>
-                  <td>{r.ownerName}</td>
+                  <td><OwnerCell id={r.userId} name={r.ownerName} /></td>
                   <td><TypeBadge type={r.type} /></td>
                   <td className="font-extrabold">
                     {r.candidates.map((c, i) => (
@@ -153,6 +155,7 @@ export function AdminReview() {
   const nav = useNavigate()
   const { toast } = useApp()
   const { data: r, error, loading, reload } = useLoad(() => api.getRequest(id), [id])
+  const owner = useOwner(r?.userId)
   const [dec, setDec] = useState<Record<string, ReviewDecision>>({})
   const [note, setNote] = useState('')
   const [action, setAction] = useState<'reject' | 'cancel' | null>(null)
@@ -192,7 +195,7 @@ export function AdminReview() {
           <span>طلب <b>استثمار الاسم</b>: حتى {RULES.investMaxNames} أسماء جديدة، يُدرس كل اسم وفق المعايير المعتمدة. رسوم الدراسة {sar(r.depositAmount)} <b>غير مستردة</b>. عند القبول يُطرح في <b>مزاد عام</b> ويُوزَّع العائد {100 - Math.round(RULES.investOwnerShare * 100)}% للمنظمة و{Math.round(RULES.investOwnerShare * 100)}% لصاحب الاسم، وعند عدم القبول يُبلَّغ برسالة نصية.</span>
         </div>
       )}
-      <PageHead title={r.kind === 'compound' ? `مراجعة اسم مركب ${r.number}` : r.kind === 'investment' ? `دراسة استثمار الاسم ${r.number}` : `مراجعة الطلب ${r.number}`} sub={<span className="flex flex-wrap items-center gap-2"><TypeBadge type={r.type} /><RequestStatusPill status={r.status} /><span>{r.ownerName}، قُدّم {dateTime(r.submittedAt)}</span></span>} />
+      <PageHead title={r.kind === 'compound' ? `مراجعة اسم مركب ${r.number}` : r.kind === 'investment' ? `دراسة استثمار الاسم ${r.number}` : `مراجعة الطلب ${r.number}`} sub={<span className="flex flex-wrap items-center gap-2"><TypeBadge type={r.type} /><RequestStatusPill status={r.status} /><span>{r.ownerName}{owner ? ` · هوية ${owner.nationalId ?? '—'}${owner.nationality ? ` · ${countryName(owner.nationality)}` : ''} · ${owner.phone}` : ''}، قُدّم {dateTime(r.submittedAt)}</span></span>} />
 
       <div className="space-y-4">
         {r.candidates.map((c) => {
@@ -230,7 +233,8 @@ export function AdminReview() {
                     <div className="grid grid-cols-2 gap-2">
                       <button type="button" aria-pressed={d?.status === 'accepted'} disabled={c.similar.some((h) => h.score === 1)}
                         className={`btn btn-sm border ${d?.status === 'accepted' ? 'border-ok bg-ok text-paper' : 'border-line bg-paper'}`}
-                        onClick={() => setDec({ ...dec, [c.id]: { candidateId: c.id, status: 'accepted' } })}>قبول</button>
+                        onClick={() => setDec((r.kind ?? 'standard') !== 'standard' ? { ...dec, [c.id]: { candidateId: c.id, status: 'accepted' } }
+                          : Object.fromEntries(r.candidates.filter((x) => x.status !== 'withdrawn').map((x) => [x.id, x.id === c.id ? { candidateId: x.id, status: 'accepted' } : { candidateId: x.id, status: 'rejected', reason: `قُبل «${c.name}» من هذا الطلب (شعار واحد لكل طلب)` }])))}>قبول</button>
                       <button type="button" aria-pressed={d?.status === 'rejected'}
                         className={`btn btn-sm border ${d?.status === 'rejected' ? 'border-bad bg-bad text-paper' : 'border-line bg-paper'}`}
                         onClick={() => setDec({ ...dec, [c.id]: { candidateId: c.id, status: 'rejected', reason: d?.reason || 'مشابه لاسم مسجل' } })}>رفض</button>
@@ -265,7 +269,7 @@ export function AdminReview() {
           <p className="hint">{r.kind === 'compound'
             ? 'لا ضمان على طلب الاسم المركب. القبول يسجّل الاسم باسم المالك فورًا دون مزاد.'
             : r.kind === 'investment' ? 'رسوم الدراسة لا تُعاد عند الرفض أو الإلغاء. القبول ينقل الاسم إلى «فتح المزادات» لطرحه في مزاد عام.'
-            : `الرفض أو الإلغاء يعيد ${sar(r.depositAmount)} إلى محفظة المالك. إن رُفضت الأسماء الثلاثة يُعدّ الطلب مرفوضًا ويُعاد الضمان.`}</p>
+            : `يُقبل شعار واحد فقط من الطلب، وقبوله يرفض بقية الأسماء. الرفض أو الإلغاء يعيد ${sar(r.depositAmount)} إلى محفظة المالك، وإن رُفضت الأسماء كلها يُعدّ الطلب مرفوضًا ويُعاد الضمان.`}</p>
         </section>
       ) : r.status === 'accepted' && r.candidates.some((c) => c.status === 'accepted' && !c.auctionId) ? (
         <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-gold bg-gold-soft p-4">
@@ -320,7 +324,7 @@ export function AdminSchedule() {
                     <td className="font-extrabold text-lg">{c.name}</td>
                     <td><TypeBadge type={c.request.type} /></td>
                     <td className="num">{c.request.number}</td>
-                    <td>{c.request.ownerName}</td>
+                    <td><OwnerCell id={c.request.userId} name={c.request.ownerName} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -413,7 +417,7 @@ export function AdminAuctions() {
                     <td className="num whitespace-nowrap font-semibold">{sar(a.finalPrice ?? a.currentPrice)}</td>
                     <td className="num">{num(a.bidCount)}</td>
                     <td className="whitespace-nowrap text-sm">{a.paused ? <span className="text-muted">متوقف منذ {dateTime(a.pausedAt!)}</span> : p === 'live' && !a.cancelled ? <Countdown to={a.endsAt} /> : p === 'scheduled' ? dateTime(a.startsAt) : dateTime(a.endsAt)}</td>
-                    {showAward && <td className="text-sm">{a.cancelled ? 'لا ترسية' : a.settled ? `${a.winnerName}${a.wonByRequester ? ' (مقدم الطلب)' : ''}` : '—'}</td>}
+                    {showAward && <td className="text-sm">{a.cancelled ? 'لا ترسية' : a.settled ? <OwnerCell id={a.winnerId} name={a.winnerName ?? ''} note={a.wonByRequester && <span className="block text-[12px] text-muted">مقدم الطلب</span>} /> : '—'}</td>}
                     <td className="whitespace-nowrap">
                       {open(a) && (rights.manage || rights.cancel) && (
                         <select className="field w-auto py-1.5 text-[14px]" value="" aria-label={`إجراء على مزاد ${a.name}`}
@@ -465,7 +469,7 @@ export function AdminInvoices() {
               {tf.list.map((i) => (
                 <tr key={i.id}>
                   <td className="num font-semibold">{i.number}</td>
-                  <td>{i.buyerName}</td>
+                  <td><OwnerCell id={i.userId} name={i.buyerName} /></td>
                   <td className="font-extrabold">{i.name}</td>
                   <td className="num">{sar(i.total)}</td>
                   <td className="num text-muted">{sar(i.vat)}</td>

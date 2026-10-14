@@ -63,7 +63,7 @@ interface BidDeposit { auctionId: string; userId: string; amount: number; state:
 
 const KEY = 'sammha-demo-db'
 const SESSION = 'sammha-demo-session'
-const VERSION = 10
+const VERSION = 11
 
 const now = () => Date.now()
 const iso = (t: number) => new Date(t).toISOString()
@@ -83,6 +83,31 @@ export function phaseOf(a: Pick<Auction, 'startsAt' | 'endsAt'> & { cancelled?: 
   return 'ended'
 }
 
+/** sign-up details of the sample owners (made-up IDs for testing) */
+function sampleProfiles(db: DB) {
+  const P: Record<string, { id: string; parts: [string, string, string, string]; birth: string; city: string; verified?: boolean; district?: string; postal?: string }> = {
+    'u-owner': { id: '1023456781', parts: ['سعد', 'ناصر', 'عبدالله', 'العتيبي'], birth: '1984-03-12', city: 'الرياض', verified: true, district: 'الملقا', postal: '13521' },
+    'u-b1': { id: '1034567892', parts: ['عبدالرحمن', 'محمد', 'سعد', 'القحطاني'], birth: '1979-11-02', city: 'خميس مشيط', verified: true, district: 'الدوحة', postal: '62431' },
+    'u-b2': { id: '1045678903', parts: ['فهد', 'عبدالله', 'حمد', 'الدوسري'], birth: '1988-06-25', city: 'الدمام', district: 'الفيصلية', postal: '32272' },
+    'u-b3': { id: '1056789014', parts: ['نايف', 'سالم', 'راشد', 'المري'], birth: '1991-01-17', city: 'الأحساء' },
+  }
+  for (const u of db.users) {
+    const p = P[u.id]
+    if (!p || u.role !== 'owner') continue
+    u.nationalId ??= p.id
+    u.p = {
+      firstName: p.parts[0], fatherName: p.parts[1], grandfatherName: p.parts[2], familyName: p.parts[3], birthDate: p.birth, gender: 'male',
+      nationality: 'SA', residenceCountry: 'SA', residenceCity: p.city,
+      ...(p.postal ? { addressCountry: 'SA', addressCity: p.city, district: p.district, postalCode: p.postal } : {}),
+      ...u.p,
+    }
+    if (p.verified) u.emailVerifiedAt ??= iso(now() - 60 * D)
+    // like the API's sample data: every sample owner starts with a 2,000 SAR test balance
+    if (!db.txs.some((x) => x.userId === u.id && x.kind === 'topup' && x.amount >= 2000))
+      db.txs.push({ id: `t-seed-${u.id}`, userId: u.id, amount: 2000, kind: 'topup', note: 'رصيد تجريبي', createdAt: iso(now() - 60 * D) })
+  }
+}
+
 // ───────────────────────── seed ─────────────────────────
 function seed(): DB {
   const t = now()
@@ -94,26 +119,26 @@ function seed(): DB {
     mkUser('u-owner', 'سعد بن ناصر العتيبي', '0500000001', 'owner', 'owner@demo.sa'),
     mkUser('u-staff', 'لجنة الاعتماد', '0500000002', 'committee', 'committee@demo.sa'),
     superAdmin(t),
-    mkUser('u-b1', 'مزرعة الوسم للإبل', '0500000003', 'owner', 'b1@demo.sa'),
+    mkUser('u-b1', 'عبدالرحمن محمد سعد القحطاني', '0500000003', 'owner', 'b1@demo.sa'),
     mkUser('u-b2', 'فهد عبدالله الدوسري', '0500000004', 'owner', 'b2@demo.sa'),
     mkUser('u-b3', 'نايف سالم المري', '0500000005', 'owner', 'b3@demo.sa'),
   )
 
   const legacy: [string, NameType, string, number, number][] = [
-    ['الفاخر', 'qaadan', 'مزرعة الوسم للإبل', 4200, 300],
+    ['الفاخر', 'qaadan', 'عبدالرحمن محمد سعد القحطاني', 4200, 300],
     ['سلطان', 'qaadan', 'فهد عبدالله الدوسري', 12500, 260],
     ['مرهوب', 'qaadan', 'نايف سالم المري', 3100, 240],
-    ['شامخ', 'qaadan', 'مزرعة الوسم للإبل', 2750, 200],
+    ['شامخ', 'qaadan', 'عبدالرحمن محمد سعد القحطاني', 2750, 200],
     ['البيرق', 'qaadan', 'فهد عبدالله الدوسري', 8800, 180],
     ['الأدهم', 'qaadan', 'نايف سالم المري', 1900, 150],
-    ['راعد', 'qaadan', 'مزرعة الوسم للإبل', 650, 120],
+    ['راعد', 'qaadan', 'عبدالرحمن محمد سعد القحطاني', 650, 120],
     ['الشعلة', 'bakkar', 'فهد عبدالله الدوسري', 9600, 280],
-    ['الغيمة', 'bakkar', 'مزرعة الوسم للإبل', 5400, 250],
+    ['الغيمة', 'bakkar', 'عبدالرحمن محمد سعد القحطاني', 5400, 250],
     ['مزنة', 'bakkar', 'نايف سالم المري', 2300, 210],
-    ['الهدباء', 'bakkar', 'مزرعة الوسم للإبل', 7100, 190],
+    ['الهدباء', 'bakkar', 'عبدالرحمن محمد سعد القحطاني', 7100, 190],
     ['شقحاء', 'bakkar', 'فهد عبدالله الدوسري', 3900, 160],
     ['الوضحى', 'bakkar', 'نايف سالم المري', 1250, 110],
-    ['غزلان', 'bakkar', 'مزرعة الوسم للإبل', 980, 90],
+    ['غزلان', 'bakkar', 'عبدالرحمن محمد سعد القحطاني', 980, 90],
   ]
   for (const [name, type, ownerName, price, daysAgo] of legacy) {
     const owner = db.users.find((u) => u.fullName === ownerName)
@@ -214,6 +239,7 @@ function seed(): DB {
   seedListings(db, t)
   // compute similar hits for pending requests
   for (const r of db.requests) for (const c of r.candidates) if (!c.similar.length) c.similar = similarFor(db, c.normalized, r.id)
+  sampleProfiles(db)
   return db
 }
 
@@ -367,7 +393,13 @@ function load(): DB {
       if (db.v === 9) {
         // «بيع اسم»: owners reselling names they own
         if (!db.listings?.length) seedListings(db, now())
-        db.v = VERSION; save(db); return db
+        db.v = 10
+      }
+      if (db.v === 10) {
+        // the sample farm becomes a person, and sample owners get the sign-up details
+        const fixed = JSON.parse(JSON.stringify(db).replaceAll('مزرعة الوسم للإبل', 'عبدالرحمن محمد سعد القحطاني')) as DB
+        sampleProfiles(fixed)
+        fixed.v = VERSION; save(fixed); return fixed
       }
     }
   } catch { /* storage unavailable */ }
@@ -1646,6 +1678,11 @@ export const demoApi: SammhaApi = {
     const r = db.requests.find((x) => x.id === id)
     if (!r) throw new ApiError('الطلب غير موجود')
     if (r.status !== 'under_review') throw new ApiError('تمت مراجعة هذا الطلب')
+    // policy: a logo request has one name accepted at most
+    if ((r.kind ?? 'standard') === 'standard') {
+      const ok = new Set(decisions.filter((d) => d.status === 'accepted' && r.candidates.some((c) => c.id === d.candidateId && c.status !== 'withdrawn')).map((d) => d.candidateId))
+      if (ok.size > 1) throw new ApiError('يُقبل شعار واحد فقط في الطلب الواحد؛ اختر اسمًا واحدًا وارفض البقية')
+    }
     for (const d of decisions) {
       const c = r.candidates.find((x) => x.id === d.candidateId)
       if (!c || c.status === 'withdrawn') continue
@@ -2069,7 +2106,7 @@ export const demoApi: SammhaApi = {
       rows.push({
         requestId: r.id, number: r.number, kind: r.kind ?? 'standard', type: r.type, ownerName: r.ownerName, requestStatus: r.status, submittedAt: r.submittedAt,
         candidateId: c.id, name: c.name, status: c.status, rejectReason: c.rejectReason, verdict: matches.some((m) => m.score >= 1) ? 'exact' : matches.length ? 'similar' : 'clear',
-        matches: matches.slice(0, 12), topPrice: top,
+        matches: matches.slice(0, 12), topPrice: top, ownerId: r.userId,
       })
     }
     return rows
@@ -2115,7 +2152,7 @@ export const demoApi: SammhaApi = {
           requestNumber: r?.number, listingNumber: l?.number, ownerName: db.users.find((u) => u.id === a.requesterId)?.fullName ?? '', status: st(a),
           startsAt: a.startsAt, endsAt: a.endsAt, openingPrice: a.openingPrice, price: a.finalPrice ?? a.currentPrice, bidCount: a.bidCount,
           bidders: new Set(db.bids.filter((b) => b.auctionId === a.id).map((b) => b.userId)).size, winnerName: a.winnerId ? db.users.find((u) => u.id === a.winnerId)?.fullName : undefined,
-          wonByRequester: a.wonByRequester, invoiceNumber: inv?.number, invoiceStatus: inv?.status, vat: inv?.vat, certCode: res ? `SMC-${res.id.slice(-8).toUpperCase()}` : undefined, extensions: a.extensions ?? 0,
+          wonByRequester: a.wonByRequester, invoiceNumber: inv?.number, invoiceStatus: inv?.status, vat: inv?.vat, certCode: res ? `SMC-${res.id.slice(-8).toUpperCase()}` : undefined, extensions: a.extensions ?? 0, ownerId: a.requesterId, winnerId: a.winnerId,
         }
       })
   }),

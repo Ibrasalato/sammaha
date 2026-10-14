@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '../../components/dash'
+import { OWNER_COLUMNS, OwnerCell, ownerColumns, useOwners } from '../../components/OwnerCell'
 import { Empty, ErrorBox, Loading, Modal, PageHead, RequestStatusPill, Segmented, TypeBadge } from '../../components/ui'
 import { TableTools, useTableFilter } from '../../components/TableTools'
 import { TYPE_LABEL, typeOptions } from '../../lib/config'
@@ -23,6 +24,13 @@ function RequestBlock({ r, audit, onDone }: { r: LogoRequest; audit: Map<string,
   const [action, setAction] = useState<'reject' | 'cancel' | null>(null)
   const [reason, setReason] = useState('')
   const open = r.candidates.filter((c) => c.status !== 'withdrawn')
+  const single = (r.kind ?? 'standard') === 'standard'
+  /** one name per logo request: accepting it rejects the others */
+  function accept(id: string) {
+    const name = r.candidates.find((c) => c.id === id)?.name
+    if (!single) { setDec({ ...dec, [id]: { candidateId: id, status: 'accepted' } }); return }
+    setDec(Object.fromEntries(open.map((c) => [c.id, c.id === id ? { candidateId: c.id, status: 'accepted' } : { candidateId: c.id, status: 'rejected', reason: dec[c.id]?.status === 'rejected' && !dec[c.id]?.reason?.startsWith('قُبل «') ? dec[c.id].reason : `قُبل «${name}» من هذا الطلب (شعار واحد لكل طلب)` }])))
+  }
   const decided = open.every((c) => dec[c.id]?.status)
   const span = Math.max(open.length, 1) + (review ? 1 : 0)
 
@@ -48,7 +56,7 @@ function RequestBlock({ r, audit, onDone }: { r: LogoRequest; audit: Map<string,
                 {r.kind === 'investment' && <span className="pill mt-1 block w-fit bg-invest-soft text-invest-deep">استثمار الاسم</span>}
                 <span className="mt-1 block text-[12.5px] text-muted">{date(r.submittedAt ?? r.createdAt)}</span>
               </td>
-              <td rowSpan={span} className="align-top">{r.ownerName}<span className="mt-1 block"><TypeBadge type={r.type} /></span></td>
+              <td rowSpan={span} className="align-top"><OwnerCell id={r.userId} name={r.ownerName} /><span className="mt-1 block"><TypeBadge type={r.type} /></span></td>
             </>}
             <td className="font-extrabold text-[16px]">{c.name}</td>
             <td className="text-[13px]">
@@ -66,7 +74,7 @@ function RequestBlock({ r, audit, onDone }: { r: LogoRequest; audit: Map<string,
                     <div className="flex gap-1">
                       <button type="button" aria-pressed={d?.status === 'accepted'} disabled={exact || busy} title={exact ? 'مطابق لاسم موجود' : ''}
                         className={`btn btn-sm border px-3 ${d?.status === 'accepted' ? 'border-ok bg-ok text-paper' : 'border-line bg-paper'} disabled:opacity-40`}
-                        onClick={() => setDec({ ...dec, [c.id]: { candidateId: c.id, status: 'accepted' } })}>قبول</button>
+                        onClick={() => accept(c.id)}>قبول</button>
                       <button type="button" aria-pressed={d?.status === 'rejected'} disabled={busy}
                         className={`btn btn-sm border px-3 ${d?.status === 'rejected' ? 'border-bad bg-bad text-paper' : 'border-line bg-paper'}`}
                         onClick={() => setDec({ ...dec, [c.id]: { candidateId: c.id, status: 'rejected', reason: d?.reason || (best ? `مشابه لـ«${best.name}»` : 'مشابه لاسم مسجل') } })}>رفض</button>
@@ -92,7 +100,8 @@ function RequestBlock({ r, audit, onDone }: { r: LogoRequest; audit: Map<string,
               <button className="btn-primary btn-sm" disabled={!decided || busy} onClick={() => run(() => api.reviewRequest(r.id, Object.values(dec)), 'اعتُمد قرار اللجنة')}>
                 {decided ? 'اعتماد القرار' : `حدّد القرار لكل الأسماء (${num(open.filter((c) => dec[c.id]?.status).length)}/${num(open.length)})`}
               </button>
-              <button className="btn-ghost btn-sm" disabled={busy} onClick={() => setDec(Object.fromEntries(open.filter((c) => !exactOf(r, c.id) && audit.get(c.id)?.verdict !== 'exact').map((c) => [c.id, { candidateId: c.id, status: 'accepted' }]).concat(Object.entries(dec).filter(([, v]) => v.status === 'rejected'))))}>قبول غير المطابق</button>
+              {single ? <span className="text-[12.5px] text-muted">يُقبل شعار واحد فقط من الطلب، وقبوله يرفض البقية</span>
+                : <button className="btn-ghost btn-sm" disabled={busy} onClick={() => setDec(Object.fromEntries(open.filter((c) => !exactOf(r, c.id) && audit.get(c.id)?.verdict !== 'exact').map((c) => [c.id, { candidateId: c.id, status: 'accepted' }]).concat(Object.entries(dec).filter(([, v]) => v.status === 'rejected'))))}>قبول غير المطابق</button>}
               <button className="btn-danger btn-sm" disabled={busy} onClick={() => { setAction('reject'); setReason('') }}>رفض الطلب كاملًا</button>
               {can(user, 'requests.cancel') && <button className="btn-ghost btn-sm" disabled={busy} onClick={() => { setAction('cancel'); setReason('') }}>إلغاء الطلب</button>}
               <Link to={`/admin/requests/${r.id}`} className="ms-auto text-[13px] font-semibold text-gold-deep underline">التفاصيل والمقارنة</Link>
@@ -116,6 +125,7 @@ function RequestBlock({ r, audit, onDone }: { r: LogoRequest; audit: Map<string,
 /** printable audit of requested names */
 function AuditReport({ rows, status, type }: { rows: AuditRow[]; status: string; type: string }) {
   const { user } = useApp()
+  const owners = useOwners()
   const ref = useRef<HTMLDivElement>(null)
   const [only, setOnly] = useState<'all' | 'flagged'>('flagged')
   const list = rows.filter((r) => r.status !== 'withdrawn' && (only === 'all' || r.verdict !== 'clear'))
@@ -133,8 +143,8 @@ function AuditReport({ rows, status, type }: { rows: AuditRow[]; status: string;
         </div>
         <Segmented value={only} onChange={setOnly} options={[['flagged', `فيها تطابق أو تشابه (${num(exact + similar)})`], ['all', 'كل الأسماء']]} />
         <button className="btn-ghost btn-sm" onClick={() => downloadCsv(`تدقيق-الشعارات-${new Date().toISOString().slice(0, 10)}.csv`, [
-          ['الطلب', 'المالك', 'الفئة', 'الاسم المطلوب', 'النتيجة', 'المطابق والمشابه', 'أعلى سعر لشعار مشابه', 'الشعار صاحب أعلى سعر', 'القرار'],
-          ...list.map((r) => [r.number, r.ownerName, TYPE_LABEL[r.type], r.name, r.verdict === 'exact' ? 'مطابق' : r.verdict === 'similar' ? 'مشابه' : 'لا تشابه',
+          ['الطلب', 'المالك', ...OWNER_COLUMNS, 'الفئة', 'الاسم المطلوب', 'النتيجة', 'المطابق والمشابه', 'أعلى سعر لشعار مشابه', 'الشعار صاحب أعلى سعر', 'القرار'],
+          ...list.map((r) => [r.number, r.ownerName, ...ownerColumns(owners.get(r.ownerId)), TYPE_LABEL[r.type], r.name, r.verdict === 'exact' ? 'مطابق' : r.verdict === 'similar' ? 'مشابه' : 'لا تشابه',
             r.matches.map((m) => `${m.name} (${RELATION_LABEL[m.relation]} ${Math.round(m.score * 100)}%)`).join(' | '), r.topPrice?.price ?? '', r.topPrice ? `${r.topPrice.name} · ${TYPE_LABEL[r.topPrice.type]}` : '',
             r.status === 'accepted' ? 'مقبول' : r.status === 'rejected' ? `مرفوض: ${r.rejectReason ?? ''}` : 'بانتظار'])])}>تصدير Excel</button>
         <button className="btn-primary btn-sm" onClick={() => printReport({ title: 'تقرير تدقيق الشعارات', subtitle, by: user?.fullName, el: ref.current, landscape: true })}><Icon name="file" className="h-4 w-4" />طباعة التقرير</button>
@@ -148,7 +158,7 @@ function AuditReport({ rows, status, type }: { rows: AuditRow[]; status: string;
                 <tr key={r.candidateId}>
                   <td className="num text-muted">{num(i + 1)}</td>
                   <td className="num whitespace-nowrap font-semibold">{r.number}</td>
-                  <td>{r.ownerName}</td>
+                  <td><OwnerCell id={r.ownerId} name={r.ownerName} /></td>
                   <td className="whitespace-nowrap">{TYPE_LABEL[r.type]}</td>
                   <td className="font-extrabold text-[15px]">{r.name}</td>
                   <td><span className={`pill ${r.verdict === 'exact' ? 'bg-bad/10 text-bad' : r.verdict === 'similar' ? 'bg-gold-soft text-gold-deep' : 'bg-[#E2F0E8] text-ok'}`}>{r.verdict === 'exact' ? 'مطابق' : r.verdict === 'similar' ? 'مشابه' : 'لا تشابه'}</span></td>
