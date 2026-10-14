@@ -71,7 +71,7 @@ function Frame({ children, revoked, portrait }: { children: React.ReactNode; rev
       <div className="pointer-events-none absolute inset-[18px] border border-gold" aria-hidden />
       <Corner className="left-5 top-5" /><Corner className="right-5 top-5 -scale-x-100" /><Corner className="bottom-5 left-5 -scale-y-100" /><Corner className="bottom-5 right-5 -scale-100" />
       {revoked && <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center" aria-hidden><span className="-rotate-[18deg] rounded-xl border-[6px] border-bad/70 px-10 py-3 text-[64px] font-black tracking-wider text-bad/70">ملغاة · REVOKED</span></div>}
-      <div className={`relative flex h-full flex-col ${portrait ? 'px-[7%] py-[5%]' : 'px-[6%] py-[3.2%]'}`}>{children}</div>
+      <div className={`cert-body relative flex h-full flex-col ${portrait ? 'px-[7%] py-[5%]' : 'px-[6%] py-[3.2%]'}`}>{children}</div>
     </article>
   )
 }
