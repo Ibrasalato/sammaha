@@ -35,3 +35,18 @@ export function useCardStyle(): CardStyle {
     () => 'brand',
   )
 }
+
+/** Phones (< 640 px): auction cards go two per row in a compact layout. */
+const SMALL = '(max-width: 639px)'
+export function useCompact(): boolean {
+  return useSyncExternalStore(
+    (l) => {
+      if (typeof window === 'undefined' || !window.matchMedia) return () => {}
+      const m = window.matchMedia(SMALL)
+      m.addEventListener('change', l)
+      return () => m.removeEventListener('change', l)
+    },
+    () => (typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia(SMALL).matches),
+    () => false,
+  )
+}

@@ -5,6 +5,7 @@ import type { IconName } from '../components/dash'
 import { PayModal } from '../components/PayModal'
 import { Loading } from '../components/ui'
 import { RULES, TYPE_HEX, TYPE_LABEL } from '../lib/config'
+import { useCompact } from '../lib/cardStyle'
 import { cur, humanLeft, num } from '../lib/format'
 import { tr } from '../lib/i18n'
 import { api, useApp, useLoad, useNow } from '../lib/store'
@@ -25,21 +26,22 @@ export function SaleCard({ l, onBuy }: { l: NameListing; onBuy?: (l: NameListing
   const now = useNow(1000)
   const c = TYPE_HEX[l.type]
   const closed = l.status !== 'live' || now >= Date.parse(l.endsAt)
+  const k = useCompact()
   return (
-    <div className={`relative mb-5 flex flex-col rounded-md border px-5 pb-10 pt-6 text-center shadow-card ${closed ? 'border-line bg-stone-deep' : 'border-[#C9A55A]/70 bg-gradient-to-b from-paper via-paper to-[#EAD9B4]'}`}>
-      <span className="absolute end-3 top-3 rounded-full px-2.5 py-0.5 text-[12px] font-extrabold text-paper" style={{ background: closed ? '#8A8F98' : c.base }}>{TYPE_LABEL[l.type]}</span>
-      <div className={`truncate px-8 text-[38px] font-extrabold leading-tight ${closed ? 'text-ink/30' : 'text-[#A87C26]'}`}>{l.name}</div>
+    <div className={`relative flex flex-col rounded-md border text-center shadow-card ${k ? 'mb-4 px-2 pb-7 pt-5' : 'mb-5 px-5 pb-10 pt-6'} ${closed ? 'border-line bg-stone-deep' : 'border-[#C9A55A]/70 bg-gradient-to-b from-paper via-paper to-[#EAD9B4]'}`}>
+      <span className={`absolute rounded-full font-extrabold text-paper ${k ? 'end-1.5 top-1.5 px-1.5 text-[10px]' : 'end-3 top-3 px-2.5 py-0.5 text-[12px]'}`} style={{ background: closed ? '#8A8F98' : c.base }}>{TYPE_LABEL[l.type]}</span>
+      <div className={`truncate font-extrabold leading-tight ${k ? 'px-1 text-[20px]' : 'px-8 text-[38px]'} ${closed ? 'text-ink/30' : 'text-[#A87C26]'}`}>{l.name}</div>
       <div className="mx-auto mt-2 h-px w-[85%] bg-ink/25" />
-      <div className={`mt-6 flex items-baseline justify-center gap-2 ${closed ? 'text-ink/30' : ''}`}>
-        <span className="num text-[44px] font-black leading-none tracking-tight">{num(l.price)}</span><span className="text-[15px]">{cur()}</span>
+      <div className={`flex items-baseline justify-center gap-1.5 ${k ? 'mt-3' : 'mt-6'} ${closed ? 'text-ink/30' : ''}`}>
+        <span className={`num font-black leading-none tracking-tight ${k ? 'text-[22px]' : 'text-[44px]'}`}>{num(l.price)}</span><span className={k ? 'text-[11px]' : 'text-[15px]'}>{cur()}</span>
       </div>
-      <div className={`mt-1 text-[14px] ${closed ? 'text-ink/40' : 'text-ink/80'}`}>{tr('مبلغ الشراء', 'Price')}</div>
-      <div className="mt-4 text-[13px] text-muted">
+      <div className={`mt-1 ${k ? 'text-[10.5px]' : 'text-[14px]'} ${closed ? 'text-ink/40' : 'text-ink/80'}`}>{tr('مبلغ الشراء', 'Price')}</div>
+      <div className={`text-muted ${k ? 'mt-2 text-[10.5px]' : 'mt-4 text-[13px]'}`}>
         {closed ? (l.status === 'sold' ? tr('تم البيع', 'Sold') : tr('انتهت مدة العرض', 'Offer ended')) : tr(`متاح للشراء ${humanLeft(Date.parse(l.endsAt) - now)}`, `Available for ${humanLeft(Date.parse(l.endsAt) - now)}`)}
       </div>
-      {closed && <div className="absolute inset-0 grid place-items-center rounded-md bg-paper/30"><Lock /></div>}
+      {closed && <div className={`absolute inset-0 grid place-items-center rounded-md bg-paper/30 ${k ? '[&_svg]:h-12 [&_svg]:w-12' : ''}`}><Lock /></div>}
       <button type="button" disabled={closed || !onBuy} onClick={() => onBuy?.(l)}
-        className={`absolute -bottom-5 left-1/2 inline-flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border px-7 py-2 text-[17px] font-extrabold text-paper shadow-md transition ${closed ? 'border-line bg-[#9CA0A6]' : 'border-[#A87C26]/50 bg-gradient-to-b from-[#D9B867] to-[#B88E3A] hover:brightness-105'}`}>
+        className={`absolute left-1/2 inline-flex -translate-x-1/2 items-center whitespace-nowrap rounded-full border font-extrabold text-paper shadow-md transition ${k ? '-bottom-4 gap-1 px-3.5 py-1.5 text-[12.5px]' : '-bottom-5 gap-2 px-7 py-2 text-[17px]'} ${closed ? 'border-line bg-[#9CA0A6]' : 'border-[#A87C26]/50 bg-gradient-to-b from-[#D9B867] to-[#B88E3A] hover:brightness-105'}`}>
         <Icon name="coins" className="h-4 w-4" />{tr('اشترِ الآن', 'Buy now')}
       </button>
     </div>
@@ -88,7 +90,7 @@ export default function Market() {
           <span className="text-[14px] text-muted">{tr(`${num(live.length)} اسم متاح`, `${num(live.length)} available`)}</span>
         </div>
         {loading && !data ? <Loading /> : data?.length ? (
-          <div className="grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{data.map((l) => <SaleCard key={l.id} l={l} onBuy={buy} />)}</div>
+          <div className="grid grid-cols-2 gap-x-2.5 gap-y-6 sm:gap-x-5 sm:gap-y-8 lg:grid-cols-3 xl:grid-cols-4">{data.map((l) => <SaleCard key={l.id} l={l} onBuy={buy} />)}</div>
         ) : <p className="panel px-5 py-12 text-center text-muted">{tr('لا توجد أسماء معروضة للبيع الآن.', 'No names on sale right now.')}</p>}
       </section>
 
