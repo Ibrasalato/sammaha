@@ -215,6 +215,8 @@ export interface SammhaApi {
 
   // activity log (logs.view)
   activity(f?: ActivityFilter): Promise<ActivityPage>
+  /** the owner's own log: own actions, delegates' actions on the account, actions as a delegate */
+  myActivity(f?: ActivityFilter): Promise<ActivityPage>
   // account delegation
   myDelegations(): Promise<Delegation[]>
   saveDelegation(id: string | null, input: DelegationInput): Promise<Delegation>

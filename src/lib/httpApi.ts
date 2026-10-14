@@ -333,6 +333,7 @@ export const httpApi: SammhaApi = {
   deposits: (state) => get(`/api/admin/deposits${qs({ state })}`),
   refundDeposit: (input) => post('/api/admin/deposits/refund', input),
 
+  myActivity: (f = {}) => get(`/api/me/activity${qs({ from: f.from, to: f.to, category: f.category, who: f.who, q: f.q, failed: f.failed ? 'true' : undefined, page: f.page ? String(f.page) : undefined, size: f.size ? String(f.size) : undefined })}`),
   activity: (f = {}) => get(`/api/admin/activity${qs({ from: f.from, to: f.to, category: f.category, role: f.role, q: f.q, failed: f.failed ? 'true' : undefined, page: f.page ? String(f.page) : undefined, size: f.size ? String(f.size) : undefined })}`),
   myDelegations: () => get('/api/me/delegations'),
   saveDelegation: (id, input) => (id ? put(`/api/me/delegations/${id}`, input) : post('/api/me/delegations', input)),

@@ -5,7 +5,7 @@
  */
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'
-import type { ActivityEntry, Delegation, DelegationScope, AuctionActionResult, AuctionScope, AuctionView, AuditRow, BankAccount, DepositRow, IbanCheck, MarkRow, NameListing, OwnerCrm, OwnerProfile, Preferences, SimilarHit, StaffBankAccount, StaffRole, TicketRouting, WalletRow, Withdrawal } from './types'
+import type { ActivityEntry, ActivityFilter, Delegation, DelegationScope, AuctionActionResult, AuctionScope, AuctionView, AuditRow, BankAccount, DepositRow, IbanCheck, MarkRow, NameListing, OwnerCrm, OwnerProfile, Preferences, SimilarHit, StaffBankAccount, StaffRole, TicketRouting, WalletRow, Withdrawal } from './types'
 import { ALL_PERMISSIONS, COMMITTEE_DEFAULT, COMMITTEE_ROLE_ID, permissionLabel } from './permissions'
 import type { Permission } from './permissions'
 import { demoRules, ensureOpen, ensureWritable, logAction, publicOf, readLog, readRouting, readSettings, writeRouting, writeSettings } from './demoSettings'
@@ -2380,17 +2380,19 @@ const rawApi: SammhaApi = {
   }),
 
   // ───── activity log (the wrapper below writes it) ─────
+  myActivity: (f = {}) => tx((db) => {
+    const id = ownerSelf(db).id
+    let list = readActivity().filter((a) => a.actorId === id || a.onBehalfOfId === id)
+    if (f.who === 'me') list = list.filter((a) => a.actorId === id && !a.onBehalfOfId)
+    if (f.who === 'delegates') list = list.filter((a) => a.onBehalfOfId === id)
+    if (f.who === 'as_delegate') list = list.filter((a) => a.actorId === id && a.onBehalfOfId)
+    return pageActivity(list, f, 200)
+  }),
   activity: (f = {}) => tx((db) => {
     need(db, 'logs.view')
     let list = readActivity()
-    if (f.from) list = list.filter((a) => a.at >= f.from!)
-    if (f.to) list = list.filter((a) => a.at <= f.to!)
-    if (f.category) list = list.filter((a) => a.category === f.category)
     if (f.role) list = list.filter((a) => (f.role === 'staff' ? a.actorRole === 'admin' || a.actorRole === 'committee' : a.actorRole === f.role))
-    if (f.failed) list = list.filter((a) => !a.success)
-    if (f.q?.trim()) { const t = f.q.trim(); list = list.filter((a) => [a.actorName, a.action, a.details, a.onBehalfOfName, a.ip].some((x) => x?.includes(t))) }
-    const size = Math.min(500, Math.max(10, f.size ?? 100)), page = Math.max(1, f.page ?? 1)
-    return { items: list.slice((page - 1) * size, page * size), total: list.length, categories: Object.entries(ACT_CATEGORIES).map(([key, value]) => ({ key, value })) }
+    return pageActivity(list, f, 500)
   }),
 
   // ───── account delegation ─────
@@ -2519,7 +2521,17 @@ const SCOPE_OF: Record<string, DelegationScope> = {
 }
 const SCOPE_LABEL: Record<DelegationScope, string> = { requests: 'طلبات الشعارات', invest: 'استثمار الاسم', bids: 'المزايدة والشراء', payments: 'المحفظة والفواتير', sales: 'بيع الأسماء', tickets: 'الشكاوى والاستفسارات' }
 const ALWAYS = new Set(['signOut', 'markNotificationsRead', 'stopActing'])
-const HIDDEN = new Set(['myBankAccount', 'myBankDocument', 'mySessions', 'mySecurity', 'myDelegations', 'myWithdrawals'])
+function pageActivity(all: ActivityEntry[], f: ActivityFilter, max: number) {
+  let list = all
+  if (f.from) list = list.filter((a) => a.at >= f.from!)
+  if (f.to) list = list.filter((a) => a.at <= f.to!)
+  if (f.category) list = list.filter((a) => a.category === f.category)
+  if (f.failed) list = list.filter((a) => !a.success)
+  if (f.q?.trim()) { const t = f.q.trim(); list = list.filter((a) => [a.actorName, a.action, a.details, a.onBehalfOfName, a.ip].some((x) => x?.includes(t))) }
+  const size = Math.min(max, Math.max(10, f.size ?? 100)), page = Math.max(1, f.page ?? 1)
+  return { items: list.slice((page - 1) * size, page * size), total: list.length, categories: Object.entries(ACT_CATEGORIES).map(([key, value]) => ({ key, value })) }
+}
+const HIDDEN = new Set(['myActivity', 'myBankAccount', 'myBankDocument', 'mySessions', 'mySecurity', 'myDelegations', 'myWithdrawals'])
 const SECRET = /password|code|challenge|token|base64|iban|card|secret|^cur$|^next$/i
 
 function readActivity(): ActivityEntry[] { try { return JSON.parse(localStorage.getItem(ACT_KEY) ?? '[]') } catch { return [] } }

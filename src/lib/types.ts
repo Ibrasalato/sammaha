@@ -154,7 +154,7 @@ export interface ActivityEntry {
   action: string; category: string; categoryLabel: string; details?: string; success: boolean; error?: string; ip?: string; device?: string
 }
 export interface ActivityPage { items: ActivityEntry[]; total: number; categories: { key: string; value: string }[] }
-export interface ActivityFilter { from?: string; to?: string; category?: string; role?: string; q?: string; failed?: boolean; page?: number; size?: number }
+export interface ActivityFilter { from?: string; to?: string; category?: string; role?: string; who?: 'me' | 'delegates' | 'as_delegate'; q?: string; failed?: boolean; page?: number; size?: number }
 
 export interface StaffInput {
   fullName: string

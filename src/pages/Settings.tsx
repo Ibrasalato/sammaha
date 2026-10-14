@@ -181,6 +181,7 @@ const OWNER_TABS: Tab[] = [
   { id: 'security', label: 'الأمان والدخول', icon: 'shield' },
   { id: 'bank', label: 'الحساب البنكي', icon: 'wallet' },
   { id: 'delegation', label: 'تفويض إدارة الحساب', icon: 'users' },
+  { id: 'activity', label: 'سجل النشاط', icon: 'history' },
   { id: 'display', label: 'العرض', icon: 'list' },
 ]
 
@@ -191,12 +192,13 @@ export function OwnerSettings() {
   const [tab, setTab] = useTab(tabs)
   return (
     <>
-      <PageHead title="الإعدادات" sub="تنبيهات الرسائل، وكلمة المرور والأجهزة المسجّل دخولها، وطريقة العرض. بياناتك الشخصية وصورتك في «حسابي»." />
+      <PageHead title="الإعدادات" sub="تنبيهات الرسائل، وكلمة المرور والأجهزة المسجّل دخولها، والحساب البنكي، والتفويض، وسجل نشاط حسابك. بياناتك الشخصية وصورتك في «حسابي»." />
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
       {tab === 'notifications' && <NotificationSettings />}
       {tab === 'security' && <SecuritySettings />}
       {tab === 'bank' && <div className="max-w-2xl space-y-3"><Suspense fallback={<Loading />}><BankAccountCard /></Suspense><p className="text-[13.5px] text-muted">يُستخدم لاسترداد رصيد محفظتك إلى حسابك. بعد اعتماده تطلب الاسترداد من صفحة «المحفظة».</p></div>}
       {tab === 'delegation' && <Suspense fallback={<Loading />}><DelegationPanel /></Suspense>}
+      {tab === 'activity' && <Suspense fallback={<Loading />}><ActivityPanel owner /></Suspense>}
       {tab === 'display' && <DisplaySettings />}
     </>
   )
