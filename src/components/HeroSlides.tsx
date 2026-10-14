@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react'
 import { getLang, tr } from '../lib/i18n'
 
 export const SLIDES: { src: string; alt: string; pos?: string }[] = [
-  { src: './hero/camels-parade.webp', alt: 'قطيع من الإبل البيضاء في ساحة المهرجان', pos: 'center 40%' },
-  { src: './hero/mazayin.webp', alt: 'منقيات الإبل في مسابقة المزاين', pos: 'center 45%' },
-  { src: './hero/camels-sky.webp', alt: 'إبل بيضاء تسير في الصحراء', pos: 'center 40%' },
-  { src: './hero/festival-white.webp', alt: 'الإبل البيضاء في ميدان العرض', pos: 'center 35%' },
-  { src: './hero/sunset.webp', alt: 'ناقة عند الغروب في الصحراء', pos: 'center 30%' },
+  { src: './hero/camels-parade.webp', get alt() { return tr('قطيع من الإبل البيضاء في ساحة المهرجان', 'A herd of white camels in the festival arena') }, pos: 'center 40%' },
+  { src: './hero/mazayin.webp', get alt() { return tr('منقيات الإبل في مسابقة المزاين', 'Camel herds in a beauty contest') }, pos: 'center 45%' },
+  { src: './hero/camels-sky.webp', get alt() { return tr('إبل بيضاء تسير في الصحراء', 'White camels walking in the desert') }, pos: 'center 40%' },
+  { src: './hero/festival-white.webp', get alt() { return tr('الإبل البيضاء في ميدان العرض', 'White camels in the show ring') }, pos: 'center 35%' },
+  { src: './hero/sunset.webp', get alt() { return tr('ناقة عند الغروب في الصحراء', 'A she-camel at sunset in the desert') }, pos: 'center 30%' },
 ]
 
 const INTERVAL = 6500

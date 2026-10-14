@@ -25,7 +25,7 @@ export function CountryPicker({ id, value, onChange, mode = 'country', required,
   const search = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLUListElement>(null)
 
-  const items = useMemo(() => COUNTRIES.map((c) => ({ ...c, en: englishName(c.code), key: fold(`${c.name} ${englishName(c.code)} ${c.code} +${c.dial} ${c.dial}`) })), [])
+  const items = useMemo(() => COUNTRIES.map((c) => ({ ...c, en: c.en || englishName(c.code), key: fold(`${c.name} ${c.en} ${englishName(c.code)} ${c.code} +${c.dial} ${c.dial}`) })), [])
   const shown = useMemo(() => {
     const f = fold(q.trim())
     if (!f) return items

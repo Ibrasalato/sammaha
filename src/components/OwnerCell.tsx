@@ -1,3 +1,4 @@
+import { tr } from '../lib/i18n'
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { countryName } from '../lib/countries'
@@ -39,7 +40,14 @@ export const useOwners = () => useContext(Ctx)
 export function ownerColumns(o?: OwnerCrm): [string, string, string] {
   return [o?.nationalId ?? '', o ? countryName(o.nationality) : '', o?.phone ?? '']
 }
-export const OWNER_COLUMNS = ['رقم الهوية', 'الجنسية', 'رقم الجوال']
+const OWNER_COLUMNS_EN = ['ID number', 'Nationality', 'Mobile number']
+/** CSV headers for ownerColumns(); read lazily so they follow the current language */
+export const OWNER_COLUMNS: string[] = new Proxy(['رقم الهوية', 'الجنسية', 'رقم الجوال'], {
+  get(target, key, receiver) {
+    const v = Reflect.get(target, key, receiver)
+    return typeof key === 'string' && /^\d+$/.test(key) ? tr(v as string, OWNER_COLUMNS_EN[Number(key)]) : v
+  },
+})
 
 /** an owner's name with their ID, nationality and phone under it */
 export function OwnerCell({ id, name, note, hidePhone }: { id?: string; name: string; note?: ReactNode; hidePhone?: boolean }) {

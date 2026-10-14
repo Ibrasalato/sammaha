@@ -80,6 +80,9 @@
   .certificate { max-width: none; width: 100vw; height: 100vh; aspect-ratio: auto; }
   .certificate .sadu { display: block !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .certificate-issued { max-width: none; box-shadow: none; }
+  .certificate-issued.cert-landscape { width: 297mm; height: 210mm; aspect-ratio: auto; }
+  .certificate-issued.cert-portrait { width: 210mm; min-height: 297mm; }
 }
 
 /* Auction card visual: type-coloured field with a faint Sadu-diamond weave */

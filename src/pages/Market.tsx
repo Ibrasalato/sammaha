@@ -10,6 +10,7 @@ import { cur, humanLeft, num } from '../lib/format'
 import { tr } from '../lib/i18n'
 import { api, useApp, useLoad, useNow } from '../lib/store'
 import type { NameListing } from '../lib/types'
+import { Approx } from '../components/Region'
 
 const pct = (r: number) => Math.round(r * 100)
 
@@ -33,7 +34,7 @@ export function SaleCard({ l, onBuy }: { l: NameListing; onBuy?: (l: NameListing
       <div className={`truncate font-extrabold leading-tight ${k ? 'px-1 text-[20px]' : 'px-8 text-[38px]'} ${closed ? 'text-ink/30' : 'text-[#A87C26]'}`}>{l.name}</div>
       <div className="mx-auto mt-2 h-px w-[85%] bg-ink/25" />
       <div className={`flex items-baseline justify-center gap-1.5 ${k ? 'mt-3' : 'mt-6'} ${closed ? 'text-ink/30' : ''}`}>
-        <span className={`num font-black leading-none tracking-tight ${k ? 'text-[22px]' : 'text-[44px]'}`}>{num(l.price)}</span><span className={k ? 'text-[11px]' : 'text-[15px]'}>{cur()}</span>
+        <span className={`num font-black leading-none tracking-tight ${k ? 'text-[22px]' : 'text-[44px]'}`}>{num(l.price)}</span><span className={k ? 'text-[11px]' : 'text-[15px]'}>{cur()}</span>{!k && <Approx v={l.price} className="ms-1" />}
       </div>
       <div className={`mt-1 ${k ? 'text-[10.5px]' : 'text-[14px]'} ${closed ? 'text-ink/40' : 'text-ink/80'}`}>{tr('مبلغ الشراء', 'Price')}</div>
       <div className={`text-muted ${k ? 'mt-2 text-[10.5px]' : 'mt-4 text-[13px]'}`}>

@@ -1,3 +1,4 @@
+import { tr } from '../lib/i18n'
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { STAFF_LOGIN_PATH } from '../lib/config'
@@ -32,7 +33,7 @@ export function useStaffIdle() {
       clearInterval(timer)
       await api.signOut()
       setUser(null)
-      toast('خرجت من لوحة التحكم بعد فترة خمول، سجّل الدخول من جديد', 'bad')
+      toast(tr('خرجت من لوحة التحكم بعد فترة خمول، سجّل الدخول من جديد', 'You were signed out of the dashboard after a period of inactivity. Please sign in again'), 'bad')
       nav(STAFF_LOGIN_PATH, { replace: true })
     }, 15_000)
     return () => {

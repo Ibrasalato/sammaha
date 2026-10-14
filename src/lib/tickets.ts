@@ -1,5 +1,5 @@
 import { ApiError } from './api'
-import { getLang } from './i18n'
+import { getLang, tr } from './i18n'
 import type { Ticket, TicketInput, TicketKind, TicketPriority, TicketStatus } from './types'
 
 const ar = () => getLang() === 'ar'
@@ -27,7 +27,7 @@ export const STATUS_TONE: Record<TicketStatus, string> = {
   answered: 'bg-[#E2F0E8] text-ok',
   closed: 'bg-stone-deep text-muted',
 }
-export const PRIORITY_LABEL: Record<TicketPriority, string> = { normal: 'عادي', urgent: 'عاجل' }
+export const PRIORITY_LABEL: Record<TicketPriority, string> = { get normal() { return tr('عادي', 'Normal') }, get urgent() { return tr('عاجل', 'Urgent') } }
 
 export const TOPICS: [string, string][] = [
   ['طلبات الشعارات', 'Logo requests'],
@@ -59,12 +59,12 @@ export function validateTicket(i: TicketInput): TicketInput {
     refNumber: i.refNumber?.trim().slice(0, 40) || undefined,
     message: i.message.trim().slice(0, 3000),
   }
-  if (!TICKET_KINDS.includes(clean.kind)) throw new ApiError('اختر نوع الطلب')
-  if (clean.name.length < 2) throw new ApiError('اكتب الاسم')
-  if (!/^05\d{8}$/.test(clean.phone)) throw new ApiError('اكتب رقم جوال سعودي صحيح يبدأ بـ 05')
-  if (clean.email && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(clean.email)) throw new ApiError('البريد الإلكتروني غير صحيح')
-  if (clean.subject.length < 3) throw new ApiError('اكتب عنوانًا مختصرًا')
-  if (clean.message.length < 10) throw new ApiError('اكتب التفاصيل (10 أحرف على الأقل)')
+  if (!TICKET_KINDS.includes(clean.kind)) throw new ApiError(tr('اختر نوع الطلب', 'Choose the request type'))
+  if (clean.name.length < 2) throw new ApiError(tr('اكتب الاسم', 'Enter your name'))
+  if (!/^05\d{8}$/.test(clean.phone)) throw new ApiError(tr('اكتب رقم جوال سعودي صحيح يبدأ بـ 05', 'Enter a valid Saudi mobile number starting with 05'))
+  if (clean.email && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(clean.email)) throw new ApiError(tr('البريد الإلكتروني غير صحيح', 'The email address is not valid'))
+  if (clean.subject.length < 3) throw new ApiError(tr('اكتب عنوانًا مختصرًا', 'Enter a short subject'))
+  if (clean.message.length < 10) throw new ApiError(tr('اكتب التفاصيل (10 أحرف على الأقل)', 'Enter the details (at least 10 characters)'))
   return clean
 }
 

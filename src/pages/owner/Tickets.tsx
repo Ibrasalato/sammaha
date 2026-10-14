@@ -4,13 +4,14 @@ import { Empty, Loading, PageHead } from '../../components/ui'
 import { date } from '../../lib/format'
 import { api, useLoad } from '../../lib/store'
 import { kindLabel } from '../../lib/tickets'
+import { tr } from '../../lib/i18n'
 
 export function MyTickets() {
   const { data, loading } = useLoad(() => api.myTickets(), [])
   return (
     <>
-      <PageHead title="الشكاوى والاستفسارات" sub="طلباتك المقدّمة من صفحة تواصل معنا وردود فريق سمّها عليها."
-        action={<Link to="/contact" className="btn-primary">طلب جديد</Link>} />
+      <PageHead title={tr('الشكاوى والاستفسارات', 'Complaints & inquiries')} sub={tr('طلباتك المقدّمة من صفحة تواصل معنا وردود فريق سمّها عليها.', 'Requests you submitted via the Contact us page, and the Sammha team’s replies.')}
+        action={<Link to="/contact" className="btn-primary">{tr('طلب جديد', 'New request')}</Link>} />
       {loading && !data ? <Loading /> : data?.length ? (
         <div className="space-y-4">
           {data.map((t) => (
@@ -23,15 +24,15 @@ export function MyTickets() {
               </summary>
               <div className="border-t border-line p-5">
                 <TicketThread t={t} />
-                <Link to={`/contact/track/${t.number}`} className="mt-4 inline-block text-[14px] font-bold text-gold-deep hover:underline">إضافة رد أو متابعة</Link>
+                <Link to={`/contact/track/${t.number}`} className="mt-4 inline-block text-[14px] font-bold text-gold-deep hover:underline">{tr('إضافة رد أو متابعة', 'Reply or follow up')}</Link>
               </div>
             </details>
           ))}
         </div>
       ) : (
-        <Empty title="لا توجد طلبات بعد">
-          <p className="text-muted">لأي شكوى أو بلاغ أو استفسار، قدّم طلبًا وستحصل على رقم متابعة.</p>
-          <Link to="/contact" className="btn-primary">تواصل معنا</Link>
+        <Empty title={tr('لا توجد طلبات بعد', 'No requests yet')}>
+          <p className="text-muted">{tr('لأي شكوى أو بلاغ أو استفسار، قدّم طلبًا وستحصل على رقم متابعة.', 'For any complaint, report or inquiry, submit a request and you will get a tracking number.')}</p>
+          <Link to="/contact" className="btn-primary">{tr('تواصل معنا', 'Contact us')}</Link>
         </Empty>
       )}
     </>

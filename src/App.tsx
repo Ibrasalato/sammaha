@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect } from 'react'
+import { Suspense, lazy } from 'react'
 import type { ComponentType } from 'react'
 import { PageSkeleton } from './components/Skeleton'
 import { usePageTitle } from './lib/usePageTitle'
@@ -7,7 +7,7 @@ import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-d
 import { PublicLayout, Shell } from './components/Layout'
 import type { NavItem } from './components/Layout'
 import { Loading } from './components/ui'
-import { LangProvider, useLang } from './lib/i18n'
+import { LangProvider, tr, useLang } from './lib/i18n'
 import { AppProvider, useApp } from './lib/store'
 import type { Role } from './lib/types'
 import { canAny } from './lib/permissions'
@@ -45,6 +45,9 @@ const MyTickets = pick(() => import('./pages/owner/Tickets'), 'MyTickets')
 const AdminHome = pick(adminMod, 'AdminHome'), AdminRequests = pick(() => import('./pages/admin/RequestsBoard'), 'AdminRequestsBoard'), AdminReview = pick(adminMod, 'AdminReview')
 const AdminSchedule = pick(adminMod, 'AdminSchedule'), AdminAuctions = pick(adminMod, 'AdminAuctions'), AdminInvoices = pick(adminMod, 'AdminInvoices')
 const AdminEvents = pick(adminMod, 'AdminEvents')
+const certMod = () => import('./pages/owner/Certificates')
+const CertificatesPage = pick(certMod, 'CertificatesPage'), CertificateView = pick(certMod, 'CertificateView'), StaffCertificateView = pick(certMod, 'StaffCertificateView')
+const AdminCertificates = pick(() => import('./pages/admin/Certificates'), 'AdminCertificates')
 const AdminTickets = pick(() => import('./pages/admin/Tickets'), 'AdminTickets'), AdminTicket = pick(() => import('./pages/admin/Tickets'), 'AdminTicket')
 const AdminRoles = pick(() => import('./pages/admin/Roles'), 'AdminRoles')
 const AdminCustomers = pick(() => import('./pages/admin/Customers'), 'AdminCustomers')
@@ -69,13 +72,8 @@ function RouteTitle() {
 }
 
 function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
-  const { user, ready, toast } = useApp()
-  const { lang, setLang } = useLang()
+  const { user, ready } = useApp()
   const loc = useLocation()
-  // Dashboards are Arabic-only for now; switch rather than show a mixed-language screen
-  useEffect(() => {
-    if (lang === 'en') { setLang('ar'); toast('لوحة التحكم متاحة بالعربية حاليًا. Dashboards are in Arabic for now.') }
-  }, [lang, setLang, toast])
   if (!ready) return <Loading />
   // staff pages send visitors to the unlisted staff portal, not the public login
   if (!user) return <Navigate to={roles.includes('owner') ? '/login' : STAFF_LOGIN_PATH} replace state={{ from: loc.pathname }} />
@@ -84,43 +82,45 @@ function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
 }
 
 const OWNER_NAV: NavItem[] = [
-  { to: '/dashboard', label: 'الرئيسية', icon: 'home', end: true },
-  { to: '/dashboard/requests', label: 'طلبات الشعارات', short: 'طلباتي', icon: 'file' },
-  { to: '/dashboard/invest', label: 'استثمار الاسم', short: 'استثمار', icon: 'coins' },
-  { to: '/dashboard/sell', label: 'بيع اسم', icon: 'tag' },
-  { to: '/dashboard/bids', label: 'مزايداتي', icon: 'gavel' },
-  { to: '/dashboard/watchlist', label: 'قائمة المتابعة', short: 'المتابعة', icon: 'clock' },
-  { to: '/dashboard/names', label: 'أسمائي', icon: 'tag' },
-  { to: '/dashboard/wallet', label: 'المحفظة', icon: 'wallet' },
-  { to: '/dashboard/invoices', label: 'الفواتير', icon: 'receipt' },
-  { to: '/dashboard/tickets', label: 'الشكاوى والاستفسارات', icon: 'alert' },
-  { to: '/dashboard/profile', label: 'حسابي', icon: 'users' },
-  { to: '/dashboard/settings', label: 'الإعدادات', icon: 'settings' },
+  { to: '/dashboard', get label() { return tr('الرئيسية', 'Home') }, icon: 'home', end: true },
+  { to: '/dashboard/requests', get label() { return tr('طلبات الشعارات', 'Mark requests') }, get short() { return tr('طلباتي', 'My requests') }, icon: 'file' },
+  { to: '/dashboard/invest', get label() { return tr('استثمار الاسم', 'Name investment') }, get short() { return tr('استثمار', 'Invest') }, icon: 'coins' },
+  { to: '/dashboard/sell', get label() { return tr('بيع اسم', 'Sell a name') }, icon: 'tag' },
+  { to: '/dashboard/bids', get label() { return tr('مزايداتي', 'My bids') }, icon: 'gavel' },
+  { to: '/dashboard/watchlist', get label() { return tr('قائمة المتابعة', 'Watchlist') }, get short() { return tr('المتابعة', 'Watchlist') }, icon: 'clock' },
+  { to: '/dashboard/names', get label() { return tr('أسمائي', 'My names') }, icon: 'tag' },
+  { to: '/dashboard/certificates', get label() { return tr('شهاداتي', 'My certificates') }, icon: 'file' },
+  { to: '/dashboard/wallet', get label() { return tr('المحفظة', 'Wallet') }, icon: 'wallet' },
+  { to: '/dashboard/invoices', get label() { return tr('الفواتير', 'Invoices') }, icon: 'receipt' },
+  { to: '/dashboard/tickets', get label() { return tr('الشكاوى والاستفسارات', 'Complaints & enquiries') }, icon: 'alert' },
+  { to: '/dashboard/profile', get label() { return tr('حسابي', 'My account') }, icon: 'users' },
+  { to: '/dashboard/settings', get label() { return tr('الإعدادات', 'Settings') }, icon: 'settings' },
 ]
 
 /** each staff page and what opens it: a role sees only the pages its permissions allow */
 const ADMIN_NAV: (NavItem & { perms?: Permission[] })[] = [
-  { to: '/admin', label: 'نظرة عامة', icon: 'home', end: true },
-  { to: '/admin/requests', label: 'مراجعة الطلبات', short: 'المراجعة', icon: 'shield', perms: ['requests.view'] },
-  { to: '/admin/schedule', label: 'فتح المزادات', short: 'فتح مزاد', icon: 'calendar', perms: ['auctions.schedule'] },
-  { to: '/admin/auctions', label: 'التحكم في المزادات', short: 'المزادات', icon: 'gavel', perms: ['auctions.manage', 'auctions.cancel', 'auctions.schedule'] },
-  { to: '/admin/reports/marks', label: 'تقرير الشعارات', short: 'التقرير', icon: 'list', perms: ['reports.marks'] },
-  { to: '/admin/customers', label: 'بيانات العملاء', short: 'العملاء', icon: 'users', perms: ['owners.view'] },
-  { to: '/admin/invoices', label: 'الفواتير', icon: 'receipt', perms: ['invoices.view'] },
-  { to: '/admin/wallets', label: 'المحافظ والاسترداد', short: 'المحافظ', icon: 'wallet', perms: ['wallets.view', 'wallets.refund', 'banks.verify'] },
-  { to: '/admin/deposits', label: 'الضمانات', icon: 'lock', perms: ['deposits.view'] },
-  { to: '/admin/tickets', label: 'الشكاوى والبلاغات', icon: 'alert', perms: ['tickets.view'] },
-  { to: '/admin/events', label: 'المواعيد والفعاليات', icon: 'list', perms: ['events.manage'] },
-  { to: '/admin/users', label: 'المستخدمون', icon: 'users', perms: ['users.view'] },
-  { to: '/admin/roles', label: 'الأدوار والصلاحيات', short: 'الأدوار', icon: 'shield', perms: ['roles.manage'] },
-  { to: '/admin/settings', label: 'الإعدادات', icon: 'settings' },
-  { to: '/admin/account', label: 'حسابي', icon: 'shield' },
+  { to: '/admin', get label() { return tr('نظرة عامة', 'Overview') }, icon: 'home', end: true },
+  { to: '/admin/requests', get label() { return tr('مراجعة الطلبات', 'Review requests') }, get short() { return tr('المراجعة', 'Review') }, icon: 'shield', perms: ['requests.view'] },
+  { to: '/admin/schedule', get label() { return tr('فتح المزادات', 'Open auctions') }, get short() { return tr('فتح مزاد', 'Open auction') }, icon: 'calendar', perms: ['auctions.schedule'] },
+  { to: '/admin/auctions', get label() { return tr('التحكم في المزادات', 'Auction control') }, get short() { return tr('المزادات', 'Auctions') }, icon: 'gavel', perms: ['auctions.manage', 'auctions.cancel', 'auctions.schedule'] },
+  { to: '/admin/reports/marks', get label() { return tr('تقرير الشعارات', 'Marks report') }, get short() { return tr('التقرير', 'Report') }, icon: 'list', perms: ['reports.marks'] },
+  { to: '/admin/certificates', get label() { return tr('الشهادات والسجل', 'Certificates & registry') }, get short() { return tr('الشهادات', 'Certificates') }, icon: 'file', perms: ['certificates.manage', 'names.latin'] },
+  { to: '/admin/customers', get label() { return tr('بيانات العملاء', 'Customer data') }, get short() { return tr('العملاء', 'Customers') }, icon: 'users', perms: ['owners.view'] },
+  { to: '/admin/invoices', get label() { return tr('الفواتير', 'Invoices') }, icon: 'receipt', perms: ['invoices.view'] },
+  { to: '/admin/wallets', get label() { return tr('المحافظ والاسترداد', 'Wallets & refunds') }, get short() { return tr('المحافظ', 'Wallets') }, icon: 'wallet', perms: ['wallets.view', 'wallets.refund', 'banks.verify'] },
+  { to: '/admin/deposits', get label() { return tr('الضمانات', 'Guarantees') }, icon: 'lock', perms: ['deposits.view'] },
+  { to: '/admin/tickets', get label() { return tr('الشكاوى والبلاغات', 'Complaints & reports') }, icon: 'alert', perms: ['tickets.view'] },
+  { to: '/admin/events', get label() { return tr('المواعيد والفعاليات', 'Dates & events') }, icon: 'list', perms: ['events.manage'] },
+  { to: '/admin/users', get label() { return tr('المستخدمون', 'Users') }, icon: 'users', perms: ['users.view'] },
+  { to: '/admin/roles', get label() { return tr('الأدوار والصلاحيات', 'Roles & permissions') }, get short() { return tr('الأدوار', 'Roles') }, icon: 'shield', perms: ['roles.manage'] },
+  { to: '/admin/settings', get label() { return tr('الإعدادات', 'Settings') }, icon: 'settings' },
+  { to: '/admin/account', get label() { return tr('حسابي', 'My account') }, icon: 'shield' },
 ]
 
 function AdminShell() {
   const { user } = useApp()
   const nav = ADMIN_NAV.filter((n) => !n.perms || canAny(user, n.perms))
-  return <OwnerDirectory><Shell nav={nav} title={user?.role === 'admin' ? 'إدارة المنصة' : user?.staffRoleName || 'لجنة الاعتماد'} /></OwnerDirectory>
+  return <OwnerDirectory><Shell nav={nav} title={user?.role === 'admin' ? tr('إدارة المنصة', 'Platform administration') : user?.staffRoleName || tr('لجنة الاعتماد', 'Accreditation Committee')} /></OwnerDirectory>
 }
 
 /** a staff page the role cannot open shows a short notice instead of failing on every call */
@@ -129,8 +129,8 @@ function Can({ perms, children }: { perms: Permission[]; children: ReactNode }) 
   if (canAny(user, perms)) return <>{children}</>
   return (
     <div className="rounded-xl border border-line bg-paper p-8 text-center">
-      <p className="text-lg font-bold">ليست لديك صلاحية لهذه الصفحة</p>
-      <p className="mt-2 text-muted">اطلب من مدير النظام إضافة الصلاحية إلى دورك.</p>
+      <p className="text-lg font-bold">{tr('ليست لديك صلاحية لهذه الصفحة', 'You do not have permission to view this page')}</p>
+      <p className="mt-2 text-muted">{tr('اطلب من مدير النظام إضافة الصلاحية إلى دورك.', 'Ask the system administrator to add this permission to your role.')}</p>
     </div>
   )
 }
@@ -176,7 +176,7 @@ function AppRoutes() {
             <Route path="login" element={<Login />} />
             <Route path="signup" element={<Signup />} />
           </Route>
-          <Route path="dashboard" element={<Guard roles={['owner']}><Shell nav={OWNER_NAV} title="لوحة التحكم" /></Guard>}>
+          <Route path="dashboard" element={<Guard roles={['owner']}><Shell nav={OWNER_NAV} title={tr('لوحة التحكم', 'Dashboard')} /></Guard>}>
             <Route index element={<DashHome />} />
             <Route path="requests" element={<MyRequests />} />
             <Route path="requests/new" element={<NewRequest />} />
@@ -184,6 +184,8 @@ function AppRoutes() {
             <Route path="bids" element={<MyBids />} />
             <Route path="names" element={<MyNames />} />
             <Route path="names/:id/certificate" element={<CertificatePage />} />
+            <Route path="certificates" element={<CertificatesPage />} />
+            <Route path="certificates/:number" element={<CertificateView />} />
             <Route path="wallet" element={<WalletPage />} />
             <Route path="invoices" element={<MyInvoices />} />
             <Route path="invoices/:id" element={<InvoicePage />} />
@@ -204,6 +206,8 @@ function AppRoutes() {
             <Route path="invoices" element={<Can perms={['invoices.view']}><AdminInvoices /></Can>} />
             <Route path="reports/marks" element={<Can perms={['reports.marks']}><AdminMarksReport /></Can>} />
             <Route path="customers" element={<Can perms={['owners.view']}><AdminCustomers /></Can>} />
+            <Route path="certificates" element={<Can perms={['certificates.manage', 'names.latin']}><AdminCertificates /></Can>} />
+            <Route path="certificates/:number" element={<Can perms={['certificates.manage']}><StaffCertificateView /></Can>} />
             <Route path="wallets" element={<Can perms={['wallets.view', 'wallets.refund', 'banks.verify']}><AdminWallets /></Can>} />
             <Route path="deposits" element={<Can perms={['deposits.view']}><AdminDeposits /></Can>} />
             <Route path="users" element={<Can perms={['users.view']}><AdminUsers /></Can>} />

@@ -229,6 +229,8 @@ export interface LogoRequest {
 export type AuctionPhase = 'scheduled' | 'live' | 'ended'
 
 export interface Auction {
+  /** the name in Latin letters */
+  latin?: string
   id: string
   requestId: string
   candidateId: string
@@ -309,7 +311,26 @@ export interface ReservedName {
   ownerAvatar?: string
   /** an active sale listing of this name, if its owner is selling it */
   listingId?: string
+  /** the registry's Latin spelling (staff override or transliteration) */
+  latin?: string
+  latinOverride?: boolean
+  /** demo store only: staff's Latin spelling */
+  latinName?: string
 }
+
+export type CertificateScope = 'mark' | 'portfolio'
+/** valid | partial (some marks changed hands) | superseded (none still held) | revoked */
+export type CertificateStatus = 'valid' | 'partial' | 'superseded' | 'revoked'
+export interface CertificateItem { id: string; name: string; latin: string; type: NameType; typeLabel: string; acquiredAt: string; registryCode: string; source: string; baseName?: string; current: 'valid' | 'transferred' | 'removed' }
+export interface Certificate {
+  id: string; number: string; scope: CertificateScope; ownerId: string; ownerNameAr: string; ownerNameEn: string; nationalIdMasked?: string; nationality?: string
+  issuedAt: string; signature: string; status: CertificateStatus; revokedAt?: string; revokeReason?: string; items: CertificateItem[]; itemCount: number
+}
+export interface CertificateVerify {
+  number: string; scope: CertificateScope; ownerNameAr: string; ownerNameEn: string; nationality?: string; issuedAt: string; status: CertificateStatus
+  signatureMatches?: boolean; revokedAt?: string; revokeReason?: string; items: CertificateItem[]
+}
+export interface CertificatePage { items: Certificate[]; total: number }
 
 export type TxKind = 'topup' | 'deposit' | 'refund' | 'invoice_payment' | 'service_fee' | 'investment_payout' | 'bid_deposit' | 'sale_payout' | 'purchase' | 'withdrawal' | 'adjustment'
 
@@ -456,7 +477,7 @@ export interface CamelEvent {
 export interface AppNotification {
   id: string
   userId: string
-  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'auction_update' | 'refund' | 'ticket' | 'reminder' | 'delegation'
+  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'auction_update' | 'refund' | 'ticket' | 'reminder' | 'delegation' | 'certificate'
   title: string
   body: string
   link?: string

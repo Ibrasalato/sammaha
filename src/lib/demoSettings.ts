@@ -1,5 +1,6 @@
 import { ApiError } from './api'
 import { RULES } from './config'
+import { tr } from './i18n'
 import type { AdminSettings, PublicSettings, SettingsChange, SettingsPatch } from './types'
 
 /** Demo platform settings, kept in this browser (the real ones live in the Sammha API database). */
@@ -35,15 +36,15 @@ export function readLog(): SettingsChange[] {
   try { return JSON.parse(localStorage.getItem(LOG) || '[]') as SettingsChange[] } catch { return [] }
 }
 
-const show = (v: unknown) => (typeof v === 'boolean' ? (v ? 'مفعّل' : 'متوقف') : v == null ? undefined : String(v))
+const show = (v: unknown) => (typeof v === 'boolean' ? (v ? tr('مفعّل', 'On') : tr('متوقف', 'Off')) : v == null ? undefined : String(v))
 
 export function writeSettings(patch: SettingsPatch, by: string): Omit<AdminSettings, 'rules'> {
-  const range = (v: number | undefined, min: number, max: number, label: string) => { if (v != null && (v < min || v > max || !Number.isInteger(v))) throw new ApiError(`${label} بين ${min} و${max}`) }
-  range(patch.passwordMinLength, 8, 32, 'طول كلمة المرور')
-  range(patch.maxLoginAttempts, 3, 20, 'محاولات الدخول')
-  range(patch.lockoutMinutes, 1, 1440, 'مدة القفل بالدقائق')
-  range(patch.staffIdleMinutes, 0, 480, 'مهلة الخمول بالدقائق')
-  if (patch.supportEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patch.supportEmail.trim())) throw new ApiError('بريد الدعم غير صحيح')
+  const range = (v: number | undefined, min: number, max: number, label: string) => { if (v != null && (v < min || v > max || !Number.isInteger(v))) throw new ApiError(tr(`${label} بين ${min} و${max}`, `${label} must be between ${min} and ${max}`)) }
+  range(patch.passwordMinLength, 8, 32, tr('طول كلمة المرور', 'Password length'))
+  range(patch.maxLoginAttempts, 3, 20, tr('محاولات الدخول', 'Sign-in attempts'))
+  range(patch.lockoutMinutes, 1, 1440, tr('مدة القفل بالدقائق', 'Lockout duration (minutes)'))
+  range(patch.staffIdleMinutes, 0, 480, tr('مهلة الخمول بالدقائق', 'Idle timeout (minutes)'))
+  if (patch.supportEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patch.supportEmail.trim())) throw new ApiError(tr('بريد الدعم غير صحيح', 'The support email is not valid'))
   const cur = readSettings()
   const log = readLog()
   const next = { ...cur }
@@ -68,20 +69,20 @@ export function logAction(field: string, by: string, value?: string) {
 }
 
 const LABEL = {
-  requests: ['requestsOpen', 'requestsClosedNote', 'استقبال طلبات الشعارات'],
-  compound: ['compoundOpen', 'compoundClosedNote', 'استقبال طلبات الأسماء المركبة'],
-  resale: ['resaleAuctionOpen', 'saleClosedNote', 'عرض الأسماء في مزاد إعادة البيع'],
-  instant: ['instantSaleOpen', 'saleClosedNote', 'البيع الفوري للأسماء'],
-  investment: ['investmentOpen', 'investmentClosedNote', 'استقبال طلبات استثمار الاسم'],
+  requests: ['requestsOpen', 'requestsClosedNote', 'استقبال طلبات الشعارات', 'Accepting mark requests'],
+  compound: ['compoundOpen', 'compoundClosedNote', 'استقبال طلبات الأسماء المركبة', 'Accepting compound name requests'],
+  resale: ['resaleAuctionOpen', 'saleClosedNote', 'عرض الأسماء في مزاد إعادة البيع', 'Listing names in resale auctions'],
+  instant: ['instantSaleOpen', 'saleClosedNote', 'البيع الفوري للأسماء', 'Instant sale of names'],
+  investment: ['investmentOpen', 'investmentClosedNote', 'استقبال طلبات استثمار الاسم', 'Accepting name investment requests'],
 } as const
 export type Intake = keyof typeof LABEL
 
 /** the message owners see when an intake is closed (same wording as the API) */
 export function closedMessage(intake: Intake, s: PublicSettings): string | null {
-  const [flag, noteKey, label] = LABEL[intake]
+  const [flag, noteKey, label, labelEn] = LABEL[intake]
   if (s[flag]) return null
   const note = s[noteKey]
-  return note ? `${label} متوقف مؤقتًا: ${note}` : `${label} متوقف مؤقتًا، تابعنا لمعرفة موعد الفتح`
+  return note ? tr(`${label} متوقف مؤقتًا: ${note}`, `${labelEn} is temporarily paused: ${note}`) : tr(`${label} متوقف مؤقتًا، تابعنا لمعرفة موعد الفتح`, `${labelEn} is temporarily paused. Follow us to know when it reopens`)
 }
 
 export function ensureOpen(intake: Intake) {
@@ -91,7 +92,7 @@ export function ensureOpen(intake: Intake) {
 
 export function ensureWritable(role: string) {
   const s = readSettings()
-  if (s.maintenance && role === 'owner') throw new ApiError(s.maintenanceNote || 'المنصة في صيانة قصيرة، حاول بعد قليل')
+  if (s.maintenance && role === 'owner') throw new ApiError(s.maintenanceNote || tr('المنصة في صيانة قصيرة، حاول بعد قليل', 'The platform is under brief maintenance. Please try again shortly'))
 }
 
 // ───── who handles complaints, reports, enquiries and suggestions (demo) ─────

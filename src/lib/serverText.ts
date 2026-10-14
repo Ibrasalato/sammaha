@@ -1,0 +1,895 @@
+/**
+ * Client-side English rendering of server-generated Arabic text.
+ *
+ * The API (and the demo backend) speak Arabic only: error messages, notification titles/bodies,
+ * wallet transaction notes, activity-log labels, delegation labels… When the UI is in English we
+ * translate them here: first an exact-match dictionary, then an ordered list of templates for
+ * interpolated messages. Unknown strings come back unchanged.
+ */
+import { getLang } from './i18n'
+import type { ActivityEntry, ActivityPage, AppNotification } from './types'
+
+const AR = /[؀-ۿ]/
+
+// ───────────────────────── exact matches ─────────────────────────
+const DICT: Record<string, string> = {
+  // ── session, sign-in, sign-up ──
+  'انتهت صلاحية الرمز، اطلب رمزًا جديدًا': 'The code has expired. Request a new one',
+  'تجاوزت عدد المحاولات، اطلب رمزًا جديدًا': 'Too many attempts. Request a new code',
+  'سجّل الدخول أولًا': 'Please sign in first',
+  'هذا الحساب موقوف': 'This account is suspended',
+  'هذا الحساب موقوف، تواصل مع مدير النظام': 'This account is suspended. Contact the system administrator',
+  'انتهت الجلسة، سجّل الدخول من جديد': 'Your session has ended. Please sign in again',
+  'انتهت الجلسة، أعد إدخال بياناتك': 'Your session has ended. Please re-enter your details',
+  'سجّل الدخول من جديد': 'Please sign in again',
+  'التسجيل في المنصة متوقف مؤقتًا': 'Sign-up is temporarily closed',
+  'أدخل تاريخ الميلاد': 'Enter your date of birth',
+  'التسجيل لمن أتم 18 سنة': 'You must be 18 or older to sign up',
+  'تاريخ الميلاد غير صحيح': 'Invalid date of birth',
+  'اختر الجنس': 'Select your gender',
+  'اختر الجنسية': 'Select your nationality',
+  'اختر بلد الإقامة': 'Select your country of residence',
+  'اختر مدينة الإقامة': 'Select your city of residence',
+  'رقم الجوال يبدأ بـ 5 ويتكون من 9 أرقام': 'The mobile number starts with 5 and has 9 digits',
+  'رقم الجوال يبدأ بـ 05 ويتكون من 10 أرقام': 'The mobile number starts with 05 and has 10 digits',
+  'رقم الجوال غير صحيح لهذا البلد': 'Invalid mobile number for this country',
+  'رقم الجوال غير صحيح: 05xxxxxxxx أو بمفتاح الدولة مثل +971…': 'Invalid mobile number: use 05xxxxxxxx or a country code such as +971…',
+  'البريد الإلكتروني غير صحيح': 'Invalid email address',
+  'رقم الهوية مسجل مسبقًا، سجّل الدخول': 'This ID number is already registered. Please sign in',
+  'رقم الجوال مسجل مسبقًا، سجّل الدخول': 'This mobile number is already registered. Please sign in',
+  'البريد الإلكتروني مسجل مسبقًا': 'This email is already registered',
+  'أدخل رقم الهوية': 'Enter your ID number',
+  'رقم الهوية أو الإقامة 10 أرقام': 'The national ID or Iqama number has 10 digits',
+  'رقم الهوية الوطنية يبدأ بـ 1': 'The national ID number starts with 1',
+  'رقم الإقامة يبدأ بـ 2': 'The Iqama number starts with 2',
+  'رقم الهوية أو الجواز من 5 إلى 20 حرفًا ورقمًا': 'The ID or passport number is 5 to 20 letters and digits',
+  'رقم الهوية أو الإقامة 10 أرقام يبدأ بـ 1 أو 2': 'The national ID or Iqama number has 10 digits and starts with 1 or 2',
+  'أدخل رمز التحقق المرسل إلى جوالك': 'Enter the verification code sent to your mobile',
+  'تغيّر رقم الجوال بعد إرسال الرمز، اطلب رمزًا جديدًا': 'The mobile number changed after the code was sent. Request a new code',
+  'البيانات غير صحيحة': 'Incorrect credentials',
+  'رقم الجوال أو كلمة المرور غير صحيحة': 'Incorrect mobile number or password',
+  'أول دخول لحساب مدير النظام: اختر كلمة مرور من 8 أحرف على الأقل': 'First sign-in to the system administrator account: choose a password of at least 8 characters',
+  'تعذّر الدخول': 'Sign-in failed',
+  'تعذّر التحقق': 'Verification failed',
+  'تعذّر التحقق، اطلب رمزًا جديدًا': 'Verification failed. Request a new code',
+  'محاولات كثيرة، انتظر دقيقة ثم حاول': 'Too many attempts. Wait a minute and try again',
+  'كلمة المرور طويلة جدًا': 'The password is too long',
+  'كلمة المرور الحالية غير صحيحة': 'The current password is incorrect',
+  'اختر كلمة مرور مختلفة عن الحالية': 'Choose a password different from the current one',
+  'هذا جهازك الحالي، استخدم «تسجيل الخروج»': 'This is your current device. Use “Sign out” instead',
+  'الجلسة غير موجودة': 'Session not found',
+  'الصورة كبيرة أو غير صالحة': 'The image is too large or invalid',
+
+  // ── account / profile ──
+  'اكتب الاسم الرباعي': 'Enter the full four-part name',
+  'رقم الهوية لا يُعدّل بعد التسجيل، تواصل مع الدعم لتصحيحه': 'The ID number cannot be changed after sign-up. Contact support to correct it',
+  'الاسم مأخوذ من بيانات التسجيل، تواصل مع الدعم لتصحيحه': 'The name comes from your registration details. Contact support to correct it',
+  'رقم الهوية مسجل لحساب آخر': 'This ID number is registered to another account',
+  'هذا بريدك الحالي': 'This is your current email',
+  'بريد مدير النظام الرئيسي ثابت': 'The main system administrator’s email cannot be changed',
+  'البريد الإلكتروني مسجل لحساب آخر': 'This email is registered to another account',
+  'هذا رقمك الحالي': 'This is your current number',
+  'رقم الجوال مسجل لحساب آخر': 'This mobile number is registered to another account',
+  'اختر البلد': 'Select the country',
+  'أدخل المدينة': 'Enter the city',
+  'أدخل الحي': 'Enter the district',
+  'الرمز البريدي أرقام فقط، مثل 12345': 'The postal code must be digits only, e.g. 12345',
+  'رقم التواصل الآخر غير صحيح': 'The alternative contact number is invalid',
+  'رقم التواصل الآخر هو رقمك الأساسي نفسه': 'The alternative contact number is the same as your main number',
+  'أكمل الجنسية وبلد ومدينة الإقامة': 'Complete your nationality and country and city of residence',
+  'بريدك موثّق مسبقًا': 'Your email is already verified',
+  'الاسم الأول': 'First name',
+  'اسم الأب': 'Father’s name',
+  'اسم الجد': 'Grandfather’s name',
+  'اسم العائلة': 'Family name',
+  'الجنسية': 'Nationality',
+  'بلد الإقامة': 'Country of residence',
+  'البلد': 'Country',
+  'المدينة': 'City',
+  'الحي': 'District',
+  'الشارع': 'Street',
+
+  // ── users, staff, roles ──
+  'هذه الصفحة للجنة الاعتماد فقط': 'This page is for the Accreditation Committee only',
+  'المستخدم غير موجود': 'User not found',
+  'لا يمكن تعديل حساب مدير النظام الرئيسي': 'The main system administrator account cannot be modified',
+  'لا يمكنك تعديل صلاحيات حسابك': 'You cannot change your own account’s permissions',
+  'حسابات مديري النظام يعدّلها مدير النظام فقط': 'Only a system administrator can modify system administrator accounts',
+  'هذا النوع يعالجه الموظفون المسؤولون عنه فقط': 'This type is handled only by the staff assigned to it',
+  'هذه العملية لمدير النظام فقط': 'This action is for the system administrator only',
+  'إنشاء حساب مدير نظام لمدير النظام فقط': 'Only a system administrator can create a system administrator account',
+  'اكتب اسم الموظف': 'Enter the staff member’s name',
+  'كلمة المرور المؤقتة 8 أحرف على الأقل': 'The temporary password must be at least 8 characters',
+  'اختر الصلاحية': 'Select the access level',
+  'الدور غير موجود': 'Role not found',
+  'ترقية حساب إلى مدير نظام لمدير النظام فقط': 'Only a system administrator can promote an account to system administrator',
+  'صلاحية غير معروفة': 'Unknown permission',
+  'اكتب اسم الدور (2 إلى 60 حرفًا)': 'Enter the role name (2 to 60 characters)',
+  'اختر صلاحية واحدة على الأقل': 'Select at least one permission',
+  'يوجد دور بهذا الاسم': 'A role with this name already exists',
+  'الدور الأساسي «لجنة الاعتماد» لا يُحذف، عدّل صلاحياته بدلًا من ذلك': 'The built-in “Accreditation Committee” role cannot be deleted. Edit its permissions instead',
+  'الأدوار للموظفين فقط؛ مدير النظام يملك كل الصلاحيات': 'Roles are for staff only; the system administrator has all permissions',
+  'لا يمكنك إسناد دور فيه صلاحيات لا تملكها': 'You cannot assign a role with permissions you do not have',
+  'اختر موظفين لديهم صلاحية «الرد على التذاكر»': 'Select staff who have the “Reply to tickets” permission',
+  'ليست لديك صلاحية «إعدادات المنصة»': 'You do not have the “Platform settings” permission',
+  'ليست لديك صلاحية «الأدوار والصلاحيات»': 'You do not have the “Roles and permissions” permission',
+  'ليست لديك صلاحية «التحكم في المزادات»': 'You do not have the “Auction control” permission',
+  'ليست لديك صلاحية «اعتماد الحسابات البنكية»': 'You do not have the “Bank account approval” permission',
+  'ليست لديك صلاحية «تقرير المحافظ»': 'You do not have the “Wallets report” permission',
+  'لجنة الاعتماد': 'Accreditation Committee',
+  'مدير النظام': 'System administrator',
+  'مراجعة الطلبات وفتح المزادات والرد على الشكاوى': 'Reviews requests, opens auctions and answers complaints',
+  'نوع غير معروف': 'Unknown type',
+  'مفعّل': 'Enabled',
+  'متوقف': 'Paused',
+  'عشرة عناوين بريد على الأقصى لكل نوع': 'At most ten email addresses per type',
+  'عناوين البريد طويلة جدًا': 'The email addresses are too long',
+
+  // ── settings ──
+  'بريد الدعم غير صحيح': 'Invalid support email',
+  'لون الإعلان غير معروف': 'Unknown announcement colour',
+  'طول كلمة المرور': 'Password length',
+  'محاولات الدخول': 'Sign-in attempts',
+  'مدة القفل بالدقائق': 'Lockout duration (minutes)',
+  'مهلة الخمول بالدقائق': 'Idle timeout (minutes)',
+  'استقبال طلبات الشعارات': 'Brand name requests',
+  'استقبال طلبات الأسماء المركبة': 'Compound name requests',
+  'عرض الأسماء في مزاد إعادة البيع': 'Resale auctions',
+  'البيع الفوري للأسماء': 'Instant name sales',
+  'استقبال طلبات استثمار الاسم': 'Name Investment requests',
+  'أكمل اسم الفعالية والتواريخ': 'Complete the event name and dates',
+  'تاريخ النهاية قبل البداية': 'The end date is before the start date',
+  'المنصة في صيانة قصيرة، حاول بعد قليل': 'The platform is undergoing brief maintenance. Please try again shortly',
+
+  // ── generic API errors ──
+  'تعذّر الاتصال بالخادم، تحقق من الإنترنت وحاول مرة أخرى': 'Could not reach the server. Check your internet connection and try again',
+  'حدث خطأ، حاول مرة أخرى': 'Something went wrong. Please try again',
+  'تغيّرت البيانات أثناء العملية، حاول مرة أخرى': 'The data changed during the operation. Please try again',
+  'المنصة مشغولة بعملية أخرى على نفس البيانات، حاول بعد لحظات': 'The platform is busy with another operation on the same data. Try again in a moment',
+  'البيانات مسجلة مسبقًا': 'This data is already registered',
+  'طلب غير صالح': 'Invalid request',
+  'أُلغي الطلب': 'The request was cancelled',
+  'حدث خطأ غير متوقع، حاول مرة أخرى': 'An unexpected error occurred. Please try again',
+  'غير موجود': 'Not found',
+  'القيمة كبيرة جدًا': 'The value is too large',
+  'المبلغ كبير جدًا': 'The amount is too large',
+  'تعذّرت قراءة الملف، أعد رفعه': 'Could not read the file. Please upload it again',
+  'معرّف المزاد غير صحيح': 'Invalid auction ID',
+
+  // ── name requests ──
+  'اختر اسمًا من أسمائك المسجلة': 'Choose one of your registered names',
+  'الاسم المركب طويل، اكتفِ بكلمتين أو ثلاث': 'The compound name is too long; use two or three words',
+  'الاسم غير صالح': 'Invalid name',
+  'اختر النوع': 'Select the type',
+  'اكتب اسمًا واحدًا على الأقل': 'Enter at least one name',
+  'تم سداد ضمان هذا الطلب': 'The guarantee for this request has already been paid',
+  'رصيد المحفظة لا يكفي، اشحن المحفظة أو ادفع بالبطاقة': 'Insufficient wallet balance. Top up your wallet or pay by card',
+  'رصيد المحفظة لا يكفي': 'Insufficient wallet balance',
+  'الطلب ملغى مسبقًا': 'The request is already cancelled',
+  'بدأ مزاد أحد أسماء هذا الطلب، فلا يمكن إلغاؤه الآن': 'An auction for one of this request’s names has started, so it can no longer be cancelled',
+  'لا يمكن إلغاء هذا الطلب': 'This request cannot be cancelled',
+  'ألغاه المالك': 'Cancelled by the owner',
+  'ألغته اللجنة': 'Cancelled by the committee',
+  'ألغته لجنة الاعتماد.': 'Cancelled by the Accreditation Committee.',
+  'الاسم غير موجود': 'Name not found',
+  'سُحب هذا الاسم مسبقًا': 'This name has already been withdrawn',
+  'بدأ مزاد هذا الاسم، فلا يمكن سحبه': 'The auction for this name has started, so it cannot be withdrawn',
+  'لا يمكن سحب هذا الاسم': 'This name cannot be withdrawn',
+  'سحب المالك كل الأسماء': 'The owner withdrew all names',
+  'الطلب غير موجود': 'Request not found',
+  'تمت مراجعة هذا الطلب': 'This request has already been reviewed',
+  'يُقبل شعار واحد فقط في الطلب الواحد؛ اختر اسمًا واحدًا وارفض البقية': 'Only one brand name is accepted per request; accept one name and reject the rest',
+  'حدد قرارًا لكل اسم': 'Set a decision for each name',
+  'لم تُقبل الأسماء المقدّمة في «استثمار الاسم»': 'The names submitted to Name Investment were not accepted',
+  'لم يُقبل الاسم المقدّم في «استثمار الاسم»': 'The name submitted to Name Investment was not accepted',
+  'سُجّل باسمك مباشرة دون مزاد، وشهادته في «أسمائي».': 'It was registered to you directly without an auction; its certificate is in “My names”.',
+  'راجع ملاحظة اللجنة في الطلب.': 'See the committee’s note on the request.',
+  'مرفوض': 'Rejected',
+  'لا يمكن رفض هذا الطلب': 'This request cannot be rejected',
+  'لا يمكن إلغاء طلب فُتح له مزاد': 'A request with an open auction cannot be cancelled',
+  'مكرر داخل نفس الطلب': 'Duplicated within the same request',
+  'متاح': 'Available',
+  'مسجل': 'registered',
+  'تحت الطلب أو المزاد': 'requested or in auction',
+  'مشابه لاسم مسجل مسبقًا': 'Similar to an already registered name',
+  'مشابه لاسم مسجل': 'Similar to a registered name',
+  'الأسماء الثلاثة مطابقة أو شبه مطابقة لأسماء مسجلة': 'All three names match or closely match registered names',
+  'اسم شائع محجوز لفعاليات المنظمة': 'A common name reserved for the Organization’s events',
+  'وفق معايير اللجنة': 'Per the committee’s criteria',
+  'عدد الأسماء كبير': 'Too many names',
+  'الاسم قصير جدًا': 'The name is too short',
+  'الاسم أطول من 30 حرفًا': 'The name is longer than 30 characters',
+  'استخدم الحروف العربية فقط': 'Use Arabic letters only',
+  'اسم واحد': 'one name',
+  'اسمين': 'two names',
+  'اسمك': 'Your name',
+  'اسماك': 'Your names',
+  'القعدان': 'Qaadan',
+  'البكار': 'Bakkar',
+  'المنقية': 'Manqiya',
+
+  // ── auctions, bidding, listings ──
+  'المزاد غير موجود': 'Auction not found',
+  'المزاد غير متاح': 'The auction is not available',
+  'انتهى المزاد': 'The auction has ended',
+  'المزاد لم يبدأ بعد': 'The auction has not started yet',
+  'أُلغي هذا المزاد': 'This auction was cancelled',
+  'المزاد متوقف مؤقتًا، تابع الصفحة لمعرفة موعد الاستئناف': 'The auction is paused. Keep an eye on this page for when it resumes',
+  'أنت صاحب أعلى مزايدة حاليًا': 'You already hold the highest bid',
+  'لا يمكنك المزايدة على اسم قدّمته في «استثمار الاسم»': 'You cannot bid on a name you submitted to Name Investment',
+  'لا يمكنك المزايدة على اسم تبيعه': 'You cannot bid on a name you are selling',
+  'الحد الأقصى كبير جدًا': 'The maximum is too large',
+  'اختر مزادًا واحدًا على الأقل': 'Select at least one auction',
+  'ملغى': 'Cancelled',
+  'انتهى وتمت الترسية': 'Ended and awarded',
+  'انتهى وجارٍ الترسية': 'Ended, award in progress',
+  'متوقف مسبقًا': 'Already paused',
+  'غير متوقف': 'Not paused',
+  'أوقفت إدارة المنصة المزاد مؤقتًا، ويُضاف وقت التوقف إلى مدته عند الاستئناف.': 'The platform administration has paused the auction; the paused time will be added to its duration when it resumes.',
+  'عاد المزاد ومُدّد بمقدار مدة التوقف.': 'The auction has resumed and was extended by the paused time.',
+  'مدة التمديد من دقيقة إلى 30 يومًا': 'The extension must be between one minute and 30 days',
+  'اكتب سبب الإلغاء، يصل للمالك والمزايدين': 'Enter the cancellation reason; it is sent to the owner and bidders',
+  'حدد موعد البداية والنهاية': 'Set the start and end times',
+  'موعد النهاية يجب أن يكون بعد البداية': 'The end time must be after the start time',
+  'موعد النهاية في الماضي': 'The end time is in the past',
+  'اختر اسمًا واحدًا على الأقل': 'Select at least one name',
+  'الفاصل بين الشعارات من 0 إلى 1440 دقيقة': 'The gap between names must be 0 to 1440 minutes',
+  'كل المزادات': 'All auctions',
+  'جهّز مزايدتك، أو فعّل المزايدة التلقائية.': 'Get your bid ready, or turn on auto-bidding.',
+  'لم يُرسَ عليك أي اسم': 'No name was awarded to you',
+  'رسا الاسم عليك بلا مقابل، ولا تُستحق نسبة الـ30% لعدم وجود مزايدة.': 'The name was awarded to you at no cost; the 30% share is not due as there were no bids.',
+  'لم يُشترَ الاسم خلال 72 ساعة وبقي باسمك. تقدر تعرضه من جديد.': 'The name was not bought within 72 hours and remains yours. You can list it again.',
+  'لم يُشترَ الاسم خلال مدة العرض وبقي باسمك. تقدر تعرضه من جديد.': 'The name was not bought during the listing period and remains yours. You can list it again.',
+  'بقي الاسم باسمك. تقدر تعرضه من جديد بسعر آخر.': 'The name remains yours. You can list it again at another price.',
+  'الاسم غير مسجل باسمك': 'This name is not registered to you',
+  'الاسم معروض للبيع حاليًا': 'This name is already listed for sale',
+  'سدّد فاتورة الاسم أولًا قبل عرضه للبيع': 'Pay the name’s invoice before listing it for sale',
+  'للاسم مزاد قائم حاليًا': 'This name already has an active auction',
+  'العرض غير موجود': 'Listing not found',
+  'العرض غير متاح': 'The listing is not available',
+  'بدأ المزاد، فلا يمكن إلغاء العرض': 'The auction has started, so the listing cannot be cancelled',
+  'العرض منتهٍ': 'The listing has ended',
+  'انتهى عرض هذا الاسم': 'The listing for this name has ended',
+  'لا يمكنك شراء اسم تبيعه': 'You cannot buy a name you are selling',
+  'اختر نوع الطرح': 'Select the listing type',
+
+  // ── payments, invoices, wallet ──
+  'أقل مبلغ للشحن 10 ريال': 'The minimum top-up is SAR 10',
+  'شحن المحفظة': 'Wallet top-up',
+  'شحن المحفظة بالبطاقة': 'Wallet top-up by card',
+  'رصيد تجريبي': 'Demo credit',
+  'الفاتورة غير موجودة': 'Invoice not found',
+  'الفاتورة غير موجودة أو مدفوعة': 'Invoice not found or already paid',
+  'الفاتورة غير متاحة للسداد': 'The invoice is not available for payment',
+  'الطلب غير متاح للسداد': 'The request is not available for payment',
+  'عملية دفع غير معروفة': 'Unknown payment',
+  'دفع بالبطاقة (محاكاة)': 'Card payment (simulated)',
+  'دفع بالبطاقة عبر ميسّر': 'Card payment via Moyasar',
+  'دفع بالبطاقة لضمان مزاد': 'Card payment for an auction guarantee',
+  'أكمل الدفع في صفحة البطاقة': 'Complete the payment on the card page',
+  'الدفع بالبطاقة غير مفعّل حاليًا، ادفع من المحفظة': 'Card payment is not available right now. Pay from your wallet',
+  'تعذّر إنشاء عملية الدفع، حاول مرة أخرى': 'Could not create the payment. Please try again',
+  'تعذّر إنشاء عملية الدفع': 'Could not create the payment',
+  'ضمان مزاد — منصة سمّها': 'Auction guarantee — Sammha',
+  'سداد فاتورة — منصة سمّها': 'Invoice payment — Sammha',
+  'ضمان دخول مزاد — منصة سمّها': 'Auction entry guarantee — Sammha',
+  'شراء اسم — منصة سمّها': 'Name purchase — Sammha',
+  'شحن محفظة — منصة سمّها': 'Wallet top-up — Sammha',
+  'أُعيد ضمان المزاد إلى محفظتك': 'The auction guarantee was returned to your wallet',
+  'أُعيد ضمان المزاد إلى محفظتك.': 'The auction guarantee was returned to your wallet.',
+  'أُعيد ضمان دخول المزاد إلى محفظتك': 'The auction entry guarantee was returned to your wallet',
+  'استرداد الضمان': 'Guarantee refund',
+  'استرداد ضمان': 'Guarantee refund',
+  'رسوم دراسة استثمار': 'Investment study fee',
+  'رسوم دراسة الاستثمار غير مستردة؛ للاستثناء استخدم تسوية المحفظة': 'The investment study fee is non-refundable; for an exception, use a wallet adjustment',
+  'هذا الضمان ليس محجوزًا (رُدّ أو خُصم من الفاتورة)': 'This guarantee is not held (it was refunded or deducted from the invoice)',
+  'هذا الضمان ليس محجوزًا': 'This guarantee is not held',
+  'الضمان غير موجود': 'Guarantee not found',
+  'المالك متصدر المزاد حاليًا؛ لا يُرد ضمانه قبل انتهاء المزاد': 'The owner is currently leading the auction; their guarantee cannot be refunded before the auction ends',
+  'نوع الضمان غير معروف': 'Unknown guarantee type',
+  'حدّد الطلب': 'Specify the request',
+  'حدّد المزاد': 'Specify the auction',
+  'حدّد المالك': 'Specify the owner',
+  'اكتب رقم الآيبان': 'Enter the IBAN',
+  'الآيبان يبدأ بحرفي الدولة ثم رقمين، مثل SA03…': 'An IBAN starts with a two-letter country code followed by two digits, e.g. SA03…',
+  'طول الآيبان غير صحيح': 'Invalid IBAN length',
+  'الآيبان السعودي أرقام بعد SA': 'A Saudi IBAN is digits after SA',
+  'رقم الآيبان غير صحيح (خانات التحقق لا تطابق)، راجعه من شهادة الآيبان': 'Invalid IBAN (check digits do not match). Check it against your IBAN certificate',
+  'آيبان صحيح': 'Valid IBAN',
+  'لا يوجد حساب بنكي': 'No bank account',
+  'اكتب سبب الرفض، يصل للمالك': 'Enter the rejection reason; it is sent to the owner',
+  'اعتُمد حسابك البنكي': 'Your bank account has been approved',
+  'لم يُعتمد حسابك البنكي': 'Your bank account was not approved',
+  'يمكنك الآن طلب استرداد رصيد محفظتك إلى حسابك.': 'You can now request a refund of your wallet balance to your account.',
+  'الحساب البنكي لملاك الإبل': 'Bank accounts are for camel owners',
+  'اكتب اسم صاحب الحساب كما في شهادة الآيبان': 'Enter the account holder’s name as on the IBAN certificate',
+  'اكتب اسم البنك': 'Enter the bank name',
+  'حجم شهادة الآيبان أكبر من 5 ميجابايت': 'The IBAN certificate is larger than 5 MB',
+  'ارفع شهادة الآيبان (PDF أو صورة)': 'Upload the IBAN certificate (PDF or image)',
+  'شهادة الآيبان تكون PDF أو صورة PNG أو JPG': 'The IBAN certificate must be a PDF or a PNG or JPG image',
+  'أقل مبلغ للاسترداد 10 ريال': 'The minimum refund is SAR 10',
+  'أضف حسابك البنكي وشهادة الآيبان أولًا': 'Add your bank account and IBAN certificate first',
+  'حسابك البنكي بانتظار اعتماد الإدارة المالية': 'Your bank account is awaiting approval by the finance team',
+  'لديك 3 طلبات استرداد قيد التنفيذ': 'You already have 3 refund requests in progress',
+  'المبلغ أكبر من رصيد المحفظة': 'The amount exceeds the wallet balance',
+  'الاسترداد لملاك الإبل': 'Refunds are for camel owners',
+  'المالك غير موجود': 'Owner not found',
+  'اكتب مبلغًا صحيحًا': 'Enter a valid amount',
+  'اكتب رقم الحوالة البنكية': 'Enter the bank transfer reference',
+  'لا يوجد حساب بنكي معتمد لهذا المالك؛ اعتمد شهادة الآيبان أولًا': 'This owner has no approved bank account; approve the IBAN certificate first',
+  'حُوّل رصيد من محفظتك إلى حسابك البنكي': 'Balance transferred from your wallet to your bank account',
+  'اكتب مبلغ التسوية (موجب للإضافة، سالب للخصم)': 'Enter the adjustment amount (positive to add, negative to deduct)',
+  'اكتب سبب التسوية بوضوح، يظهر في كشف المالك': 'Enter a clear reason for the adjustment; it appears on the owner’s statement',
+  'الخصم أكبر من رصيد المحفظة': 'The deduction exceeds the wallet balance',
+  'أُضيف مبلغ إلى محفظتك': 'An amount was added to your wallet',
+  'خُصم مبلغ من محفظتك': 'An amount was deducted from your wallet',
+  'طلب الاسترداد غير موجود': 'Refund request not found',
+  'تمت معالجة هذا الطلب': 'This request has already been processed',
+  'حُوّل مبلغ الاسترداد إلى حسابك': 'The refund has been transferred to your account',
+  'لم يُنفّذ طلب الاسترداد': 'The refund request was not processed',
+  'اكتب سبب الاسترداد، يصل للمالك': 'Enter the refund reason; it is sent to the owner',
+  'لا توجد حركات في هذه المحفظة': 'There are no transactions in this wallet',
+  'تصدير CSV': 'CSV export',
+  'طباعة': 'Print',
+  // banks
+  'مصرف الإنماء': 'Alinma Bank',
+  'البنك الأهلي السعودي': 'Saudi National Bank',
+  'بنك البلاد': 'Bank Albilad',
+  'بنك الرياض': 'Riyad Bank',
+  'البنك العربي الوطني': 'Arab National Bank',
+  'البنك السعودي الأول (ساب)': 'Saudi Awwal Bank (SAB)',
+  'البنك السعودي الفرنسي': 'Banque Saudi Fransi',
+  'بنك الجزيرة': 'Bank AlJazira',
+  'البنك السعودي للاستثمار': 'Saudi Investment Bank',
+  'مصرف الراجحي': 'Al Rajhi Bank',
+  'بنك الخليج الدولي': 'Gulf International Bank',
+  'بنك الإمارات دبي الوطني': 'Emirates NBD',
+
+  // ── tickets ──
+  'شكوى': 'Complaint',
+  'بلاغ': 'Report',
+  'استفسار': 'Enquiry',
+  'اقتراح': 'Suggestion',
+  'لم نجد طلبًا بهذا الرقم والجوال': 'No ticket found with this number and mobile',
+  'هذا الطلب مغلق، افتح طلبًا جديدًا': 'This ticket is closed. Open a new one',
+  'اكتب ردك': 'Write your reply',
+  'اكتب الرد': 'Write the reply',
+  'اختر نوع الطلب': 'Select the ticket type',
+  'اكتب الاسم': 'Enter the name',
+  'اكتب رقم جوال سعودي صحيح يبدأ بـ 05': 'Enter a valid Saudi mobile number starting with 05',
+  'اكتب عنوانًا مختصرًا': 'Enter a short subject',
+  'اكتب التفاصيل (10 أحرف على الأقل)': 'Enter the details (at least 10 characters)',
+  'حالة غير معروفة': 'Unknown status',
+  'أولوية غير معروفة': 'Unknown priority',
+  'جديد': 'New',
+  'قيد المعالجة': 'In progress',
+  'تم الرد': 'Answered',
+  'مغلق': 'Closed',
+
+  // ── delegation ──
+  'اكتب اسم المفوض الرباعي': 'Enter the delegate’s full four-part name',
+  'رقم هوية المفوض غير صحيح': 'The delegate’s ID number is invalid',
+  'رقم جوال المفوض غير صحيح': 'The delegate’s mobile number is invalid',
+  'بريد المفوض غير صحيح': 'The delegate’s email is invalid',
+  'لا يمكنك تفويض نفسك': 'You cannot delegate to yourself',
+  'اختر صفة المفوض': 'Select the delegate’s capacity',
+  'اكتب صفة المفوض': 'Enter the delegate’s capacity',
+  'حدّد نهاية التفويض المؤقت': 'Set the end of the temporary delegation',
+  'نهاية التفويض بعد بدايته': 'The delegation must end after it starts',
+  'نهاية التفويض في الماضي': 'The delegation end is in the past',
+  'أقصى مدة للتفويض المؤقت 3 سنوات، أو اختر تفويضًا دائمًا': 'A temporary delegation can last at most 3 years; otherwise choose a permanent delegation',
+  'التفويض غير موجود': 'Delegation not found',
+  'التفويض ملغى؛ أضف تفويضًا جديدًا': 'The delegation is revoked; add a new one',
+  '5 تفويضات قائمة على الأكثر، ألغِ أحدها أولًا': 'At most 5 active delegations. Revoke one first',
+  'يوجد تفويض قائم لهذا الشخص، عدّله بدل إضافة تفويض جديد': 'This person already has an active delegation. Edit it instead of adding a new one',
+  'ادخل إلى حسابه من «التفويض» في إعدادات لوحة التحكم.': 'Access their account from “Delegation” in your dashboard settings.',
+  'ادخل إلى حسابه من «التفويضات» في لوحة التحكم.': 'Access their account from “Delegations” in your dashboard.',
+  'لم تعد تستطيع إدارة حسابه.': 'You can no longer manage their account.',
+  'ارجع إلى حسابك أولًا': 'Return to your own account first',
+  'لم يبدأ التفويض بعد': 'The delegation has not started yet',
+  'انتهت مدة التفويض': 'The delegation has expired',
+  'التفويض ملغى': 'The delegation is revoked',
+  'حساب صاحب التفويض موقوف': 'The delegating account is suspended',
+  'كل ما يجريه مسجّل باسمه في سجل النشاط.': 'Everything they do is recorded under their name in the activity log.',
+  'أنت في حسابك': 'You are already in your own account',
+  'إدارة التفويض لصاحب الحساب فقط': 'Only the account holder can manage delegations',
+  'التفويض لحسابات ملاك الإبل': 'Delegation is for camel owner accounts',
+  'انتهى التفويض أو أُلغي، سجّل الدخول بحسابك': 'The delegation has ended or been revoked. Sign in with your own account',
+  'انتهى التفويض، سجّل الدخول من جديد': 'The delegation has ended. Please sign in again',
+  'هذه البيانات لصاحب الحساب فقط': 'This information is for the account holder only',
+  'هذا الإجراء لصاحب الحساب فقط': 'This action is for the account holder only',
+  // capacities
+  'وكيل شرعي': 'Legal agent',
+  'فرد من العائلة': 'Family member',
+  'موظف أو مدير أعمال': 'Employee or business manager',
+  'شريك': 'Partner',
+  'أخرى': 'Other',
+  // scopes
+  'طلبات الشعارات': 'Brand name requests',
+  'استثمار الاسم': 'Name Investment',
+  'المزايدة والشراء': 'Bidding and buying',
+  'المحفظة والفواتير': 'Wallet and invoices',
+  'بيع الأسماء': 'Selling names',
+  'الشكاوى والاستفسارات': 'Complaints and enquiries',
+  'تقديم طلبات الشعارات والأسماء المركبة، ودفع ضمانها، وسحب اسم أو إلغاء الطلب': 'Submit brand name and compound name requests, pay their guarantee, and withdraw a name or cancel a request',
+  'تقديم طلبات استثمار الاسم ودفع رسوم الدراسة': 'Submit Name Investment requests and pay the study fee',
+  'المزايدة والمزايدة الآلية والمتابعة، وضمان دخول المزاد، وشراء الأسماء المعروضة': 'Bid, auto-bid and watch auctions, pay auction entry guarantees, and buy listed names',
+  'شحن المحفظة وسداد الفواتير': 'Top up the wallet and pay invoices',
+  'عرض أسماء المالك للبيع بالمزاد أو بسعر ثابت وإلغاء العرض': 'List the owner’s names for sale by auction or at a fixed price, and cancel listings',
+  'تقديم الشكاوى والاستفسارات ومتابعتها': 'Submit and follow up on complaints and enquiries',
+
+  // ── activity log: categories ──
+  'الدخول': 'Sign-in',
+  'الحساب': 'Account',
+  'المزادات': 'Auctions',
+  'المدفوعات': 'Payments',
+  'المالية': 'Finance',
+  'المستخدمون والأدوار': 'Users and roles',
+  'الإعدادات': 'Settings',
+  'الشكاوى والبلاغات': 'Complaints and reports',
+  'التفويض': 'Delegation',
+  'المحتوى': 'Content',
+  'التقارير': 'Reports',
+  'نسخة تجريبية': 'Demo',
+  'متصفح': 'Browser',
+  'جهاز': 'Device',
+  'الجميع': 'Everyone',
+  // ── activity log: actions ──
+  'محاولة دخول': 'Sign-in attempt',
+  'تسجيل دخول': 'Sign-in',
+  'تسجيل خروج': 'Sign-out',
+  'بدء إنشاء حساب': 'Sign-up started',
+  'إنشاء حساب مالك': 'Owner account created',
+  'إعادة إرسال رمز التحقق': 'Verification code resent',
+  'تغيير كلمة المرور': 'Password changed',
+  'إخراج جهاز': 'Device signed out',
+  'خروج من كل الأجهزة': 'Signed out of all devices',
+  'تعديل بيانات الحساب': 'Account details updated',
+  'تعديل الصورة الشخصية': 'Profile photo updated',
+  'إكمال البيانات الشخصية': 'Personal details completed',
+  'تعديل العنوان': 'Address updated',
+  'طلب تغيير البريد': 'Email change requested',
+  'طلب تغيير الجوال': 'Mobile change requested',
+  'طلب توثيق البريد': 'Email verification requested',
+  'تغيير البريد': 'Email changed',
+  'تغيير الجوال': 'Mobile changed',
+  'توثيق البريد': 'Email verified',
+  'تعديل الإشعارات': 'Notification preferences updated',
+  'حفظ الحساب البنكي': 'Bank account saved',
+  'تقديم طلب شعار': 'Brand name request submitted',
+  'سداد ضمان طلب': 'Request guarantee paid',
+  'إلغاء طلب من المالك': 'Request cancelled by owner',
+  'سحب اسم من طلب': 'Name withdrawn from request',
+  'طلب اسم مركب': 'Compound name request',
+  'طلب استثمار اسم': 'Name Investment request',
+  'اعتماد قرار طلب': 'Request decision approved',
+  'رفض طلب': 'Request rejected',
+  'إلغاء طلب من الإدارة': 'Request cancelled by administration',
+  'فتح مزادات': 'Auctions opened',
+  'إيقاف مزادات مؤقتًا': 'Auctions paused',
+  'استئناف مزادات': 'Auctions resumed',
+  'تمديد مزادات': 'Auctions extended',
+  'إلغاء مزادات': 'Auctions cancelled',
+  'مزايدة': 'Bid',
+  'تفعيل مزايدة آلية': 'Auto-bid enabled',
+  'إيقاف مزايدة آلية': 'Auto-bid stopped',
+  'متابعة مزاد': 'Auction watched',
+  'سداد ضمان دخول مزاد': 'Auction entry guarantee paid',
+  'عرض اسم للبيع': 'Name listed for sale',
+  'إلغاء عرض بيع': 'Sale listing cancelled',
+  'شراء اسم': 'Name purchased',
+  'بدء دفع بالبطاقة': 'Card payment started',
+  'إشعار بوابة الدفع': 'Payment gateway notification',
+  'سداد فاتورة': 'Invoice paid',
+  'تسجيل سداد فاتورة': 'Invoice marked as paid',
+  'طلب استرداد للبنك': 'Bank refund requested',
+  'تنفيذ استرداد': 'Refund completed',
+  'رفض استرداد': 'Refund rejected',
+  'استرداد مباشر للبنك': 'Direct bank refund',
+  'تسوية رصيد محفظة': 'Wallet balance adjusted',
+  'مراجعة حساب بنكي': 'Bank account reviewed',
+  'اعتماد حساب بنكي': 'Bank account approved',
+  'رفض حساب بنكي': 'Bank account rejected',
+  'إضافة موظف': 'Staff member added',
+  'تغيير نوع حساب': 'Account type changed',
+  'تغيير دور موظف': 'Staff role changed',
+  'إيقاف أو تفعيل حساب': 'Account suspended or reactivated',
+  'حفظ دور': 'Role saved',
+  'حذف دور': 'Role deleted',
+  'تعديل إعدادات المنصة': 'Platform settings updated',
+  'تسجيل خروج الجميع': 'Everyone signed out',
+  'توزيع الشكاوى والبلاغات': 'Ticket routing updated',
+  'تقديم شكوى أو استفسار': 'Complaint or enquiry submitted',
+  'متابعة تذكرة': 'Ticket follow-up',
+  'رد على تذكرة': 'Ticket reply',
+  'تحديث تذكرة': 'Ticket updated',
+  'حفظ فعالية': 'Event saved',
+  'حذف فعالية': 'Event deleted',
+  'طباعة أو تصدير بيانات العملاء': 'Customer data printed or exported',
+  'حفظ تفويض': 'Delegation saved',
+  'إصدار شهادة': 'Certificate issued',
+  'إلغاء شهادة': 'Certificate revoked',
+  'تعديل الكتابة اللاتينية لاسم': 'Latin spelling of a name edited',
+  'الشهادات': 'Certificates',
+  'الشهادات لحسابات ملاك الإبل': 'Certificates are for camel owner accounts',
+  'أكمل بياناتك الشخصية (الاسم ورقم الهوية) في «حسابي» قبل إصدار الشهادة': 'Complete your personal details (name and ID number) in “My account” before issuing a certificate',
+  'اختر الشعار': 'Choose the mark',
+  'الشعار غير موجود': 'Mark not found',
+  'هذا الشعار ليس مسجلًا باسمك': 'This mark is not registered to you',
+  'لا توجد شعارات مسجلة باسمك بعد': 'No marks are registered to you yet',
+  'اكتب اسمك بالإنجليزية بحروف لاتينية كما في جواز السفر': 'Write your name in English, in Latin letters, as in your passport',
+  'الشهادة غير موجودة': 'Certificate not found',
+  'اكتب سبب الإلغاء': 'Write the reason for revoking',
+  'الشهادة ملغاة مسبقًا': 'The certificate is already revoked',
+  "الكتابة اللاتينية بحروف إنجليزية فقط (مع - أو ')": "Latin spelling uses English letters only (with - or ')",
+  'تعذّر التحقق من سلامة بيانات الشهادة': 'The certificate data could not be verified as intact',
+  'إلغاء تفويض': 'Delegation revoked',
+  'الدخول بتفويض': 'Signed in as delegate',
+  'الخروج من التفويض': 'Left delegated session',
+
+  // ── permissions (labels, groups and descriptions) ──
+  'عام': 'General',
+  'النظرة العامة': 'Overview',
+  'لوحة الأرقام والمؤشرات': 'Figures and indicators dashboard',
+  'طلبات الملاك': 'Owner requests',
+  'عرض الطلبات': 'View requests',
+  'قائمة طلبات الشعارات والأسماء المركبة والاستثمار وتفاصيلها': 'List of brand name, compound name and investment requests with their details',
+  'مراجعة طلبات الشعارات': 'Review brand name requests',
+  'قبول الأسماء أو رفضها، ورفض الطلب كاملًا': 'Accept or reject names, or reject the whole request',
+  'إلغاء الطلبات': 'Cancel requests',
+  'إلغاء طلب مع رد الضمان للمالك': 'Cancel a request and return the guarantee to the owner',
+  'تقرير تدقيق الشعارات': 'Brand name audit report',
+  'المطابق والمشابه (بـ«ال» أو بدونها، جمع أو مفرد) وأعلى سعر لشعار مشابه، مع الطباعة': 'Exact and similar matches (with or without “Al-”, plural or singular) and the highest price for a similar name, with printing',
+  'فتح المزادات': 'Open auctions',
+  'جدولة الأسماء المقبولة في مزادات': 'Schedule accepted names into auctions',
+  'التحكم في المزادات': 'Auction control',
+  'إيقاف مؤقت واستئناف وتمديد، لمزاد محدد أو لكل المزادات': 'Pause, resume and extend a single auction or all auctions',
+  'إلغاء المزادات': 'Cancel auctions',
+  'إلغاء مزاد دون بيع وإعادة الاسم لقائمة الجدولة أو لمالكه': 'Cancel an auction without a sale and return the name to the scheduling list or its owner',
+  'عرض الفواتير': 'View invoices',
+  'كل فواتير المنصة': 'All platform invoices',
+  'تأكيد السداد': 'Confirm payment',
+  'تعليم فاتورة مدفوعة يدويًا (تحويل بنكي مثلًا)': 'Manually mark an invoice as paid (e.g. bank transfer)',
+  'تقرير المحافظ': 'Wallets report',
+  'أرصدة محافظ الملاك وحركاتها وطلبات الاسترداد': 'Owner wallet balances, transactions and refund requests',
+  'الاسترداد للحساب البنكي': 'Refund to bank account',
+  'تنفيذ طلبات الاسترداد أو رفضها، واسترداد مباشر برقم التحويل': 'Complete or reject refund requests, and make direct refunds with a transfer reference',
+  'اعتماد الحسابات البنكية': 'Bank account approval',
+  'مراجعة شهادة الآيبان التي رفعها المالك واعتماد حسابه أو رفضه': 'Review the owner’s uploaded IBAN certificate and approve or reject the account',
+  'تسوية رصيد المحفظة': 'Wallet balance adjustment',
+  'إضافة مبلغ أو خصمه من محفظة مالك مع ذكر السبب': 'Add to or deduct from an owner’s wallet with a stated reason',
+  'تقرير الضمانات': 'Guarantees report',
+  'ضمانات طلبات الشعارات وضمانات دخول مزادات إعادة البيع': 'Brand name request guarantees and resale auction entry guarantees',
+  'إعادة ضمان محجوز إلى محفظة صاحبه مع ذكر السبب': 'Return a held guarantee to its owner’s wallet with a stated reason',
+  'تقرير الشعارات': 'Brand names report',
+  'كل المزادات برقمها: الطلب والمالك والفائز وقيمة الفوز والفاتورة، مع الطباعة والتصدير': 'All auctions by number: request, owner, winner, winning price and invoice, with printing and export',
+  'الدعم': 'Support',
+  'عرض الشكاوى والبلاغات': 'View complaints and reports',
+  'قائمة التذاكر وتفاصيلها': 'Ticket list and details',
+  'الرد على التذاكر': 'Reply to tickets',
+  'الرد على العميل وكتابة ملاحظات داخلية': 'Reply to customers and write internal notes',
+  'إدارة التذاكر': 'Manage tickets',
+  'تغيير الحالة والأولوية والإسناد': 'Change status, priority and assignment',
+  'المواعيد والفعاليات': 'Dates and events',
+  'إضافة فعاليات الإبل وتعديلها وحذفها': 'Add, edit and delete camel events',
+  'العملاء': 'Customers',
+  'بيانات العملاء (CRM)': 'Customer data (CRM)',
+  'قائمة الملاك وشعاراتهم حسب الفئة؛ الهوية والجوال يظهران مخفيين جزئيًا': 'Owners and their names by category; ID and mobile are partially masked',
+  'البيانات الكاملة والطباعة والتصدير': 'Full data, printing and export',
+  'إظهار رقم الهوية والجوال كاملين، وطباعة التقرير وتصديره (يُسجَّل في سجل التغييرات)': 'Show full ID and mobile numbers, and print and export the report (recorded in the change log)',
+  'المستخدمون': 'Users',
+  'عرض المستخدمين': 'View users',
+  'قائمة الملاك والموظفين': 'List of owners and staff',
+  'إنشاء مستخدم': 'Create user',
+  'إضافة حسابات موظفين جديدة': 'Add new staff accounts',
+  'تحديد دور الموظف': 'Set staff role',
+  'تغيير دور الموظف وصلاحياته': 'Change a staff member’s role and permissions',
+  'إيقاف الحسابات وتفعيلها': 'Suspend and reactivate accounts',
+  'إيقاف حساب مالك أو موظف وإعادة تفعيله': 'Suspend and reactivate an owner or staff account',
+  'الأدوار والصلاحيات': 'Roles and permissions',
+  'إنشاء الأدوار وتحديد صلاحيات كل دور': 'Create roles and set each role’s permissions',
+  'إعدادات المنصة': 'Platform settings',
+  'استقبال الطلبات، الإعلان، الصيانة، بيانات التواصل': 'Request intake, announcement, maintenance, contact details',
+  'سياسة الأمان': 'Security policy',
+  'كلمات المرور وقفل الدخول ومهلة الخمول وتسجيل خروج الجميع': 'Passwords, sign-in lockout, idle timeout and signing everyone out',
+  'سجل التغييرات': 'Change log',
+  'سجل تعديلات الإعدادات والإجراءات الإدارية': 'Log of settings changes and administrative actions',
+  'سجل النشاط (Logs)': 'Activity log',
+  'كل ما يجري على المنصة بالتاريخ والوقت: الدخول والطلبات والمزايدات والمدفوعات وإجراءات الموظفين والمفوضين': 'Everything on the platform by date and time: sign-ins, requests, bids, payments, and staff and delegate actions',
+}
+
+// ───────────────────────── interpolated messages ─────────────────────────
+// Arabic template with {0}, {1}… holes → English template. In the English side:
+//   {n}   the captured text as is (names, numbers, references)
+//   {tn}  the captured text translated recursively (a known label, reason, amount…)
+//   {ln}  like {tn} with the first letter lower-cased (a label in mid-sentence)
+//   {dn}  a date written in Arabic (month names, ص/م)
+// In the Arabic side, {#n} matches a number only (so "{#0} ريال" never swallows a sentence)
+// and {@n} a (masked) IBAN, so a bank name before it is captured whole.
+const TEMPLATES: [string, string][] = [
+  // amounts & counts
+  ['{#0} ريال', 'SAR {0}'],
+  ['{#0} يوم', '{0} day(s)'],
+  ['{#0} ساعة', '{0} hour(s)'],
+  ['{#0} دقيقة', '{0} minute(s)'],
+  ['+{#0} دقيقة', '+{0} minute(s)'],
+  ['{#0} مزاد', '{0} auction(s)'],
+  ['{#0} عميل', '{0} customer(s)'],
+  ['{#0} أسماء', '{0} names'],
+  ['{#0} اسمًا', '{0} names'],
+  ['من {0}', 'from {0}'],
+  ['حوالة {0}', 'transfer {0}'],
+
+  // sign-in, sign-up, profile
+  ['الرمز غير صحيح، بقي {0} محاولات', 'Incorrect code. {0} attempt(s) left'],
+  ['اكتب {0} بالحروف (2 إلى 30 حرفًا)', 'Enter the {l0} in letters (2 to 30 characters)'],
+  ['كلمة المرور {0} أحرف على الأقل', 'The password must be at least {0} characters'],
+  ['تم إيقاف الدخول مؤقتًا بعد محاولات خاطئة متكررة، حاول بعد {0} دقيقة', 'Sign-in is temporarily locked after repeated failed attempts. Try again in {0} minute(s)'],
+  ['ليست لديك صلاحية «{0}»، تواصل مع مدير النظام', 'You do not have the “{t0}” permission. Contact the system administrator'],
+  ['ليست لديك صلاحية «{0}»', 'You do not have the “{t0}” permission'],
+  ['اختر {0}', 'Select the {l0}'],
+  ['أدخل {0}', 'Enter the {l0}'],
+  ['رمز التحقق في سمّها: {0}', 'Your Sammha verification code: {0}'],
+
+  // roles, settings
+  ['لا يمكنك منح صلاحية لا تملكها: {0}', 'You cannot grant a permission you do not have: {t0}'],
+  ['انقل الموظفين ({0}) إلى دور آخر قبل حذف هذا الدور', 'Move the staff ({0}) to another role before deleting this role'],
+  ['البريد غير صحيح: {0}', 'Invalid email: {0}'],
+  ['{0} بين {1} و{2}', '{t0} must be between {1} and {2}'],
+  ['{0} متوقف مؤقتًا، تابعنا لمعرفة موعد الفتح', '{t0} is temporarily closed. Follow us to know when it reopens'],
+  ['{0} متوقف مؤقتًا: {1}', '{t0} is temporarily closed: {1}'],
+
+  // name requests & checks
+  ['مطابق تمامًا لاسم {0}: «{1}»', 'Exact match with a {t0} name: “{1}”'],
+  ['متاح، وستراجع اللجنة تشابهه مع {0}', 'Available; the committee will review its similarity to {t0}'],
+  ['أدخل {0} أسماء', 'Enter {0} names'],
+  ['غيّر الأسماء المرفوضة: {0}', 'Change the rejected names: {0}'],
+  ['سدّد فاتورة «{0}» أولًا ({1})', 'Pay the invoice for “{0}” first ({1})'],
+  ['الاسم المركب يتكون من «{0}» مع كلمة أخرى', 'A compound name is “{0}” plus another word'],
+  ['«{0}» مسجل أو مطلوب مسبقًا، اختر اسمًا جديدًا غير مكرر', '“{0}” is already registered or requested. Choose a new, unique name'],
+  ['«{0}» مسجل أو مطلوب مسبقًا', '“{0}” is already registered or requested'],
+  ['لديك طلب اسم مركب لـ«{0}» تحت المراجعة', 'You already have a compound name request for “{0}” under review'],
+  ['الحد الأقصى {0} أسماء في الطلب', 'At most {0} names per request'],
+  ['«{0}» مكرر في الطلب', '“{0}” is repeated in the request'],
+  ['أصبح الاسم «{0}» محجوزًا، ألغِ الطلب وأنشئ طلبًا جديدًا', 'The name “{0}” is now taken. Cancel the request and create a new one'],
+  ['لا يمكن قبول «{0}»: مطابق لـ«{1}»', '“{0}” cannot be accepted: it matches “{1}”'],
+  ['مشابه لـ«{0}»', 'Similar to “{0}”'],
+  ['قُبل «{0}» من هذا الطلب (شعار واحد لكل طلب)', '“{0}” was accepted from this request (one brand name per request)'],
+  ['قُبل {0} «{1}» في «استثمار الاسم»', '{t0} “{1}” accepted for Name Investment'],
+  ['قُبل في «استثمار الاسم»: «{0}»', 'Accepted for Name Investment: “{0}”'],
+  ['سيُطرح في مزاد عام قريبًا، ولك {0}% من قيمة بيعه.{1}', 'It will be offered in a public auction soon, and you will receive {0}% of its sale price.{t1}'],
+  ['تُطرح الأسماء المقبولة في مزاد عام قريبًا، ولك {0}% من قيمة بيع كل اسم.{1}', 'The accepted names will be offered in a public auction soon, and you will receive {0}% of each name’s sale price.{t1}'],
+  ['ولم يُقبل: {0}.', 'Not accepted: {0}.'],
+  ['{0}. رسوم الدراسة غير مستردة.', '{t0}. The study fee is non-refundable.'],
+  ['اعتُمد الاسم المركب «{0}»', 'The compound name “{0}” was approved'],
+  ['لم يُعتمد الاسم المركب لـ«{0}»', 'The compound name for “{0}” was not approved'],
+  ['قُبل طلبك {0}', 'Your request {0} was accepted'],
+  ['لم يُقبل طلبك {0}', 'Your request {0} was not accepted'],
+  ['أُلغي طلبك {0}', 'Your request {0} was cancelled'],
+  ['الأسماء المقبولة: {0}. سيُحدَّد موعد المزاد قريبًا.', 'Accepted names: {0}. The auction date will be set soon.'],
+
+  // auctions
+  ['انتهى مزاد «{0}» دون مزايدات', 'The auction for “{0}” ended with no bids'],
+  ['مبارك عليك الفوز بمزاد شعار «{0}»', 'Congratulations, you won the auction for “{0}”'],
+  ['بسعر {0} ريال. فاتورتك الإلكترونية جاهزة، سدّدها لإصدار شهادة التسجيل.', 'At SAR {0}. Your e-invoice is ready; pay it to issue the registration certificate.'],
+  ['بيع اسمك «{0}» في المزاد', 'Your name “{0}” was sold at auction'],
+  ['بسعر {0} ريال. نصيبك {1} ريال (30%) يُضاف إلى محفظتك فور سداد الفائز.', 'At SAR {0}. Your share of SAR {1} (30%) is added to your wallet once the winner pays.'],
+  ['بسعر {0} ريال. نصيبك {1} ريال ({2}%) يُضاف إلى محفظتك فور سداد الفائز.', 'At SAR {0}. Your share of SAR {1} ({2}%) is added to your wallet once the winner pays.'],
+  ['انتهى مزاد «{0}»', 'The auction for “{0}” has ended'],
+  ['رسا الاسم بسعر {0} ريال.', 'The name was awarded at SAR {0}.'],
+  ['رسا الاسم عليك بلا مقابل، ولا تُستحق نسبة الـ{0}% لعدم وجود مزايدة.', 'The name was awarded to you at no cost; the {0}% share is not due as there were no bids.'],
+  ['ادفع ضمان دخول المزاد {0} ريال أولًا', 'Pay the SAR {0} auction entry guarantee first'],
+  ['انتهت مدة عرض «{0}» للبيع', 'The sale listing for “{0}” has expired'],
+  ['بسعر {0} ريال، وخُصم منه ضمان الدخول. سدّد الفاتورة خلال 3 أيام لنقل الاسم وإصدار شهادته.', 'At SAR {0}, less the entry guarantee. Pay the invoice within 3 days to transfer the name and issue its certificate.'],
+  ['بسعر {0} ريال، وخُصم منه ضمان الدخول. سدّد الفاتورة لإصدار شهادة الاسم.', 'At SAR {0}, less the entry guarantee. Pay the invoice to issue the name’s certificate.'],
+  ['بسعر {0} ريال. يصلك {1} ريال (بعد عمولة {2}%) فور سداد المشتري.', 'At SAR {0}. You receive SAR {1} (after a {2}% commission) once the buyer pays.'],
+  ['بسعر {0} ريال. يصلك {1} ريال بعد عمولة سمّها ({2}%) فور سداد المشتري.', 'At SAR {0}. You receive SAR {1} after Sammha’s commission ({2}%) once the buyer pays.'],
+  ['تجاوز مزايد آخر مزايدتك على «{0}»', 'Another bidder outbid you on “{0}”'],
+  ['أعلى مزايدة الآن {0} ريال. زايد قبل انتهاء الوقت.', 'The highest bid is now SAR {0}. Bid before time runs out.'],
+  ['أعلى مزايدة الآن {0} ريال.', 'The highest bid is now SAR {0}.'],
+  ['مزاد «{0}» يبدأ خلال ساعة', 'The auction for “{0}” starts within an hour'],
+  ['مزاد «{0}» ينتهي خلال ساعة', 'The auction for “{0}” ends within an hour'],
+  ['مزاد إعادة بيع: «{0}»', 'Resale auction: “{0}”'],
+  ['اسم معروض للبيع الفوري: «{0}»', 'Name for instant sale: “{0}”'],
+  ['يبدأ بعد {0} ساعة بسعر افتتاحي {1} ريال، ويستمر {2} أيام.', 'Starts in {0} hour(s) at an opening price of SAR {1} and runs for {2} days.'],
+  ['بسعر {0} ريال، متاح للشراء {1} ساعة.', 'At SAR {0}, available to buy for {1} hour(s).'],
+  ['مبارك، أصبح «{0}» باسمك', 'Congratulations, “{0}” is now yours'],
+  ['اشتريته بـ {0} ريال. فاتورتك وشهادة التسجيل في «أسمائي».', 'You bought it for SAR {0}. Your invoice and registration certificate are in “My names”.'],
+  ['بيع اسمك «{0}»', 'Your name “{0}” was sold'],
+  ['بـ {0} ريال، وأُضيف {1} ريال إلى محفظتك بعد عمولة {2}%.', 'For SAR {0}; SAR {1} was added to your wallet after a {2}% commission.'],
+  ['أقل قيمة {0} ريال', 'The minimum is SAR {0}'],
+  ['أقل مزايدة {0} ريال', 'The minimum bid is SAR {0}'],
+  ['الحد الأقصى {0} ريال على الأقل', 'The maximum must be at least SAR {0}'],
+  ['حُدّد موعد مزاد «{0}»', 'The auction for “{0}” has been scheduled'],
+  ['يبدأ {0} بتوقيت الرياض.', 'Starts {d0} Riyadh time.'],
+  ['يبدأ {0}.', 'Starts {d0}.'],
+  ['ينتهي {0} بتوقيت الرياض.', 'Now ends {d0} Riyadh time.'],
+  ['توقف مزاد «{0}» مؤقتًا', 'The auction for “{0}” is paused'],
+  ['استؤنف مزاد «{0}»', 'The auction for “{0}” has resumed'],
+  ['مُدّد مزاد «{0}»', 'The auction for “{0}” was extended'],
+  ['أُضيفت {0} دقيقة إلى مدة المزاد.', '{0} minute(s) were added to the auction.'],
+  ['أُضيف {0}، وينتهي {1} بتوقيت الرياض.', '{t0} added; it now ends {d1} Riyadh time.'],
+  ['أُلغي مزاد «{0}»', 'The auction for “{0}” was cancelled'],
+  ['بقي الاسم باسمك ويمكنك عرضه من جديد. السبب: {0}', 'The name remains yours and you can list it again. Reason: {t0}'],
+  ['يعود الاسم إلى قائمة الجدولة وتحدد اللجنة موعدًا جديدًا. السبب: {0}', 'The name returns to the scheduling list and the committee will set a new date. Reason: {t0}'],
+  ['يعود الاسم إلى قائمة الجدولة وتحدد اللجنة موعدًا جديدًا لمزاده. السبب: {0}', 'The name returns to the scheduling list and the committee will set a new auction date. Reason: {t0}'],
+  ['لم تُحتسب المزايدات على هذا المزاد. السبب: {0}', 'Bids on this auction were voided. Reason: {t0}'],
+  ['{0} مزاد على الأكثر في الإجراء الواحد', 'At most {0} auctions per action'],
+  ['كل مزادات {0}', 'All {t0} auctions'],
+  ['{0} و{#1} غيرها', '{0} and {1} more'],
+
+  // wallet notes, refunds, invoices
+  ['ضمان مزاد الطلب {0}', 'Auction guarantee for request {0}'],
+  ['استرداد ضمان الطلب {0} ({1})', 'Guarantee refund for request {0} ({t1})'],
+  ['رسوم دراسة طلب استثمار الاسم {0}', 'Study fee for Name Investment request {0}'],
+  ['{0} ريال من الطلب {1} ({2}).', 'SAR {0} from request {1} ({t2}).'],
+  ['{0} من الطلب {1} ({2}).', '{t0} from request {1} ({t2}).'],
+  ['ثمن بيع الاسم «{0}» بعد عمولة سمّها ({1})', 'Sale price of “{0}” after Sammha’s commission ({1})'],
+  ['نصيبك 30% من بيع الاسم «{0}» ({1})', 'Your 30% share of the sale of “{0}” ({1})'],
+  ['نصيبك {0}% من بيع الاسم «{1}» ({2})', 'Your {0}% share of the sale of “{1}” ({2})'],
+  ['أُضيف {0} ريال إلى محفظتك', 'SAR {0} was added to your wallet'],
+  ['ثمن بيع اسمك «{0}» بعد خصم عمولة سمّها.', 'The sale price of your name “{0}” after Sammha’s commission.'],
+  ['نصيبك من بيع الاسم «{0}» في المزاد.', 'Your share of the auction sale of “{0}”.'],
+  ['استرداد ضمان دخول مزاد «{0}» ({1})', 'Entry guarantee refund for the auction of “{0}” ({t1})'],
+  ['استرداد ضمان دخول مزاد «{0}»', 'Entry guarantee refund for the auction of “{0}”'],
+  ['{0} ريال من مزاد «{1}».', 'SAR {0} from the auction of “{1}”.'],
+  ['{0} من مزاد «{1}» ({2}).', '{t0} from the auction of “{1}” ({t2}).'],
+  ['ضمان دخول مزاد «{0}»', 'Entry guarantee for the auction of “{0}”'],
+  ['دفع بالبطاقة لضمان مزاد «{0}»', 'Card payment for the auction guarantee of “{0}”'],
+  ['دفع بالبطاقة للطلب {0}', 'Card payment for request {0}'],
+  ['دفع بالبطاقة للفاتورة {0}', 'Card payment for invoice {0}'],
+  ['دفع بالبطاقة لشراء «{0}»', 'Card payment to buy “{0}”'],
+  ['سداد الفاتورة {0} — {1}', 'Invoice {0} payment — {1}'],
+  ['شراء فوري للاسم «{0}» ({1})', 'Instant purchase of “{0}” ({1})'],
+  ['آيبان {0} يتكون من {1} خانة، المُدخل {2}', 'A {0} IBAN has {1} characters; you entered {2}'],
+  ['السبب: {0}. حدّث البيانات أو الشهادة من «المحفظة».', 'Reason: {t0}. Update the details or certificate from “Wallet”.'],
+  ['طلب استرداد {0} إلى {1} {@2}', 'Refund request {0} to {t1} {2}'],
+  ['استرداد {0} إلى {1} {@2}، حوالة {3}', 'Refund {0} to {t1} {2}, transfer {3}'],
+  ['{0} إلى {1} {@2}، رقم الحوالة {3}.', '{t0} to {t1} {2}, transfer reference {3}.'],
+  ['تسوية: {0}', 'Adjustment: {t0}'],
+  ['إعادة مبلغ طلب الاسترداد {0} ({1})', 'Refund request {0} amount returned ({t1})'],
+  ['أُعيد {0} إلى محفظتك. السبب: {1}', '{t0} was returned to your wallet. Reason: {t1}'],
+  ['ضمان الطلب {0}', 'Request {0} guarantee'],
+  ['ضمان دخول {0} «{1}»', 'Entry guarantee {0} “{1}”'],
+
+  // tickets
+  ['{0} جديد مُسند إليك: {1}', 'New {l0} assigned to you: {1}'],
+  ['{0} جديد: {1}', 'New {l0}: {1}'],
+  ['رد فريق سمّها على طلبك {0}', 'The Sammha team replied to your ticket {0}'],
+  ['رد جديد من العميل على {0}', 'New customer reply on {0}'],
+  ['هذا النوع ({0}) يعالجه الموظفون المسؤولون عنه فقط', 'This type ({t0}) is handled only by the staff assigned to it'],
+
+  // delegation
+  ['{0} تفويضات قائمة على الأكثر، ألغِ أحدها أولًا', 'At most {0} active delegations. Revoke one first'],
+  ['فوّضك {0} لإدارة حسابه', '{0} has authorized you to manage their account'],
+  ['ألغى {0} تفويضك', '{0} revoked your delegation'],
+  ['دخل المفوض {0} إلى حسابك', 'Your delegate {0} signed in to your account'],
+  ['التفويض لا يشمل «{0}»', 'The delegation does not cover “{t0}”'],
+
+  // certificates
+  ['صدرت شهادة {0}', 'Certificate {0} issued'],
+  ['أُلغيت الشهادة {0}', 'Certificate {0} revoked'],
+  ['شهادة تسجيل شعار «{0}»، موثقة من المنظمة الدولية للإبل.', 'Registration certificate for the mark “{0}”, attested by the International Camel Organization.'],
+  ['شهادة تسجيل جميع شعاراتك ({0})، موثقة من المنظمة الدولية للإبل.', 'Registration certificate for all your marks ({0}), attested by the International Camel Organization.'],
+  ['السبب: {0}. يمكنك إصدار شهادة جديدة.', 'Reason: {0}. You can issue a new certificate.'],
+  ['بلغت حد الإصدار اليومي ({0} شهادة)، حاول غدًا', 'You reached the daily limit ({0} certificates). Try again tomorrow'],
+  ['الشهادة الشاملة تتسع لـ {0} شعار، تواصل معنا لإصدار شهادة أكبر', 'A portfolio certificate holds up to {0} marks. Contact us for a larger one'],
+]
+
+interface Compiled { re: RegExp; en: string; weight: number }
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const COMPILED: Compiled[] = TEMPLATES.map(([ar, en]) => {
+  const parts = ar.split(/\{[#@]?\d+\}/)
+  const holes = [...ar.matchAll(/\{([#@]?)\d+\}/g)].map((m) => m[1])
+  // holes are numbered in order of appearance in every template above
+  let src = '^' + escapeRe(parts[0])
+  const HOLE: Record<string, string> = { '': '(.*?)', '#': '([\\d٠-٩][\\d٠-٩.,]*)', '@': '([A-Z]{2}[0-9A-Z•*·.\\-]*)' }
+  holes.forEach((kind, i) => { src += HOLE[kind] + escapeRe(parts[i + 1]) })
+  return { re: new RegExp(src + '$', 's'), en, weight: parts.join('').length }
+})
+  // the more literal text a template has, the more specific it is
+  .sort((a, b) => b.weight - a.weight)
+
+const MONTHS: Record<string, string> = {
+  يناير: 'January', فبراير: 'February', مارس: 'March', أبريل: 'April', إبريل: 'April', مايو: 'May', يونيو: 'June',
+  يوليو: 'July', أغسطس: 'August', سبتمبر: 'September', أكتوبر: 'October', نوفمبر: 'November', ديسمبر: 'December',
+}
+const DIGITS = '٠١٢٣٤٥٦٧٨٩'
+function arDate(s: string): string {
+  return s
+    .replace(/[٠-٩]/g, (d) => String(DIGITS.indexOf(d)))
+    .replace(/[؀-ۿ]+/g, (w) => MONTHS[w] ?? (w === 'ص' ? 'AM' : w === 'م' ? 'PM' : w === 'في' ? 'at' : w))
+    .replace(/،/g, ',')
+}
+
+const lowerFirst = (s: string) => (/^[A-Z][a-z]/.test(s) ? s[0].toLowerCase() + s.slice(1) : s)
+
+function fill(en: string, groups: string[], depth: number): string {
+  return en.replace(/\{([tld]?)(\d+)\}/g, (_, mod: string, n: string) => {
+    const g = groups[Number(n)] ?? ''
+    if (mod === 't') return translate(g, depth + 1)
+    if (mod === 'l') return lowerFirst(translate(g, depth + 1))
+    if (mod === 'd') return arDate(g)
+    return g
+  })
+}
+
+function exact(s: string): string | undefined {
+  if (DICT[s] !== undefined) return DICT[s]
+  // tolerate a missing or extra full stop
+  if (s.endsWith('.') && DICT[s.slice(0, -1)] !== undefined) return DICT[s.slice(0, -1)] + '.'
+  if (DICT[s + '.'] !== undefined) return DICT[s + '.'].replace(/\.$/, '')
+  return undefined
+}
+
+function translate(input: string, depth = 0): string {
+  if (!input || depth > 4 || !AR.test(input)) return input
+  const lead = input.match(/^\s*/)![0], trail = input.match(/\s*$/)![0]
+  const s = input.trim()
+  const hit = exact(s)
+  if (hit !== undefined) return lead + hit + trail
+  // composite activity details / notes: "a · b · c", each part on its own
+  if (s.includes(' · ')) return lead + s.split(' · ').map((x) => translate(x, depth + 1)).join(' · ') + trail
+  for (const p of COMPILED) {
+    const m = p.re.exec(s)
+    if (m) return lead + fill(p.en, m.slice(1), depth) + trail
+  }
+  return input
+}
+
+/** Always-English translation of a server string (unknown text is returned unchanged). */
+export function translateServerText(s: string): string {
+  const out = translate(s)
+  if (out === s) return s
+  // Arabic punctuation and quotes left over from untranslated pieces (e.g. lists of names)
+  return out.replace(/«/g, '“').replace(/»/g, '”').replace(/،\s?/g, ', ').replace(/؛\s?/g, '; ')
+}
+
+/** Server-generated Arabic text in the current UI language: English when the UI is English, unchanged otherwise. */
+export function localizeServerText(s: string): string
+export function localizeServerText(s: string | undefined): string | undefined
+export function localizeServerText(s: string | null | undefined): string | null | undefined
+export function localizeServerText(s: string | null | undefined): string | null | undefined {
+  if (!s || getLang() !== 'en') return s
+  return translateServerText(s)
+}
+
+/** A notification with its title and body in the UI language. */
+export function localizeNotification<T extends Pick<AppNotification, 'title' | 'body'>>(n: T): T {
+  if (getLang() !== 'en') return n
+  return { ...n, title: localizeServerText(n.title), body: localizeServerText(n.body) }
+}
+
+/** An activity-log entry with its action, category label, error (and details) in the UI language. */
+export function localizeActivity<T extends Pick<ActivityEntry, 'action' | 'categoryLabel'> & Partial<Pick<ActivityEntry, 'error' | 'details' | 'ip' | 'device'>>>(a: T): T {
+  if (getLang() !== 'en') return a
+  return {
+    ...a,
+    action: localizeServerText(a.action),
+    categoryLabel: localizeServerText(a.categoryLabel),
+    error: localizeServerText(a.error),
+    details: localizeServerText(a.details),
+    ip: localizeServerText(a.ip),
+    device: localizeServerText(a.device),
+  }
+}
+
+/** A whole activity page: entries plus the category filter options. */
+export function localizeActivityPage(p: ActivityPage): ActivityPage {
+  if (getLang() !== 'en') return p
+  return { ...p, items: p.items.map(localizeActivity), categories: p.categories.map((c) => ({ ...c, value: localizeServerText(c.value) })) }
+}
+
+/** Puts an error's message into the UI language in place (keeps its class, so `instanceof` still works). */
+export function localizeError<E>(e: E): E {
+  if (e instanceof Error && e.message && getLang() === 'en') {
+    const m = translateServerText(e.message)
+    if (m !== e.message) {
+      try { e.message = m } catch { /* frozen error: leave it */ }
+    }
+  }
+  return e
+}
+
+/** for tests / tooling */
+export const SERVER_TEXT_STATS = { entries: Object.keys(DICT).length, patterns: TEMPLATES.length }

@@ -1,3 +1,4 @@
+import { tr } from '../lib/i18n'
 import { useMemo, useState } from 'react'
 import { num } from '../lib/format'
 
@@ -42,7 +43,7 @@ export function useTableFilter<T>(rows: T[] | null | undefined, opts: { fields: 
 }
 export type TableFilter<T> = ReturnType<typeof useTableFilter<T>>
 
-export function TableTools<T>({ t, placeholder = 'بحث', className = '', children }: { t: TableFilter<T>; placeholder?: string; className?: string; children?: React.ReactNode }) {
+export function TableTools<T>({ t, placeholder = tr('بحث', 'Search'), className = '', children }: { t: TableFilter<T>; placeholder?: string; className?: string; children?: React.ReactNode }) {
   return (
     <div className={`mb-4 flex flex-wrap items-center gap-2.5 ${className}`}>
       <div className="relative w-full sm:w-72">
@@ -56,9 +57,9 @@ export function TableTools<T>({ t, placeholder = 'بحث', className = '', child
       ))}
       {children}
       <span className="ms-auto text-[13.5px] text-muted" aria-live="polite">
-        {t.active ? `${num(t.list.length)} من ${num(t.total)}` : `${num(t.total)} سجل`}
+        {t.active ? `${num(t.list.length)} ${tr('من', 'of')} ${num(t.total)}` : `${num(t.total)} ${tr('سجل', 'records')}`}
       </span>
-      {t.active && <button type="button" className="text-[13.5px] font-bold text-gold-deep hover:underline" onClick={t.reset}>مسح التصفية</button>}
+      {t.active && <button type="button" className="text-[13.5px] font-bold text-gold-deep hover:underline" onClick={t.reset}>{tr('مسح التصفية', 'Clear filters')}</button>}
     </div>
   )
 }
@@ -67,7 +68,7 @@ export function TableTools<T>({ t, placeholder = 'بحث', className = '', child
 export function NoResults({ cols, onReset }: { cols: number; onReset: () => void }) {
   return (
     <tr><td colSpan={cols} className="py-10 text-center text-muted">
-      لا توجد نتائج مطابقة. <button type="button" className="font-bold text-pine underline" onClick={onReset}>مسح التصفية</button>
+      {tr('لا توجد نتائج مطابقة.', 'No matching results.')} <button type="button" className="font-bold text-pine underline" onClick={onReset}>{tr('مسح التصفية', 'Clear filters')}</button>
     </td></tr>
   )
 }

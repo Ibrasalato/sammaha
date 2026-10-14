@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom'
 import { dateTime } from '../lib/format'
 import { api, useLoad } from '../lib/store'
 import type { AppNotification } from '../lib/types'
+import { tr } from '../lib/i18n'
+import { localizeServerText } from '../lib/serverText'
 
 const DOT: Record<AppNotification['kind'], string> = {
-  outbid: 'bg-bad', won: 'bg-ok', lost: 'bg-muted', reviewed: 'bg-info', auction_opened: 'bg-gold', auction_update: 'bg-info', refund: 'bg-ok', ticket: 'bg-pine', reminder: 'bg-gold', delegation: 'bg-pine-3',
+  outbid: 'bg-bad', won: 'bg-ok', lost: 'bg-muted', reviewed: 'bg-info', auction_opened: 'bg-gold', auction_update: 'bg-info', refund: 'bg-ok', ticket: 'bg-pine', reminder: 'bg-gold', delegation: 'bg-pine-3', certificate: 'bg-gold',
 }
 
 export function NotificationBell() {
@@ -33,7 +35,7 @@ export function NotificationBell() {
 
   return (
     <div className="relative" ref={ref}>
-      <button onClick={toggle} aria-expanded={open} aria-label={unread ? `التنبيهات، ${unread} جديدة` : 'التنبيهات'}
+      <button onClick={toggle} aria-expanded={open} aria-label={unread ? tr(`التنبيهات، ${unread} جديدة`, `Notifications, ${unread} new`) : tr('التنبيهات', 'Notifications')}
         className="relative flex h-9 w-9 items-center justify-center rounded-full border border-paper/25 text-paper hover:bg-paper/10">
         <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
@@ -42,7 +44,7 @@ export function NotificationBell() {
       </button>
       {open && (
         <div className="absolute end-0 top-11 z-40 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-line bg-paper text-ink shadow-lift">
-          <div className="border-b border-line px-4 py-3 text-[15px] font-extrabold">التنبيهات</div>
+          <div className="border-b border-line px-4 py-3 text-[15px] font-extrabold">{tr('التنبيهات', 'Notifications')}</div>
           {data?.length ? (
             <ul className="max-h-96 overflow-auto">
               {data.map((n) => (
@@ -53,15 +55,15 @@ export function NotificationBell() {
                       ? <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-gradient-to-b from-[#E2C27E] to-[#C99532] text-paper"><Icon name="trophy" className="h-3.5 w-3.5" /></span>
                       : <span className={`mt-2 h-2 w-2 shrink-0 rounded-full ${DOT[n.kind]}`} />}
                     <span className="min-w-0">
-                      <span className="block text-[14.5px] font-bold">{n.title}</span>
-                      <span className="block text-[13.5px] text-muted">{n.body}</span>
+                      <span className="block text-[14.5px] font-bold">{localizeServerText(n.title)}</span>
+                      <span className="block text-[13.5px] text-muted">{localizeServerText(n.body)}</span>
                       <span className="mt-0.5 block text-[12px] text-muted/80">{dateTime(n.createdAt)}</span>
                     </span>
                   </button>
                 </li>
               ))}
             </ul>
-          ) : <p className="px-4 py-8 text-center text-[14px] text-muted">لا توجد تنبيهات بعد. ستصلك هنا تنبيهات المزايدة والطلبات.</p>}
+          ) : <p className="px-4 py-8 text-center text-[14px] text-muted">{tr('لا توجد تنبيهات بعد. ستصلك هنا تنبيهات المزايدة والطلبات.', 'No notifications yet. Bidding and request alerts will appear here.')}</p>}
         </div>
       )}
     </div>

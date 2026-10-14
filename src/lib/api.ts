@@ -1,6 +1,6 @@
 import type {
   AppNotification, CamelEvent, AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
-  ActivityFilter, ActivityPage, Delegation, DelegationInput, AuditRow, BankAccount, BankAccountInput, BankStatus, DepositRow, DocumentFile, IbanCheck, MarkRow, OwnerCrm, StaffBankAccount, WalletDetail, WalletRow, Withdrawal, WithdrawalStatus,
+  ActivityFilter, ActivityPage, Certificate, CertificatePage, CertificateScope, CertificateVerify, Delegation, DelegationInput, AuditRow, BankAccount, BankAccountInput, BankStatus, DepositRow, DocumentFile, IbanCheck, MarkRow, OwnerCrm, StaffBankAccount, WalletDetail, WalletRow, Withdrawal, WithdrawalStatus,
   AddressInput, AdminSettings, AuctionActionResult, AuctionScope, AuctionView, PersonalInput, StaffRole, TicketRouting, InvestmentItem, ListingMode, NameListing, Preferences, PublicSettings, PublicStats, SecuritySummary, SessionInfo, SettingsChange, SettingsPatch, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
 } from './types'
 
@@ -67,6 +67,16 @@ export interface SammhaApi {
   checkNames(names: string[], type: NameType): Promise<NameCheck[]>
   listEvents(): Promise<CamelEvent[]>
   verifyCertificate(code: string): Promise<ReservedName | null>
+  /** an issued certificate (SC-YYYY-NNNNNN); `sig` is the signature code from its QR or print */
+  verifyIssuedCertificate(number: string, sig?: string): Promise<CertificateVerify | null>
+  myCertificates(): Promise<Certificate[]>
+  issueCertificate(input: { scope: CertificateScope; reservedNameId?: string; ownerNameEn?: string }): Promise<Certificate>
+  myCertificate(number: string): Promise<Certificate>
+  // staff: certificates.manage / names.latin
+  staffCertificates(f?: { q?: string; status?: 'active' | 'revoked'; page?: number }): Promise<CertificatePage>
+  staffCertificate(number: string): Promise<Certificate>
+  revokeCertificate(id: string, reason: string): Promise<Certificate>
+  setLatinName(reservedId: string, latin: string): Promise<ReservedName>
   /** contact form: anyone can file a complaint, report or enquiry and gets a tracking number */
   submitTicket(input: TicketInput): Promise<Ticket>
   /** public tracking: needs the ticket number and the mobile number it was filed with */

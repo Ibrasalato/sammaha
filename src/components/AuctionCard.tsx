@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { tr } from '../lib/i18n'
+import { getLang, tr } from '../lib/i18n'
 import { TYPE_HEX, TYPE_LABEL } from '../lib/config'
 import { phaseOf } from '../lib/demoApi'
 import { cur, date, dateTime, humanLeft, num, remaining, time } from '../lib/format'
@@ -7,7 +7,8 @@ import { useNow } from '../lib/store'
 import type { Auction } from '../lib/types'
 import { CARD_STYLES, CARD_STYLE_LABEL, setCardStyle, useCardStyle, useCompact } from '../lib/cardStyle'
 import type { CardStyle } from '../lib/cardStyle'
-import { getLang } from '../lib/i18n'
+import { Approx } from './Region'
+import { LatinLine } from './ui'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -79,7 +80,7 @@ function ModernCard({ a }: { a: Auction }) {
           {phase === 'scheduled' && <span className="rounded bg-ink/35 px-2 py-0.5 text-[12px] font-bold backdrop-blur-sm">{tr('قريبًا', 'Soon')}</span>}
           {phase === 'ended' && <span className="rounded bg-ink/45 px-2 py-0.5 text-[12px] font-bold backdrop-blur-sm">{tr('منتهٍ', 'Ended')}</span>}
         </span>
-        <span className={`max-w-full truncate px-2 font-extrabold leading-none drop-shadow-sm ${k ? 'text-[19px]' : 'text-[30px]'}`}>{a.name}</span>
+        <span className={`max-w-full truncate px-2 font-extrabold leading-none drop-shadow-sm ${k ? 'text-[19px]' : 'text-[30px]'}`}>{a.name}<LatinLine v={a.latin} /></span>
         {phase === 'ended' && a.settled && (
           <span className="absolute bottom-2 flex items-center gap-1 rounded-full bg-paper px-2.5 py-px text-[11.5px] font-extrabold text-ok">
             <Icon d={ICON.check} className="h-3.5 w-3.5" />{tr('تمت الترسية', 'Awarded')}
@@ -186,12 +187,12 @@ function BrandCard({ a }: { a: Auction }) {
           <span className={`inline-flex items-center gap-1.5 rounded-full bg-paper font-extrabold ${l.k ? 'px-1.5 py-px' : 'px-2 py-0.5'}`} style={{ color: b.ink }}><span className="h-2 w-2 rounded-full" style={{ background: b.head }} />{TYPE_LABEL[a.type]}</span>
           <span className="inline-flex items-center gap-1.5" style={{ color: b.status }}>{l.phase === 'live' && <LiveDot light />}{l.status}</span>
         </div>
-        <div className={`relative truncate text-center font-extrabold leading-tight drop-shadow-sm ${l.k ? 'mt-2' : 'mt-4'} ${l.z.name}`}>{a.name}</div>
+        <div className={`relative truncate text-center font-extrabold leading-tight drop-shadow-sm ${l.k ? 'mt-2' : 'mt-4'} ${l.z.name}`}>{a.name}<LatinLine v={a.latin} /></div>
       </div>
       <div className={`h-1 bg-gradient-to-l ${b.rule}`} aria-hidden />
       <div className={`flex flex-1 flex-col ${l.z.body}`}>
         <div className={`flex justify-between ${l.z.row}`}>
-          <div><div className={`text-muted ${l.z.label}`}>{l.priceLabel}</div><div className="flex items-baseline gap-1.5"><span className={`num font-extrabold leading-none ${l.z.price}`} style={{ color: b.price }}>{num(l.price)}</span><span className="text-[13px] text-muted">{cur()}</span></div></div>
+          <div><div className={`text-muted ${l.z.label}`}>{l.priceLabel}</div><div className="flex items-baseline gap-1.5"><span className={`num font-extrabold leading-none ${l.z.price}`} style={{ color: b.price }}>{num(l.price)}</span><span className="text-[13px] text-muted">{cur()}</span><Approx v={l.price} /></div></div>
           <span className={`flex items-center gap-1.5 font-medium ${l.z.meta}`} style={{ color: b.price }}><Icon d={ICON.gavel} className={l.k ? 'h-3 w-3' : 'h-4 w-4'} />{l.bids}</span>
         </div>
         {l.lastDay
@@ -222,10 +223,10 @@ function ClassicCard({ a }: { a: Auction }) {
           <span className="flex items-center gap-1.5 text-muted">{l.phase === 'live' && <LiveDot />}{l.status}</span>
         </div>
         <Rule />
-        <div className={`truncate font-extrabold leading-tight ${l.z.name}`} style={{ color: c.deep }}>{a.name}</div>
+        <div className={`truncate font-extrabold leading-tight ${l.z.name}`} style={{ color: c.deep }}>{a.name}<LatinLine v={a.latin} /></div>
         <Rule />
         <div className={`text-muted ${l.z.label}`}>{l.priceLabel}</div>
-        <div className="mt-0.5 flex items-baseline justify-center gap-1.5"><span className={`num font-extrabold leading-none ${l.z.price}`}>{num(l.price)}</span><span className="text-[13px] text-muted">{cur()}</span></div>
+        <div className="mt-0.5 flex items-baseline justify-center gap-1.5"><span className={`num font-extrabold leading-none ${l.z.price}`}>{num(l.price)}</span><span className="text-[13px] text-muted">{cur()}</span><Approx v={l.price} /></div>
         <dl className={`grid grid-cols-2 divide-x divide-gold/30 border-y border-gold/30 rtl:divide-x-reverse ${l.k ? 'mt-2.5 py-1.5 text-[11px]' : 'mt-4 py-2 text-[12.5px]'}`}>
           <div><dt className="text-muted">{tr('المزايدات', 'Bids')}</dt><dd className="num font-bold">{num(a.bidCount)}</dd></div>
           <div><dt className="text-muted">{l.timeLabel}</dt><dd className={`font-bold ${l.urgent ? 'text-bad' : ''}`} title={dateTime(l.phase === 'scheduled' ? a.startsAt : a.endsAt)}>{l.timeValue}</dd></div>
@@ -251,13 +252,13 @@ function HeritageCard({ a }: { a: Auction }) {
         <div className={`relative mx-auto w-fit max-w-full ${l.k ? 'mt-2 px-3 py-1' : 'mt-3 px-6 py-2'}`}>
           <span className="absolute inset-y-0 start-0 w-2 border-y-2 border-s-2" style={{ borderColor: c.base }} aria-hidden />
           <span className="absolute inset-y-0 end-0 w-2 border-y-2 border-e-2" style={{ borderColor: c.base }} aria-hidden />
-          <span className={`block truncate font-extrabold leading-tight text-[#3A2A14] ${l.z.name}`}>{a.name}</span>
+          <span className={`block truncate font-extrabold leading-tight text-[#3A2A14] ${l.z.name}`}>{a.name}<LatinLine v={a.latin} /></span>
         </div>
       </div>
       <div className={`border-t border-dashed border-[#D8C69C] ${l.k ? 'mx-2' : 'mx-4'}`} />
       <div className={`flex flex-1 flex-col ${l.z.body}`}>
         <div className={`flex justify-between ${l.z.row}`}>
-          <div><div className={`text-[#8B7550] ${l.z.label}`}>{l.priceLabel}</div><div className="flex items-baseline gap-1.5"><span className={`num font-extrabold leading-none text-[#3A2A14] ${l.z.price}`}>{num(l.price)}</span><span className="text-[13px] text-[#8B7550]">{cur()}</span></div></div>
+          <div><div className={`text-[#8B7550] ${l.z.label}`}>{l.priceLabel}</div><div className="flex items-baseline gap-1.5"><span className={`num font-extrabold leading-none text-[#3A2A14] ${l.z.price}`}>{num(l.price)}</span><span className="text-[13px] text-[#8B7550]">{cur()}</span><Approx v={l.price} /></div></div>
           <span className={`flex items-center gap-1.5 font-medium text-[#8B7550] ${l.z.meta}`}><Icon d={ICON.gavel} className={l.k ? 'h-3 w-3' : 'h-4 w-4'} />{l.bids}</span>
         </div>
         {l.lastDay
@@ -280,12 +281,12 @@ function LuxuryCard({ a }: { a: Auction }) {
           <span className="inline-flex items-center gap-1.5 text-paper/85"><span className="h-2.5 w-2.5 rounded-full ring-2 ring-paper/30" style={{ background: c.base }} />{TYPE_LABEL[a.type]}</span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 px-2 py-0.5 text-gold-light">{l.phase === 'live' && <LiveDot light />}{l.status}</span>
         </div>
-        <div className={`truncate text-center font-extrabold leading-tight text-gold-light ${l.k ? 'mt-2.5 text-[20px]' : 'mt-5 text-[32px]'}`}>{a.name}</div>
+        <div className={`truncate text-center font-extrabold leading-tight text-gold-light ${l.k ? 'mt-2.5 text-[20px]' : 'mt-5 text-[32px]'}`}>{a.name}<LatinLine v={a.latin} /></div>
         <div className={`mx-auto h-px w-16 ${l.k ? 'mt-2' : 'mt-3'} bg-gradient-to-r from-transparent via-gold to-transparent`} aria-hidden />
       </div>
       <div className={`flex flex-1 flex-col bg-black/15 ${l.k ? 'gap-2 p-2.5' : 'gap-3 p-5'}`}>
         <div className={`flex justify-between ${l.z.row}`}>
-          <div><div className={`text-paper/60 ${l.z.label}`}>{l.priceLabel}</div><div className="flex items-baseline gap-1.5"><span className={`num font-extrabold leading-none ${l.z.price}`}>{num(l.price)}</span><span className="text-[13px] text-paper/60">{cur()}</span></div></div>
+          <div><div className={`text-paper/60 ${l.z.label}`}>{l.priceLabel}</div><div className="flex items-baseline gap-1.5"><span className={`num font-extrabold leading-none ${l.z.price}`}>{num(l.price)}</span><span className="text-[13px] text-paper/60">{cur()}</span><Approx v={l.price} /></div></div>
           <span className={`flex items-center gap-1.5 text-paper/70 ${l.z.meta}`}><Icon d={ICON.gavel} className={l.k ? 'h-3 w-3' : 'h-4 w-4'} />{l.bids}</span>
         </div>
         {l.lastDay
@@ -306,7 +307,7 @@ function MinimalRow({ a }: { a: Auction }) {
       <span className="absolute inset-y-0 start-0 w-1.5" style={{ background: c.base }} aria-hidden />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`truncate font-extrabold leading-tight ${l.k ? 'text-[17px]' : 'text-[20px]'}`}>{a.name}</span>
+          <span className={`truncate font-extrabold leading-tight ${l.k ? 'text-[17px]' : 'text-[20px]'}`}>{a.name}<LatinLine v={a.latin} /></span>
           <span className="rounded px-1.5 py-px text-[11.5px] font-extrabold" style={{ background: c.soft, color: c.deep }}>{TYPE_LABEL[a.type]}</span>
         </div>
         <div className={`mt-0.5 flex flex-wrap items-center gap-x-2 text-muted ${l.k ? 'text-[11.5px]' : 'text-[13px]'}`}>
@@ -317,7 +318,7 @@ function MinimalRow({ a }: { a: Auction }) {
       </div>
       <div className="text-end">
         <div className="text-[11.5px] text-muted">{l.priceLabel}</div>
-        <div className={`num font-extrabold leading-tight ${l.k ? 'text-[16px]' : 'text-[20px]'}`}>{num(l.price)} <span className="text-[12px] font-medium text-muted">{cur()}</span></div>
+        <div className={`num font-extrabold leading-tight ${l.k ? 'text-[16px]' : 'text-[20px]'}`}>{num(l.price)} <span className="text-[12px] font-medium text-muted">{cur()}</span><Approx v={l.price} /></div>
       </div>
       {l.phase === 'live'
         ? <span className="btn-gold btn-sm hidden sm:inline-flex">{tr('زايد', 'Bid')}</span>
@@ -355,7 +356,7 @@ function RibbonCard({ a }: { a: Auction }) {
       <CornerRibbon label={TYPE_LABEL[a.type]} color={c.base} deep={c.deep} small={l.k} />
       {a.listingId && <ResaleMedal className={l.k ? '-left-2 -top-2 scale-75' : '-left-3 -top-3'} />}
       {a.investment && <span className={`absolute rounded-full bg-[#F3EBDA] font-extrabold text-[#80601E] ${l.k ? 'left-1.5 top-1.5 px-1.5 text-[9.5px]' : 'left-3 top-3 px-2 py-0.5 text-[11px]'}`}>{tr('استثمار', 'Investment')}</span>}
-      <div className={`truncate font-extrabold leading-tight text-[#A87C26] ${l.k ? 'px-4 text-[20px]' : 'px-6 text-[38px]'}`}>{a.name}</div>
+      <div className={`truncate font-extrabold leading-tight text-[#A87C26] ${l.k ? 'px-4 text-[20px]' : 'px-6 text-[38px]'}`}>{a.name}<LatinLine v={a.latin} /></div>
       <div className={`mx-auto h-px w-[85%] bg-ink/25 ${l.k ? 'mt-1.5' : 'mt-2'}`} />
       <div className={`text-ink/80 ${l.k ? 'mt-1.5 text-[10.5px]' : 'mt-2 text-[13px]'}`}>{l.phase === 'live' ? tr('الوقت المتبقي حتى نهاية المزاد', 'Time left') : l.phase === 'scheduled' ? tr('يبدأ المزاد خلال', 'Starts in') : tr('انتهى المزاد', 'Auction ended')}</div>
       <div className="mt-2">

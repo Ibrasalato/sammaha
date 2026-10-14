@@ -8,9 +8,11 @@ import { CountdownBoxes } from '../components/AuctionCard'
 import { PayModal } from '../components/PayModal'
 import { RULES, TYPE_HINT } from '../lib/config'
 import { phaseOf } from '../lib/demoApi'
-import { cur, dateTime, num, sar, time } from '../lib/format'
+import { cur, dateTimeRef, num, sar, time } from '../lib/format'
 import { api, useApp, useLoad, useNow } from '../lib/store'
 import { usePageTitle } from '../lib/usePageTitle'
+import { Approx } from '../components/Region'
+import { userTzLabel } from '../lib/region'
 
 function Heart({ on }: { on: boolean }) {
   return (
@@ -87,7 +89,7 @@ export default function AuctionDetail() {
         <div className="wrap py-8 sm:py-10">
           <nav className="text-[14px] text-paper/60" aria-label={tr('مسار الصفحة', 'Breadcrumb')}><Link to="/" className="hover:text-paper">{tr('الرئيسية', 'Home')}</Link> / <Link to="/auctions" className="hover:text-paper">{tr('المزادات', 'Auctions')}</Link> / <span className="text-paper">{a.name}</span></nav>
           <div className="mt-6 flex flex-col items-start gap-6 sm:flex-row sm:items-center">
-            <NameSeal name={a.name} type={a.type} size="lg" />
+            <NameSeal name={a.name} type={a.type} size="lg" latin={a.latin} />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2"><TypeBadge type={a.type} />{a.investment && <Link to="/invest" className="pill bg-gold text-pine hover:bg-gold-light">{tr('استثمار الاسم', 'Name investment')}</Link>}{resale && <Link to="/market" className="pill bg-gold text-pine hover:bg-gold-light">{tr('إعادة بيع من مالكه', 'Resale by its owner')}</Link>}<AuctionStatePill a={a} phase={phase === 'paused' ? 'live' : phase} />{a.number && <span className="num pill bg-stone text-muted">{tr('مزاد رقم', 'Auction')} {a.number}</span>}{(a.extensions ?? 0) > 0 && phase === 'live' && <span className="pill bg-gold text-pine-deep">{tr(`مُدّد ${num(a.extensions!)} مرة`, `Extended ${num(a.extensions!)}×`)}</span>}</div>
               <h1 className="mt-3 text-[40px] font-extrabold leading-none text-paper sm:text-[48px]">{a.name}</h1>
@@ -128,9 +130,9 @@ export default function AuctionDetail() {
                   [tr('السعر الافتتاحي', 'Opening price'), sar(a.openingPrice)],
                   [tr('أقل زيادة', 'Minimum raise'), sar(a.minIncrement)],
                   [tr('عدد المزايدات', 'Bids'), num(a.bidCount)],
-                  [tr('بداية المزاد', 'Starts'), dateTime(a.startsAt)],
-                  [tr('نهاية المزاد', 'Ends'), dateTime(a.endsAt)],
-                  [tr('التوقيت', 'Time zone'), tr('توقيت الرياض', 'Riyadh time')],
+                  [tr('بداية المزاد', 'Starts'), dateTimeRef(a.startsAt)],
+                  [tr('نهاية المزاد', 'Ends'), dateTimeRef(a.endsAt)],
+                  [tr('التوقيت', 'Time zone'), userTzLabel()],
                 ] as [string, string][]).map(([l, v]) => (
                   <div key={l} className="border-b border-e border-line/70 px-6 py-4">
                     <dt className="text-[13px] font-medium text-muted">{l}</dt>
@@ -155,7 +157,7 @@ export default function AuctionDetail() {
                           <td>{user?.id === b.userId ? tr('أنت', 'You') : b.bidderLabel}{i === 0 && <span className="pill ms-2 bg-gold text-pine-deep">{phase === 'ended' ? tr('الفائز', 'Winner') : tr('الأعلى', 'Top')}</span>}</td>
                           <td className="num">{sar(b.amount)}</td>
                           <td className="text-[13px] text-muted">{b.auto ? tr('تلقائية', 'Auto') : tr('يدوية', 'Manual')}</td>
-                          <td className="text-muted">{time(b.createdAt)}، {new Date(b.createdAt).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })}</td>
+                          <td className="text-muted">{time(b.createdAt)}{tr('، ', ', ')}{new Date(b.createdAt).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -169,7 +171,7 @@ export default function AuctionDetail() {
             <div className="p-6">
               <p className="text-sm text-muted">{priceLabel}</p>
               <div key={flash} className={`mt-1 flex items-baseline gap-2 rounded-lg ${flash ? 'bid-flash' : ''}`}>
-                <span className="num text-5xl font-extrabold">{num(a.finalPrice ?? a.currentPrice)}</span><span className="text-muted">{cur()}</span>
+                <span className="num text-5xl font-extrabold">{num(a.finalPrice ?? a.currentPrice)}</span><span className="text-muted">{cur()}</span><Approx v={a.finalPrice ?? a.currentPrice} className="text-[14px]" />
               </div>
               {a.leaderLabel && phase !== 'ended' && (
                 <p className={`mt-1 text-sm ${leading ? 'font-bold text-ok' : 'text-muted'}`}>{leading ? tr('أنت صاحب أعلى مزايدة', 'You hold the top bid') : `${tr('المتصدر:', 'Leading:')} ${a.leaderLabel}`}</p>
@@ -242,7 +244,7 @@ export default function AuctionDetail() {
                       <div className="mt-2 flex gap-2"><button type="button" className="btn-gold btn-sm" onClick={() => bid(confirm)}>{tr('تأكيد المزايدة', 'Confirm bid')}</button><button type="button" className="btn-ghost btn-sm" onClick={() => setConfirm(null)}>{tr('تراجع', 'Cancel')}</button></div>
                     </div>
                   )}
-                  <p className="hint">{leading ? tr('أنت صاحب أعلى مزايدة حاليًا.', 'You hold the top bid.') : tr(`أقل مزايدة ${sar(min)}.`, `Minimum bid ${sar(min)}.`)}</p>
+                  <p className="hint">{leading ? tr('أنت صاحب أعلى مزايدة حاليًا.', 'You hold the top bid.') : <>{tr(`أقل مزايدة ${sar(min)}.`, `Minimum bid ${sar(min)}.`)} <Approx v={min} /></>}</p>
                 </form>
               ) : (
                 <Link to="/login" state={{ from: loc.pathname }} className="btn-gold mt-5 w-full">{tr('سجّل الدخول للمزايدة', 'Sign in to bid')}</Link>

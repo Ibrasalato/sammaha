@@ -1,4 +1,4 @@
-import { CITIES } from '../lib/countries'
+import { CITIES, cityName } from '../lib/countries'
 import { Suspense, lazy } from 'react'
 import type { ComponentProps } from 'react'
 import type { CountryPicker as CP } from './CountryPicker'
@@ -30,7 +30,7 @@ export function CityField({ id, country, value, onChange, required = true }: { i
   return (
     <select id={id} className="field" value={value} onChange={(e) => onChange(e.target.value)} required={required}>
       <option value="">{tr('اختر المدينة', 'Choose the city')}</option>
-      {list.map((c) => <option key={c} value={c}>{c}</option>)}
+      {list.map((c) => <option key={c} value={c}>{cityName(c)}</option>)}
       {value && !list.includes(value) && <option value={value}>{value}</option>}
     </select>
   )

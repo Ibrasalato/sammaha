@@ -5,7 +5,7 @@
  */
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'
-import type { ActivityEntry, ActivityFilter, Delegation, DelegationScope, AuctionActionResult, AuctionScope, AuctionView, AuditRow, BankAccount, DepositRow, IbanCheck, MarkRow, NameListing, OwnerCrm, OwnerProfile, Preferences, SimilarHit, StaffBankAccount, StaffRole, TicketRouting, WalletRow, Withdrawal } from './types'
+import type { ActivityEntry, ActivityFilter, Certificate, CertificateItem, CertificateScope, CertificateStatus, Delegation, DelegationScope, AuctionActionResult, AuctionScope, AuctionView, AuditRow, BankAccount, DepositRow, IbanCheck, MarkRow, NameListing, OwnerCrm, OwnerProfile, Preferences, SimilarHit, StaffBankAccount, StaffRole, TicketRouting, WalletRow, Withdrawal } from './types'
 import { ALL_PERMISSIONS, COMMITTEE_DEFAULT, COMMITTEE_ROLE_ID, permissionLabel } from './permissions'
 import type { Permission } from './permissions'
 import { demoRules, ensureOpen, ensureWritable, logAction, publicOf, readLog, readRouting, readSettings, writeRouting, writeSettings } from './demoSettings'
@@ -14,6 +14,7 @@ import { maskEmail, maskPhone, otpDigits } from './otp'
 import { namesCount } from './format'
 import { SEED_EVENTS } from './events'
 import { certNo } from './cert'
+import { isLatinQuery, latinKey, toLatin } from './translit'
 import { SIMILAR_THRESHOLD, findMatches, normalizeName, relation, sameForms, similarity, validateName } from './names'
 import { emailTicketEvent, normalizePhone, publicTicket, validateTicket } from './tickets'
 import type { MatchSource } from './names'
@@ -24,6 +25,8 @@ import type {
 
 interface DemoUser extends User {
   password: string
+  /** the owner's name in Latin letters, as in their passport */
+  fullNameEn?: string
   prefs?: Preferences
   failedLogins?: number
   lockedUntil?: number
@@ -33,6 +36,10 @@ interface DemoUser extends User {
   /** owner profile (sign-up and the dashboard) */
   p?: Omit<OwnerProfile, 'emailVerified' | 'completion' | 'missing'>
   emailVerifiedAt?: string
+}
+interface DemoCert {
+  id: string; number: string; ownerId: string; scope: CertificateScope; ownerNameAr: string; ownerNameEn: string; nationalId?: string; nationality?: string
+  items: Omit<CertificateItem, 'current' | 'typeLabel'>[]; issuedAt: string; signature: string; revokedAt?: string; revokedBy?: string; revokeReason?: string
 }
 interface AutoBid { auctionId: string; userId: string; max: number; createdAt: string }
 interface Watch { auctionId: string; userId: string; notifiedStart?: boolean; notifiedEnd?: boolean }
@@ -44,6 +51,7 @@ interface DB {
   auctions: Auction[]
   bids: Bid[]
   reserved: ReservedName[]
+  certificates?: DemoCert[]
   txs: WalletTx[]
   invoices: Invoice[]
   events: CamelEvent[]
@@ -1194,9 +1202,10 @@ const rawApi: SammhaApi = {
       const u = db.users.find((x) => (r.ownerId ? x.id === r.ownerId : x.fullName === r.ownerName))
       return u?.showAvatar && u.avatarUrl ? u.avatarUrl : undefined
     }
+    const latin = q && isLatinQuery(q) ? latinKey(q.trim()) : ''
     return db.reserved.map((r) => ({ ...r, ownerAvatar: avatar(r) }))
       .filter((r) => (type && type !== 'all' ? r.type === type : true))
-      .filter((r) => (n ? r.normalized.includes(n) || r.ownerName.includes(q!) : true))
+      .filter((r) => (latin ? latinKey(latinOf(r)).includes(latin) : n ? r.normalized.includes(n) || r.ownerName.includes(q!) : true))
       .sort((a, b) => Date.parse(b.acquiredAt) - Date.parse(a.acquiredAt))
   }),
 
@@ -2395,6 +2404,99 @@ const rawApi: SammhaApi = {
     return pageActivity(list, f, 500)
   }),
 
+  // ───── certificates (bilingual, signed, issued at once) ─────
+  verifyIssuedCertificate: (number, sig) => tx((db) => {
+    const c = (db.certificates ?? []).find((x) => x.number === number.trim().toUpperCase())
+    if (!c) return null
+    const { items, status } = certCurrent(db, c)
+    const intact = certSign(c) === c.signature
+    return {
+      number: c.number, scope: c.scope, ownerNameAr: c.ownerNameAr, ownerNameEn: c.ownerNameEn, nationality: c.nationality, issuedAt: c.issuedAt,
+      status: intact ? status : 'revoked', signatureMatches: sig ? intact && sig.replace(/\s/g, '').toUpperCase() === c.signature : undefined,
+      revokedAt: c.revokedAt, revokeReason: intact ? c.revokeReason : 'تعذّر التحقق من سلامة بيانات الشهادة', items,
+    }
+  }),
+  myCertificates: () => tx((db) => { const u = me(db); return (db.certificates ?? []).filter((c) => c.ownerId === u.id).sort((a, b) => b.issuedAt.localeCompare(a.issuedAt)).map((c) => certDto(db, c)) }),
+  myCertificate: (number) => tx((db) => {
+    const u = me(db)
+    const c = (db.certificates ?? []).find((x) => x.number === number.trim().toUpperCase())
+    if (!c) throw new ApiError('الشهادة غير موجودة')
+    if (c.ownerId !== u.id) need(db, 'certificates.manage')
+    return certDto(db, c)
+  }),
+  issueCertificate: ({ scope, reservedNameId, ownerNameEn }) => tx((db) => {
+    const u = writer(db)
+    if (u.role !== 'owner') throw new ApiError('الشهادات لحسابات ملاك الإبل')
+    if (!u.p?.firstName || !u.p?.familyName || !u.nationalId) throw new ApiError('أكمل بياناتك الشخصية (الاسم ورقم الهوية) في «حسابي» قبل إصدار الشهادة')
+    const list = (db.certificates ??= [])
+    if (list.filter((c) => c.ownerId === u.id && Date.parse(c.issuedAt) > now() - 864e5).length >= 30) throw new ApiError('بلغت حد الإصدار اليومي (30 شهادة)، حاول غدًا')
+    let marks: ReservedName[]
+    if (scope === 'mark') {
+      const r = db.reserved.find((x) => x.id === reservedNameId)
+      if (!reservedNameId) throw new ApiError('اختر الشعار')
+      if (!r) throw new ApiError('الشعار غير موجود')
+      if (r.ownerId !== u.id) throw new ApiError('هذا الشعار ليس مسجلًا باسمك')
+      marks = [r]
+    } else {
+      marks = db.reserved.filter((x) => x.ownerId === u.id).sort((a, b) => a.acquiredAt.localeCompare(b.acquiredAt))
+      if (!marks.length) throw new ApiError('لا توجد شعارات مسجلة باسمك بعد')
+    }
+    let en = (ownerNameEn ?? '').trim().replace(/\s+/g, ' ')
+    if (en) {
+      if (!/^[A-Za-z][A-Za-z .'\-]{3,118}[A-Za-z.]$/.test(en)) throw new ApiError('اكتب اسمك بالإنجليزية بحروف لاتينية كما في جواز السفر')
+      u.fullNameEn = en
+    } else en = u.fullNameEn ?? toLatin(u.fullName)
+    db.seq += 1
+    const issued = new Date(Math.floor(now() / 1000) * 1000)
+    const c: DemoCert = {
+      id: uid(db, 'crt'), number: `SC-${issued.getUTCFullYear()}-${String(list.length + 1).padStart(6, '0')}`, ownerId: u.id, scope: scope === 'portfolio' ? 'portfolio' : 'mark',
+      ownerNameAr: u.fullName, ownerNameEn: en, nationalId: u.nationalId, nationality: u.p?.nationality,
+      items: marks.map((r) => ({ id: r.id, name: r.name, latin: latinOf(r), type: r.type, acquiredAt: r.acquiredAt, registryCode: certNo(r), source: r.source, baseName: r.baseName })),
+      issuedAt: issued.toISOString(), signature: '',
+    }
+    c.signature = certSign(c)
+    list.push(c)
+    notify(db, u.id, 'certificate', `صدرت شهادة ${c.number}`, `شهادة تسجيل ${c.scope === 'mark' ? `شعار «${marks[0].name}»` : `جميع شعاراتك (${marks.length})`}، موثقة من المنظمة الدولية للإبل.`, `/dashboard/certificates/${c.number}`)
+    return certDto(db, c)
+  }),
+  staffCertificates: (f = {}) => tx((db) => {
+    need(db, 'certificates.manage')
+    let list = [...(db.certificates ?? [])].sort((a, b) => b.issuedAt.localeCompare(a.issuedAt))
+    if (f.q?.trim()) { const t = f.q.trim(); list = list.filter((c) => c.number.includes(t.toUpperCase()) || c.ownerNameAr.includes(t) || c.ownerNameEn.toLowerCase().includes(t.toLowerCase()) || c.items.some((i) => i.name.includes(t))) }
+    if (f.status === 'revoked') list = list.filter((c) => c.revokedAt)
+    if (f.status === 'active') list = list.filter((c) => !c.revokedAt)
+    const page = Math.max(1, f.page ?? 1)
+    return { items: list.slice((page - 1) * 50, page * 50).map((c) => certDto(db, c)), total: list.length }
+  }),
+  staffCertificate: (number) => tx((db) => {
+    need(db, 'certificates.manage')
+    const c = (db.certificates ?? []).find((x) => x.number === number.trim().toUpperCase())
+    if (!c) throw new ApiError('الشهادة غير موجودة')
+    return certDto(db, c)
+  }),
+  revokeCertificate: (id, reason) => tx((db) => {
+    const s = need(db, 'certificates.manage')
+    const c = (db.certificates ?? []).find((x) => x.id === id)
+    if (!c) throw new ApiError('الشهادة غير موجودة')
+    if ((reason ?? '').trim().length < 5) throw new ApiError('اكتب سبب الإلغاء')
+    if (c.revokedAt) throw new ApiError('الشهادة ملغاة مسبقًا')
+    c.revokedAt = iso(now()); c.revokedBy = s.fullName; c.revokeReason = reason.trim().slice(0, 300)
+    notify(db, c.ownerId, 'certificate', `أُلغيت الشهادة ${c.number}`, `السبب: ${c.revokeReason}. يمكنك إصدار شهادة جديدة.`, '/dashboard/certificates')
+    return certDto(db, c)
+  }),
+  setLatinName: (id, latin) => tx((db) => {
+    need(db, 'names.latin')
+    const r = db.reserved.find((x) => x.id === id)
+    if (!r) throw new ApiError('الاسم غير موجود')
+    const v = (latin ?? '').trim().replace(/\s+/g, ' ')
+    if (!v) delete r.latinName
+    else {
+      if (v.length > 80 || !/^[A-Za-z][A-Za-z '\-’]*$/.test(v)) throw new ApiError('الكتابة اللاتينية بحروف إنجليزية فقط (مع - أو \')')
+      r.latinName = v
+    }
+    return { ...r }
+  }),
+
   // ───── account delegation ─────
   myDelegations: () => tx((db) => {
     const u = ownerSelf(db)
@@ -2490,10 +2592,11 @@ const ACT_KEY = 'sammha-demo-activity'
 const ACTING_KEY = 'sammha-demo-acting'
 const ACT_CATEGORIES: Record<string, string> = {
   auth: 'الدخول', account: 'الحساب', requests: 'طلبات الشعارات', auctions: 'المزادات', payments: 'المدفوعات', finance: 'المالية',
-  users: 'المستخدمون والأدوار', settings: 'الإعدادات', tickets: 'الشكاوى والبلاغات', delegation: 'التفويض', content: 'المحتوى', reports: 'التقارير',
+  users: 'المستخدمون والأدوار', settings: 'الإعدادات', tickets: 'الشكاوى والبلاغات', delegation: 'التفويض', content: 'المحتوى', reports: 'التقارير', certificates: 'الشهادات',
 }
 /** each write and its label in the log (same labels as the API) */
 const ACT: Record<string, [string, string]> = {
+  issueCertificate: ['إصدار شهادة', 'certificates'], revokeCertificate: ['إلغاء شهادة', 'certificates'], setLatinName: ['تعديل الكتابة اللاتينية لاسم', 'certificates'],
   startSignIn: ['محاولة دخول', 'auth'], completeSignIn: ['تسجيل دخول', 'auth'], signOut: ['تسجيل خروج', 'auth'], startSignUp: ['بدء إنشاء حساب', 'auth'], signUp: ['إنشاء حساب مالك', 'auth'],
   changePassword: ['تغيير كلمة المرور', 'account'], revokeMySession: ['إخراج جهاز', 'account'], signOutEverywhere: ['خروج من كل الأجهزة', 'account'], updateMyAccount: ['تعديل بيانات الحساب', 'account'],
   updateMyProfile: ['تعديل الصورة الشخصية', 'account'], updateMyPersonal: ['إكمال البيانات الشخصية', 'account'], updateMyAddress: ['تعديل العنوان', 'account'],
@@ -2534,6 +2637,57 @@ function pageActivity(all: ActivityEntry[], f: ActivityFilter, max: number) {
 const HIDDEN = new Set(['myActivity', 'myBankAccount', 'myBankDocument', 'mySessions', 'mySecurity', 'myDelegations', 'myWithdrawals'])
 const SECRET = /password|code|challenge|token|base64|iban|card|secret|^cur$|^next$/i
 
+/** the registry's Latin spelling: staff's override, or the transliteration (same as the API's Mapper.LatinOf) */
+function latinOf(r: { name: string; latinName?: string }) { return r.latinName?.trim() || toLatin(r.name) }
+const TYPE_EN: Record<string, string> = { qaadan: "Qa'dan (young males)", bakkar: 'Bakkar (young females)', manqiya: 'Manqiya (select herd)' }
+const TYPE_AR: Record<string, string> = { qaadan: 'القعدان', bakkar: 'البكار', manqiya: 'المنقية' }
+/** demo signature: a keyed hash of the content (the API uses HMAC-SHA256 with a server secret) */
+function certSign(c: DemoCert) {
+  const content = [c.number, c.ownerId, c.ownerNameAr, c.ownerNameEn, c.nationalId ?? '', Math.floor(Date.parse(c.issuedAt) / 1000), JSON.stringify(c.items)].join('|')
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let h1 = 0xdeadbeef ^ 0x5a5a, h2 = 0x41c6ce57
+  for (let i = 0; i < content.length; i++) { const ch = content.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677) }
+  let out = ''
+  for (let i = 0; i < 16; i++) {
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ i
+    if (i && i % 4 === 0) out += '-'
+    out += A[(h1 >>> 0) % A.length]
+  }
+  return out
+}
+function certCurrent(db: DB, c: DemoCert) {
+  const items: CertificateItem[] = c.items.map((i) => {
+    const r = db.reserved.find((x) => x.id === i.id)
+    return { ...i, typeLabel: `${TYPE_AR[i.type] ?? i.type} · ${TYPE_EN[i.type] ?? i.type}`, current: !r ? 'removed' : r.ownerId === c.ownerId ? 'valid' : 'transferred' }
+  })
+  const held = items.filter((i) => i.current === 'valid').length
+  const status: CertificateStatus = c.revokedAt ? 'revoked' : held === items.length ? 'valid' : held === 0 ? 'superseded' : 'partial'
+  return { items, status }
+}
+function certDto(db: DB, c: DemoCert): Certificate {
+  const { items, status } = certCurrent(db, c)
+  const id = c.nationalId
+  return {
+    id: c.id, number: c.number, scope: c.scope, ownerId: c.ownerId, ownerNameAr: c.ownerNameAr, ownerNameEn: c.ownerNameEn,
+    nationalIdMasked: id ? (id.length <= 4 ? id : '•'.repeat(id.length - 4) + id.slice(-4)) : undefined, nationality: c.nationality,
+    issuedAt: c.issuedAt, signature: c.signature, status, revokedAt: c.revokedAt, revokeReason: c.revokeReason, items, itemCount: items.length,
+  }
+}
+/** every name and auction the demo returns carries its Latin spelling, like the API's DTOs */
+function withLatin<T>(v: T, depth = 0): T {
+  if (!v || typeof v !== 'object' || depth > 3) return v
+  if (Array.isArray(v)) return v.map((x) => withLatin(x, depth + 1)) as T
+  const o = v as Record<string, unknown>
+  if (typeof o.name === 'string' && typeof o.normalized === 'string' && typeof o.acquiredAt === 'string') {
+    const r = o as unknown as ReservedName
+    return { ...o, latin: latinOf(r), latinOverride: r.latinName ? true : undefined } as T
+  }
+  if (typeof o.name === 'string' && typeof o.openingPrice === 'number') return { ...o, latin: toLatin(o.name as string) } as T
+  let changed = false
+  const out: Record<string, unknown> = {}
+  for (const [k, x] of Object.entries(o)) { const y = x && typeof x === 'object' ? withLatin(x, depth + 1) : x; if (y !== x) changed = true; out[k] = y }
+  return (changed ? out : o) as T
+}
 function readActivity(): ActivityEntry[] { try { return JSON.parse(localStorage.getItem(ACT_KEY) ?? '[]') } catch { return [] } }
 function readActing(): { delegationId: string; actorId: string } | null { try { return JSON.parse(localStorage.getItem(ACTING_KEY) ?? 'null') } catch { return null } }
 function writeActing(a: { delegationId: string; actorId: string } | null) { try { if (a) localStorage.setItem(ACTING_KEY, JSON.stringify(a)); else localStorage.removeItem(ACTING_KEY) } catch { /* ignore */ } }
@@ -2620,8 +2774,9 @@ export const demoApi: SammhaApi = new Proxy(rawApi, {
       }
       const who = getSession()
       const out = (fn as (...a: unknown[]) => unknown).apply(target, args)
-      if (!ACT[prop] || !(out instanceof Promise)) return out
-      return out.then((r) => { logActivity(prop, args, true, undefined, r, prop === 'signOut' ? who : null); return r }, (e: Error) => { logActivity(prop, args, false, e.message); throw e })
+      if (!(out instanceof Promise)) return out
+      if (!ACT[prop]) return out.then((r) => withLatin(r))
+      return out.then((r) => withLatin(r)).then((r) => { logActivity(prop, args, true, undefined, r, prop === 'signOut' ? who : null); return r }, (e: Error) => { logActivity(prop, args, false, e.message); throw e })
     }
   },
 }) as SammhaApi

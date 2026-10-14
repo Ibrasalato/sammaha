@@ -1,3 +1,4 @@
+import { tr } from '../lib/i18n'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { SELLER } from '../lib/config'
@@ -19,7 +20,7 @@ export function ClosedNotice({ intake, className = '' }: { intake: Intake; class
   return (
     <div role="status" className={`flex items-start gap-3 rounded-xl border border-gold/50 bg-gold-soft p-4 text-[15px] leading-7 text-gold-deep ${className}`}>
       <Icon name="lock" className="mt-1 h-5 w-5 shrink-0" />
-      <div><b className="block text-ink">الخدمة متوقفة مؤقتًا</b>{msg}</div>
+      <div><b className="block text-ink">{tr('الخدمة متوقفة مؤقتًا', 'Service temporarily paused')}</b>{msg}</div>
     </div>
   )
 }
@@ -30,7 +31,7 @@ export function ClosedPage({ intake, title, back = '/dashboard' }: { intake: Int
     <>
       <h1 className="mb-5 text-2xl">{title}</h1>
       <ClosedNotice intake={intake} />
-      <Link to={back} className="btn-ghost mt-5">رجوع للوحة التحكم</Link>
+      <Link to={back} className="btn-ghost mt-5">{tr('رجوع للوحة التحكم', 'Back to dashboard')}</Link>
     </>
   )
 }
@@ -45,7 +46,7 @@ export function SiteBanner({ dashboard = false }: { dashboard?: boolean }) {
         <div role="status" className="border-b border-bad/20 bg-bad/10 text-bad">
           <div className={`${dashboard ? 'px-4 lg:px-6' : 'wrap'} flex items-center gap-2 py-2.5 text-[14.5px] font-bold`}>
             <Icon name="alert" className="h-4 w-4 shrink-0" />
-            <span>{s.maintenanceNote || 'المنصة في صيانة قصيرة: التصفح متاح، والطلبات والمزايدة والدفع متوقفة مؤقتًا.'}</span>
+            <span>{s.maintenanceNote || tr('المنصة في صيانة قصيرة: التصفح متاح، والطلبات والمزايدة والدفع متوقفة مؤقتًا.', 'The platform is under brief maintenance: browsing is available, while requests, bidding and payments are temporarily paused.')}</span>
           </div>
         </div>
       )}

@@ -1,3 +1,4 @@
+import { tr } from '../lib/i18n'
 /** Grey placeholder with a soft shimmer, shown while data loads. */
 export function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`skeleton rounded-md bg-stone-deep ${className}`} aria-hidden />
@@ -6,7 +7,7 @@ export function Skeleton({ className = '' }: { className?: string }) {
 /** Generic page placeholder: a heading and a few panels. */
 export function PageSkeleton() {
   return (
-    <div className="space-y-4 py-6" role="status" aria-label="جارٍ التحميل">
+    <div className="space-y-4 py-6" role="status" aria-label={tr('جارٍ التحميل', 'Loading')}>
       <Skeleton className="h-8 w-56" />
       <Skeleton className="h-4 w-80 max-w-full" />
       <div className="grid gap-4 pt-2 sm:grid-cols-2 lg:grid-cols-3">

@@ -18,8 +18,8 @@ export function PageBand({ title, sub }: { title: string; sub?: string }) {
 function Doc({ children }: { children: ReactNode }) {
   return (
     <div className="wrap py-12">
-      {getLang() === 'en' && <p className="mx-auto mb-4 max-w-3xl rounded-md border border-gold/40 bg-gold-soft px-4 py-3 text-[15px]">This document is published in Arabic, which is the authoritative version. An English translation will follow.</p>}
-      <article dir="rtl" lang="ar" className="panel mx-auto max-w-3xl space-y-6 p-6 text-[16px] leading-8 sm:p-10 [&_h2]:mt-2 [&_h2]:text-[21px] [&_li]:mt-1.5 [&_ol]:list-decimal [&_ol]:ps-6 [&_ul]:list-disc [&_ul]:ps-6">
+      {getLang() === 'en' && <p className="mx-auto mb-4 max-w-3xl rounded-md border border-gold/40 bg-gold-soft px-4 py-3 text-[15px]">This is an English translation for convenience. The Arabic version is the authoritative one.</p>}
+      <article dir={getLang() === 'ar' ? 'rtl' : 'ltr'} lang={getLang()} className="panel mx-auto max-w-3xl space-y-6 p-6 text-[16px] leading-8 sm:p-10 [&_h2]:mt-2 [&_h2]:text-[21px] [&_li]:mt-1.5 [&_ol]:list-decimal [&_ol]:ps-6 [&_ul]:list-disc [&_ul]:ps-6">
         {children}
       </article>
     </div>
@@ -47,6 +47,7 @@ const FAQ_EN: [string, string][] = [
   ['What is Sammha?', 'A platform of the International Camel Organization that organises camel names and brand marks, auctions them publicly and registers them to their owners.'],
   ['What are the name categories?', 'Two families: “Single” (mafareed) for one camel, covering Bakkar (female names) and Qaadan (male names); and “Manqiya” for a herd. Qaadan appear in purple, Bakkar in green and Manqiya in gold.'],
   ['How do I request a name?', `Create an account, choose “New request” in your dashboard, pick the type, enter ${RULES.namesPerRequest} proposed names and pay the auction guarantee.`],
+  ['How many names are accepted per request?', `Only one. You enter ${RULES.namesPerRequest} proposed names to raise your chances; the Accreditation Committee accepts one of them for auction and the rest are declined automatically.`],
   ['Why was my name rejected immediately?', 'It is identical to a registered name or to a name in an active request or auction. Similar names are accepted for review by the committee.'],
   ['How much is the guarantee and when is it refunded?', `SAR ${RULES.depositAmount} per request. It returns to your wallet if the request is declined or cancelled, or if all its names are won by others. If you win a name from your own request it is deducted from that invoice.`],
   ['How does bidding work?', `Each name opens at SAR ${RULES.openingPrice} with a minimum raise of SAR ${RULES.minIncrement}. A bid in the last ${RULES.extendMinutes} minutes extends the auction by ${RULES.extendMinutes} minutes.`],
@@ -84,40 +85,40 @@ export function Terms() {
     <>
       <PageBand title={tr('الشروط والأحكام', 'Terms and conditions')} sub={UPDATED()} />
       <Doc>
-        <p>باستخدامك منصة سمّها فإنك توافق على هذه الشروط. تُدار المنصة من المنظمة الدولية للإبل، ويُشار إليها فيما يلي بـ«المنصة».</p>
-        <h2>الحساب</h2>
+        <p>{tr('باستخدامك منصة سمّها فإنك توافق على هذه الشروط. تُدار المنصة من المنظمة الدولية للإبل، ويُشار إليها فيما يلي بـ«المنصة».', 'By using Sammha you agree to these terms. The platform is operated by the International Camel Organization (ICO), referred to below as "the platform".')}</p>
+        <h2>{tr('الحساب', 'Account')}</h2>
         <ul>
-          <li>يجب أن تكون بيانات التسجيل صحيحة ومطابقة لهوية المالك.</li>
-          <li>أنت مسؤول عن سرية كلمة المرور وعن كل ما يتم من خلال حسابك.</li>
+          <li>{tr('يجب أن تكون بيانات التسجيل صحيحة ومطابقة لهوية المالك.', "Registration details must be accurate and match the owner's identity.")}</li>
+          <li>{tr('أنت مسؤول عن سرية كلمة المرور وعن كل ما يتم من خلال حسابك.', 'You are responsible for keeping your password confidential and for all activity on your account.')}</li>
         </ul>
-        <h2>طلب الأسماء</h2>
+        <h2>{tr('طلب الأسماء', 'Requesting names')}</h2>
         <ul>
-          <li>يُقدَّم كل طلب بعدد {RULES.namesPerRequest} أسماء من نوع واحد (قعدان أو بكار).</li>
-          <li>لا يُقبل اسم مطابق تمامًا لاسم مسجل أو قيد الطلب أو المزاد.</li>
-          <li>للجنة الاعتماد قبول أي اسم أو رفضه، ومنها الأسماء الشبيهة أو المخالفة للذوق العام، وقرارها نهائي.</li>
+          <li>{tr(`يُقدَّم كل طلب بعدد ${RULES.namesPerRequest} أسماء من نوع واحد (قعدان أو بكار).`, `Each request contains ${RULES.namesPerRequest} names of one type (Qaadan or Bakkar).`)}</li>
+          <li>{tr('لا يُقبل اسم مطابق تمامًا لاسم مسجل أو قيد الطلب أو المزاد.', 'A name identical to a registered name, or to one in an active request or auction, is not accepted.')}</li>
+          <li>{tr('للجنة الاعتماد قبول أي اسم أو رفضه، ومنها الأسماء الشبيهة أو المخالفة للذوق العام، وقرارها نهائي.', 'The Accreditation Committee may accept or reject any name, including similar names or names contrary to public taste, and its decision is final.')}</li>
         </ul>
-        <h2>ضمان المزاد</h2>
+        <h2>{tr('ضمان المزاد', 'Auction guarantee')}</h2>
         <ul>
-          <li>يُسدَّد ضمان قدره {RULES.depositAmount} ريال مع كل طلب قبل وصوله إلى اللجنة.</li>
-          <li>يُعاد الضمان إلى محفظة المالك عند رفض الطلب أو إلغائه، أو عند ترسية جميع أسمائه على غيره.</li>
-          <li>إذا رسا على مقدم الطلب اسم من طلبه يُخصم الضمان من قيمة فاتورته.</li>
+          <li>{tr(`يُسدَّد ضمان قدره ${RULES.depositAmount} ريال مع كل طلب قبل وصوله إلى اللجنة.`, `A guarantee of SAR ${RULES.depositAmount} is paid with each request before it reaches the committee.`)}</li>
+          <li>{tr('يُعاد الضمان إلى محفظة المالك عند رفض الطلب أو إلغائه، أو عند ترسية جميع أسمائه على غيره.', "The guarantee returns to the owner's wallet if the request is rejected or cancelled, or if all its names are won by others.")}</li>
+          <li>{tr('إذا رسا على مقدم الطلب اسم من طلبه يُخصم الضمان من قيمة فاتورته.', 'If the applicant wins a name from their own request, the guarantee is deducted from its invoice.')}</li>
         </ul>
-        <h2>المزايدة والترسية</h2>
+        <h2>{tr('المزايدة والترسية', 'Bidding and award')}</h2>
         <ul>
-          <li>السعر الافتتاحي {RULES.openingPrice} ريال، وأقل زيادة {RULES.minIncrement} ريال، والمواعيد بتوقيت الرياض.</li>
-          <li>المزايدة التزام بالشراء ولا يجوز سحبها.</li>
-          <li>المزايدة في آخر {RULES.extendMinutes} دقيقة تمدّد المزاد {RULES.extendMinutes} دقيقة.</li>
-          <li>يرسو الاسم على أعلى مزايد عند انتهاء الوقت، وإن لم تُسجل مزايدات يرسو على مقدم الطلب بمبلغ الضمان.</li>
-          <li>تصدر للفائز فاتورة ضريبية إلكترونية، والأسعار شاملة ضريبة القيمة المضافة 15%.</li>
+          <li>{tr(`السعر الافتتاحي ${RULES.openingPrice} ريال، وأقل زيادة ${RULES.minIncrement} ريال، والمواعيد بتوقيت الرياض.`, `The opening price is SAR ${RULES.openingPrice}, the minimum raise is SAR ${RULES.minIncrement}, and all times are Riyadh time.`)}</li>
+          <li>{tr('المزايدة التزام بالشراء ولا يجوز سحبها.', 'A bid is a commitment to buy and cannot be withdrawn.')}</li>
+          <li>{tr(`المزايدة في آخر ${RULES.extendMinutes} دقيقة تمدّد المزاد ${RULES.extendMinutes} دقيقة.`, `A bid in the last ${RULES.extendMinutes} minutes extends the auction by ${RULES.extendMinutes} minutes.`)}</li>
+          <li>{tr('يرسو الاسم على أعلى مزايد عند انتهاء الوقت، وإن لم تُسجل مزايدات يرسو على مقدم الطلب بمبلغ الضمان.', 'The name is awarded to the highest bidder when time runs out; if there are no bids, it goes to the applicant for the guarantee amount.')}</li>
+          <li>{tr('تصدر للفائز فاتورة ضريبية إلكترونية، والأسعار شاملة ضريبة القيمة المضافة 15%.', 'The winner receives an electronic tax invoice. Prices include 15% VAT.')}</li>
         </ul>
-        <h2>ربط الأسماء</h2>
+        <h2>{tr('ربط الأسماء', 'Linking names')}</h2>
         <ol>
-          <li>يجب أن يكون الاسم مرتبطًا بشريحة إلكترونية للمشاركة في المهرجانات والفعاليات.</li>
-          <li>لا يحق بيع الاسم أو استخدامه على فردي أو فردية أخرى بعد ربطه بشريحة.</li>
-          <li>يجب أن يرتبط اسم المتن باسم المشارك نفسه.</li>
+          <li>{tr('يجب أن يكون الاسم مرتبطًا بشريحة إلكترونية للمشاركة في المهرجانات والفعاليات.', 'A name must be linked to a microchip to take part in festivals and events.')}</li>
+          <li>{tr('لا يحق بيع الاسم أو استخدامه على فردي أو فردية أخرى بعد ربطه بشريحة.', 'Once linked to a microchip, a name may not be sold or used on another camel.')}</li>
+          <li>{tr('يجب أن يرتبط اسم المتن باسم المشارك نفسه.', "The name must be linked to the participant's own name.")}</li>
         </ol>
-        <h2>إساءة الاستخدام</h2>
-        <p>للمنصة إيقاف أي حساب يتلاعب بالمزايدات أو يقدّم بيانات غير صحيحة، وإلغاء ما ترتب على ذلك من ترسية.</p>
+        <h2>{tr('إساءة الاستخدام', 'Misuse')}</h2>
+        <p>{tr('للمنصة إيقاف أي حساب يتلاعب بالمزايدات أو يقدّم بيانات غير صحيحة، وإلغاء ما ترتب على ذلك من ترسية.', 'The platform may suspend any account that manipulates bids or provides false information, and cancel any resulting award.')}</p>
       </Doc>
     </>
   )
@@ -128,24 +129,24 @@ export function Privacy() {
     <>
       <PageBand title={tr('سياسة الخصوصية', 'Privacy policy')} sub={UPDATED()} />
       <Doc>
-        <p>نلتزم بحماية بياناتك الشخصية وفق نظام حماية البيانات الشخصية في المملكة العربية السعودية.</p>
-        <h2>البيانات التي نجمعها</h2>
+        <p>{tr('نلتزم بحماية بياناتك الشخصية وفق نظام حماية البيانات الشخصية في المملكة العربية السعودية.', "We protect your personal data in line with Saudi Arabia's Personal Data Protection Law.")}</p>
+        <h2>{tr('البيانات التي نجمعها', 'Data we collect')}</h2>
         <ul>
-          <li>بيانات الحساب: الاسم، رقم الجوال، البريد الإلكتروني، ورقم الهوية إن أدخلته.</li>
-          <li>بيانات الاستخدام: الطلبات والمزايدات والمدفوعات والفواتير.</li>
+          <li>{tr('بيانات الحساب: الاسم، رقم الجوال، البريد الإلكتروني، ورقم الهوية إن أدخلته.', 'Account data: name, mobile number, email, and ID number if you provide it.')}</li>
+          <li>{tr('بيانات الاستخدام: الطلبات والمزايدات والمدفوعات والفواتير.', 'Usage data: requests, bids, payments and invoices.')}</li>
         </ul>
-        <h2>كيف نستخدمها</h2>
+        <h2>{tr('كيف نستخدمها', 'How we use it')}</h2>
         <ul>
-          <li>إدارة حسابك وطلباتك ومزايداتك وإصدار الفواتير والشهادات.</li>
-          <li>إرسال التنبيهات المتعلقة بمزايداتك وطلباتك عبر المنصة والبريد والرسائل.</li>
-          <li>الوفاء بالمتطلبات النظامية، ومنها الفوترة الإلكترونية.</li>
+          <li>{tr('إدارة حسابك وطلباتك ومزايداتك وإصدار الفواتير والشهادات.', 'To manage your account, requests and bids, and to issue invoices and certificates.')}</li>
+          <li>{tr('إرسال التنبيهات المتعلقة بمزايداتك وطلباتك عبر المنصة والبريد والرسائل.', 'To send notifications about your bids and requests on the platform, by email and by message.')}</li>
+          <li>{tr('الوفاء بالمتطلبات النظامية، ومنها الفوترة الإلكترونية.', 'To meet regulatory requirements, including e-invoicing.')}</li>
         </ul>
-        <h2>ما يظهر للعامة</h2>
-        <p>يظهر في سجل الأسماء اسم الشعار واسم مالكه وتاريخ تسجيله. وتظهر المزايدات في صفحات المزاد باسم مختصر لا يكشف هوية المزايد كاملة.</p>
-        <h2>المشاركة مع الغير</h2>
-        <p>لا نبيع بياناتك. نشاركها فقط مع مزودي الخدمة اللازمين لتشغيل المنصة، مثل بوابة الدفع، وفي حدود ما يتطلبه النظام.</p>
-        <h2>حقوقك</h2>
-        <p>يحق لك طلب الاطلاع على بياناتك أو تصحيحها أو حذفها بما لا يتعارض مع المتطلبات النظامية، عبر {SELLER.email}.</p>
+        <h2>{tr('ما يظهر للعامة', 'What is public')}</h2>
+        <p>{tr('يظهر في سجل الأسماء اسم الشعار واسم مالكه وتاريخ تسجيله. وتظهر المزايدات في صفحات المزاد باسم مختصر لا يكشف هوية المزايد كاملة.', "The names registry shows the mark name, its owner's name and its registration date. Bids appear on auction pages under a shortened name that does not fully reveal the bidder's identity.")}</p>
+        <h2>{tr('المشاركة مع الغير', 'Sharing with third parties')}</h2>
+        <p>{tr('لا نبيع بياناتك. نشاركها فقط مع مزودي الخدمة اللازمين لتشغيل المنصة، مثل بوابة الدفع، وفي حدود ما يتطلبه النظام.', 'We do not sell your data. We share it only with service providers needed to run the platform, such as the payment gateway, and as required by law.')}</p>
+        <h2>{tr('حقوقك', 'Your rights')}</h2>
+        <p>{tr('يحق لك طلب الاطلاع على بياناتك أو تصحيحها أو حذفها بما لا يتعارض مع المتطلبات النظامية، عبر', 'You may request access to, correction of or deletion of your data, subject to regulatory requirements, by writing to')} {SELLER.email}.</p>
       </Doc>
     </>
   )
@@ -156,17 +157,16 @@ export function Refund() {
     <>
       <PageBand title={tr('سياسة الاسترداد', 'Refund policy')} sub={UPDATED()} />
       <Doc>
-        <h2>ضمان المزاد</h2>
+        <h2>{tr('ضمان المزاد', 'Auction guarantee')}</h2>
         <ul>
-          <li>يُعاد ضمان المزاد ({RULES.depositAmount} ريال) تلقائيًا إلى محفظتك في الحالات الآتية: رفض الطلب، إلغاء الطلب قبل مراجعته، إلغاء اللجنة للطلب، أو ترسية جميع أسماء الطلب على غيرك.</li>
-          <li>لا يُعاد الضمان إذا رسا عليك اسم من طلبك، إذ يُخصم من فاتورته.</li>
+          <li>{tr(`يُعاد ضمان المزاد (${RULES.depositAmount} ريال) تلقائيًا إلى محفظتك في الحالات الآتية: رفض الطلب، إلغاء الطلب قبل مراجعته، إلغاء اللجنة للطلب، أو ترسية جميع أسماء الطلب على غيرك.`, `The auction guarantee (SAR ${RULES.depositAmount}) is returned to your wallet automatically if the request is rejected, you cancel it before review, the committee cancels it, or all of its names are won by others.`)}</li>
+          <li>{tr('لا يُعاد الضمان إذا رسا عليك اسم من طلبك، إذ يُخصم من فاتورته.', 'The guarantee is not returned if you win a name from your own request; it is deducted from that invoice.')}</li>
         </ul>
-        <h2>رصيد المحفظة</h2>
-        <p>يمكنك استخدام رصيد المحفظة في طلبات ومدفوعات لاحقة، أو طلب تحويله إلى حسابك البنكي عبر التواصل معنا، ويُعالج الطلب خلال 7 أيام عمل.</p>
-        <h2>قيمة الاسم بعد الترسية</h2>
-        <p>المزايدة الفائزة التزام بالشراء، ولا تُسترد قيمة الاسم بعد سدادها إلا إذا ألغت المنصة الترسية لخطأ من جهتها.</p>
+        <h2>{tr('رصيد المحفظة', 'Wallet balance')}</h2>
+        <p>{tr('يمكنك استخدام رصيد المحفظة في طلبات ومدفوعات لاحقة، أو طلب تحويله إلى حسابك البنكي عبر التواصل معنا، ويُعالج الطلب خلال 7 أيام عمل.', 'You can use your wallet balance for later requests and payments, or ask us to transfer it to your bank account; requests are processed within 7 working days.')}</p>
+        <h2>{tr('قيمة الاسم بعد الترسية', 'Name price after award')}</h2>
+        <p>{tr('المزايدة الفائزة التزام بالشراء، ولا تُسترد قيمة الاسم بعد سدادها إلا إذا ألغت المنصة الترسية لخطأ من جهتها.', 'A winning bid is a commitment to buy. The price of a name is not refunded after payment unless the platform cancels the award due to its own error.')}</p>
       </Doc>
     </>
   )
 }
-

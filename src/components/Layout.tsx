@@ -11,6 +11,7 @@ import { Icon } from './dash'
 import { SiteBanner, useContact } from './SettingsUi'
 import { useStaffIdle } from './StaffIdle'
 import type { IconName } from './dash'
+import { RegionButton } from './Region'
 
 const PUBLIC_NAV = (): [string, string][] => [
   ['/', tr('الرئيسية', 'Home')],
@@ -44,6 +45,7 @@ function UtilityBar() {
         )}
         <span className="ms-auto flex items-center gap-4">
           <LangSwitch className="rounded border border-paper/25 px-2 py-px font-bold text-paper hover:bg-paper hover:text-pine" />
+          <RegionButton className="rounded border border-paper/25 px-2 py-px font-bold text-paper hover:bg-paper hover:text-pine" />
           <a className="hover:text-paper" href={`mailto:${contact.email}`}>{contact.email}</a>
           <a className="hidden hover:text-paper sm:inline" href={`https://wa.me/${contact.whatsapp}`} target="_blank" rel="noreferrer" dir="ltr">{contact.whatsapp.replace(/^966/, '0')}</a>
         </span>
@@ -137,7 +139,7 @@ export function Footer() {
             <li><a className="hover:text-paper" href={SELLER.x} target="_blank" rel="noreferrer">X: @samha_ico</a></li>
           </ul>
           <h3 className="mt-6 text-[13px] font-bold text-paper/60">{tr('وسائل الدفع', 'Payment methods')}</h3>
-          <div className="mt-2 flex flex-wrap gap-1.5" aria-label="وسائل الدفع المقبولة">
+          <div className="mt-2 flex flex-wrap gap-1.5" aria-label={tr('وسائل الدفع المقبولة', 'Accepted payment methods')}>
             {[tr('مدى', 'mada'), 'Visa', 'Mastercard', 'Apple Pay'].map((m) => <span key={m} className="rounded border border-paper/20 bg-paper/5 px-2 py-0.5 text-[12px] font-bold text-paper/85">{m}</span>)}
           </div>
         </div>
@@ -174,25 +176,26 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   useStaffIdle()
-  const roleLabel = user?.role === 'owner' ? 'مالك إبل' : user?.role === 'committee' ? 'لجنة الاعتماد' : 'مدير المنصة'
+  const roleLabel = user?.role === 'owner' ? tr('مالك إبل', 'Camel owner') : user?.role === 'committee' ? tr('لجنة الاعتماد', 'Accreditation Committee') : tr('مدير المنصة', 'Platform administrator')
   return (
     <div className="flex min-h-screen flex-col bg-stone">
       <header className="bg-pine text-paper">
         <div className="flex h-16 items-center gap-4 px-4 lg:px-6">
-          <button className="rounded-md border border-paper/25 px-2.5 py-1 text-sm font-bold lg:hidden" onClick={() => setOpen(!open)} aria-expanded={open}>القائمة</button>
-          <Link to="/" aria-label="الرئيسية"><Logo light className="h-10" /></Link>
+          <button className="rounded-md border border-paper/25 px-2.5 py-1 text-sm font-bold lg:hidden" onClick={() => setOpen(!open)} aria-expanded={open}>{tr('القائمة', 'Menu')}</button>
+          <Link to="/" aria-label={tr('الرئيسية', 'Home')}><Logo light className="h-10" /></Link>
           <span className="hidden border-s border-paper/20 ps-4 text-[17px] font-extrabold sm:inline">{title}</span>
-          {IS_DEMO && <span className="hidden rounded bg-gold/20 px-1.5 py-px text-[12px] font-bold text-gold-light md:inline">نسخة تجريبية</span>}
+          {IS_DEMO && <span className="hidden rounded bg-gold/20 px-1.5 py-px text-[12px] font-bold text-gold-light md:inline">{tr('نسخة تجريبية', 'Demo')}</span>}
           <div className="ms-auto flex items-center gap-3">
             <div className="hidden text-end leading-tight sm:block">
               <div className="text-[14px] font-bold">{user?.fullName}</div>
-              <div className="text-[12px] text-paper/60">{user?.acting ? `مفوَّض: ${user.acting.actorName}` : roleLabel}</div>
+              <div className="text-[12px] text-paper/60">{user?.acting ? `${tr('مفوَّض', 'Delegate')}: ${user.acting.actorName}` : roleLabel}</div>
             </div>
+            <LangSwitch className="rounded-md border border-paper/25 px-2 py-1 text-[12.5px] font-bold text-paper/90 hover:bg-paper/10" />
             <NotificationBell />
             {user && (user.role === 'owner'
-              ? <Link to="/dashboard/profile" aria-label="حسابي"><Avatar name={user.fullName} src={user.avatarUrl} size={36} /></Link>
-              : <Link to="/admin/account" aria-label="حسابي"><Avatar name={user.fullName} src={user.avatarUrl} size={36} /></Link>)}
-            <button className="btn-on-dark btn-sm" onClick={async () => { await api.signOut(); setUser(null); navigate('/') }}>خروج</button>
+              ? <Link to="/dashboard/profile" aria-label={tr('حسابي', 'My account')}><Avatar name={user.fullName} src={user.avatarUrl} size={36} /></Link>
+              : <Link to="/admin/account" aria-label={tr('حسابي', 'My account')}><Avatar name={user.fullName} src={user.avatarUrl} size={36} /></Link>)}
+            <button className="btn-on-dark btn-sm" onClick={async () => { await api.signOut(); setUser(null); navigate('/') }}>{tr('خروج', 'Sign out')}</button>
           </div>
         </div>
         <div className="h-[3px] bg-gold" aria-hidden />
@@ -202,8 +205,8 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
         <div className="border-b border-gold/40 bg-gold-soft px-4 py-2.5 lg:px-6 print:hidden" role="status">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[14px]">
             <Icon name="users" className="h-[18px] w-[18px] text-gold-deep" />
-            <span>أنت <b>{user.acting.actorName}</b> تدير حساب <b>{user.fullName}</b> بالتفويض{user.acting.endsAt ? ` حتى ${new Date(user.acting.endsAt).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn')}` : ''}. كل إجراء يُسجَّل باسمك.</span>
-            <button className="btn-primary btn-sm ms-auto" onClick={async () => { try { setUser(await api.stopActing()); navigate('/dashboard/settings?tab=delegation') } catch { setUser(null); navigate('/') } }}>العودة إلى حسابي</button>
+            <span>{tr('أنت', 'You,')} <b>{user.acting.actorName}</b>{tr(' تدير حساب ', ', are managing the account of ')}<b>{user.fullName}</b>{tr(' بالتفويض', ' by delegation')}{user.acting.endsAt ? ` ${tr('حتى', 'until')} ${new Date(user.acting.endsAt).toLocaleDateString(tr('ar-SA-u-ca-gregory-nu-latn', 'en-GB'))}` : ''}. {tr('كل إجراء يُسجَّل باسمك.', 'Every action is recorded under your name.')}</span>
+            <button className="btn-primary btn-sm ms-auto" onClick={async () => { try { setUser(await api.stopActing()); navigate('/dashboard/settings?tab=delegation') } catch { setUser(null); navigate('/') } }}>{tr('العودة إلى حسابي', 'Back to my account')}</button>
           </div>
         </div>
       )}
@@ -221,11 +224,11 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
                 </li>
               ))}
             </ul>
-            <p className="mb-2 mt-6 px-3 text-[12.5px] font-medium text-muted">المنصة</p>
+            <p className="mb-2 mt-6 px-3 text-[12.5px] font-medium text-muted">{tr('المنصة', 'Platform')}</p>
             <ul className="flex flex-col gap-0.5">
-              <li><Link to="/auctions" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium text-ink/75 hover:bg-stone hover:text-pine"><Icon name="gavel" className="h-[18px] w-[18px] text-muted" />المزادات المفتوحة</Link></li>
-              <li><Link to="/names" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium text-ink/75 hover:bg-stone hover:text-pine"><Icon name="tag" className="h-[18px] w-[18px] text-muted" />سجل الأسماء</Link></li>
-              <li><Link to="/" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium text-ink/75 hover:bg-stone hover:text-pine"><Icon name="home" className="h-[18px] w-[18px] text-muted" />الصفحة الرئيسية</Link></li>
+              <li><Link to="/auctions" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium text-ink/75 hover:bg-stone hover:text-pine"><Icon name="gavel" className="h-[18px] w-[18px] text-muted" />{tr('المزادات المفتوحة', 'Open auctions')}</Link></li>
+              <li><Link to="/names" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium text-ink/75 hover:bg-stone hover:text-pine"><Icon name="tag" className="h-[18px] w-[18px] text-muted" />{tr('سجل الأسماء', 'Names registry')}</Link></li>
+              <li><Link to="/" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium text-ink/75 hover:bg-stone hover:text-pine"><Icon name="home" className="h-[18px] w-[18px] text-muted" />{tr('الصفحة الرئيسية', 'Home page')}</Link></li>
             </ul>
           </nav>
         </aside>
@@ -234,7 +237,7 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
         </main>
       </div>
       {/* mobile: the main sections stay one tap away */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden" aria-label="التنقل السريع">
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden" aria-label={tr('التنقل السريع', 'Quick navigation')}>
         <ul className="grid grid-cols-5">
           {nav.slice(0, 4).map(({ to, label, short, end, icon }) => (
             <li key={to}>
@@ -245,7 +248,7 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
           ))}
           <li>
             <button onClick={() => setOpen(true)} className="flex w-full flex-col items-center gap-1 px-1 py-2.5 text-[11.5px] font-bold text-muted">
-              <span className="grid h-7 w-12 place-items-center rounded-full"><Icon name="list" className="h-5 w-5" /></span>المزيد
+              <span className="grid h-7 w-12 place-items-center rounded-full"><Icon name="list" className="h-5 w-5" /></span>{tr('المزيد', 'More')}
             </button>
           </li>
         </ul>

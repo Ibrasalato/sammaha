@@ -1,3 +1,4 @@
+import { tr } from '../lib/i18n'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -101,7 +102,7 @@ export function WinAlert({ name, note, to, aside }: { name: string; note?: React
         <span className="absolute -end-0.5 -top-0.5 text-[13px]" aria-hidden>✦</span>
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[16.5px] font-extrabold text-ink">مبارك عليك الفوز بمزاد شعار «{name}»</span>
+        <span className="block text-[16.5px] font-extrabold text-ink">{tr('مبارك عليك الفوز بمزاد شعار', 'Congratulations on winning the auction for')} «{name}»</span>
         {note && <span className="mt-0.5 block text-[14px] font-medium text-gold-deep">{note}</span>}
       </span>
       {aside}
@@ -115,7 +116,7 @@ export function WinAlert({ name, note, to, aside }: { name: string; note?: React
 /** 4-step progress used for a request's journey */
 export function StepDots({ done }: { done: number }) {
   return (
-    <span className="flex items-center gap-1" aria-label={`${done} من 4`}>
+    <span className="flex items-center gap-1" aria-label={`${done} ${tr('من', 'of')} 4`}>
       {[0, 1, 2, 3].map((i) => <span key={i} className={`h-1.5 w-5 rounded-full ${i < done ? 'bg-ok' : 'bg-stone-deep'}`} />)}
     </span>
   )

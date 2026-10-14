@@ -115,7 +115,7 @@ export function StaffLogin() {
         <div className="p-7 sm:p-9">
           <div className="flex items-center justify-between">
             <Logo className="h-14" />
-            <span className="rounded bg-pine-soft px-2.5 py-1 text-[12.5px] font-bold text-pine">بوابة الموظفين</span>
+            <span className="rounded bg-pine-soft px-2.5 py-1 text-[12.5px] font-bold text-pine">{tr('بوابة الموظفين', 'Staff portal')}</span>
           </div>
           {otp ? (
             <div className="mt-6">
@@ -124,20 +124,20 @@ export function StaffLogin() {
                 onVerify={async (code) => { const u = await api.completeSignIn(otp.challenge, code); setUser(u); nav(from?.startsWith('/admin') ? from : '/admin', { replace: true }) }} />
             </div>
           ) : <>
-          <h1 className="mt-6 text-[24px]">دخول لجنة الاعتماد والإدارة</h1>
-          <p className="mt-1 text-[14.5px] text-muted">للموظفين المصرّح لهم فقط. الحسابات ينشئها مدير النظام.</p>
+          <h1 className="mt-6 text-[24px]">{tr('دخول لجنة الاعتماد والإدارة', 'Accreditation Committee and administration sign-in')}</h1>
+          <p className="mt-1 text-[14.5px] text-muted">{tr('للموظفين المصرّح لهم فقط. الحسابات ينشئها مدير النظام.', 'Authorized staff only. Accounts are created by the system administrator.')}</p>
           <form onSubmit={submit} className="mt-6 space-y-4">
             {err && <ErrorBox text={err} />}
-            <div><label className="label" htmlFor="sl">البريد الإلكتروني أو رقم الجوال</label><input id="sl" className="field" dir="ltr" autoComplete="username" value={login} onChange={(e) => setLogin(e.target.value)} required /></div>
+            <div><label className="label" htmlFor="sl">{tr('البريد الإلكتروني أو رقم الجوال', 'Email or mobile number')}</label><input id="sl" className="field" dir="ltr" autoComplete="username" value={login} onChange={(e) => setLogin(e.target.value)} required /></div>
             <div>
-              <label className="label" htmlFor="sp">كلمة المرور</label>
+              <label className="label" htmlFor="sp">{tr('كلمة المرور', 'Password')}</label>
               <input id="sp" type="password" className="field" dir="ltr" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-              {firstSuper && <p className="hint">في النسخة التجريبية: أول دخول لحساب مدير النظام يحفظ كلمة المرور التي تكتبها الآن (8 أحرف على الأقل).</p>}
+              {firstSuper && <p className="hint">{tr('في النسخة التجريبية: أول دخول لحساب مدير النظام يحفظ كلمة المرور التي تكتبها الآن (8 أحرف على الأقل).', 'In the demo: the first sign-in to the system administrator account saves the password you enter now (at least 8 characters).')}</p>}
             </div>
-            <button className="btn-primary w-full" disabled={busy}>دخول</button>
+            <button className="btn-primary w-full" disabled={busy}>{tr('دخول', 'Sign in')}</button>
           </form>
           </>}
-          <p className="mt-6 border-t border-line pt-4 text-center text-[13px] text-muted">نسيت كلمة المرور؟ تواصل مع مدير النظام. <Link to="/" className="font-bold text-pine underline">الصفحة الرئيسية</Link></p>
+          <p className="mt-6 border-t border-line pt-4 text-center text-[13px] text-muted">{tr('نسيت كلمة المرور؟ تواصل مع مدير النظام.', 'Forgot your password? Contact the system administrator.')} <Link to="/" className="font-bold text-pine underline">{tr('الصفحة الرئيسية', 'Home page')}</Link></p>
         </div>
       </div>
     </div>

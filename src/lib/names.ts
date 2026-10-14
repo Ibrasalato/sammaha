@@ -1,3 +1,4 @@
+import { tr } from './i18n'
 import type { MatchRelation, NameType, SimilarHit } from './types'
 
 /**
@@ -19,10 +20,10 @@ export function normalizeName(input: string): string {
 
 export function validateName(input: string): string | null {
   const raw = (input || '').trim()
-  if (!raw) return 'اكتب الاسم'
-  if (raw.length < 2) return 'الاسم قصير جدًا'
-  if (raw.length > 30) return 'الاسم أطول من 30 حرفًا'
-  if (!/^[؀-ۿ\s]+$/.test(raw)) return 'استخدم الحروف العربية فقط'
+  if (!raw) return tr('اكتب الاسم', 'Enter the name')
+  if (raw.length < 2) return tr('الاسم قصير جدًا', 'The name is too short')
+  if (raw.length > 30) return tr('الاسم أطول من 30 حرفًا', 'The name is longer than 30 characters')
+  if (!/^[؀-ۿ\s]+$/.test(raw)) return tr('استخدم الحروف العربية فقط', 'Use Arabic letters only')
   return null
 }
 
@@ -98,7 +99,12 @@ export function relation(candidate: string, other: string): MatchRelation {
 }
 
 export const RELATION_LABEL: Record<MatchRelation, string> = {
-  exact: 'مطابق تمامًا', article: 'مطابق بـ«ال» أو بدونها', gender: 'مذكر / مؤنث', plural: 'جمع للاسم', singular: 'مفرد للاسم', similar: 'مشابه',
+  get exact() { return tr('مطابق تمامًا', 'Exact match') },
+  get article() { return tr('مطابق بـ«ال» أو بدونها', 'Match with or without "Al"') },
+  get gender() { return tr('مذكر / مؤنث', 'Masculine / feminine') },
+  get plural() { return tr('جمع للاسم', 'Plural of the name') },
+  get singular() { return tr('مفرد للاسم', 'Singular of the name') },
+  get similar() { return tr('مشابه', 'Similar') },
 }
 
 export function findMatches(normalized: string, pool: MatchSource[]): SimilarHit[] {

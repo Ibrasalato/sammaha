@@ -1,17 +1,24 @@
 import { useEffect } from 'react'
 import { PageSkeleton } from './Skeleton'
-import { tr } from '../lib/i18n'
+import { getLang, tr } from '../lib/i18n'
 import type { ReactNode } from 'react'
 import { TYPE_CLS, TYPE_GROUPS, TYPE_HINT, TYPE_LABEL } from '../lib/config'
 import { remaining, remainingText } from '../lib/format'
 import { useNow } from '../lib/store'
 import type { AuctionPhase, NameType, RequestStatus } from '../lib/types'
 
+
 /**
  * Name tile — the one way a camel name is shown across the platform:
  * white name on the type colour (purple qaadan / green bakkar / gold manqiya) over the Sadu weave, as on auction cards.
  */
-export function NameSeal({ name, type, size = 'md', palette = 'standard' }: { name: string; type: NameType; size?: 'sm' | 'md' | 'lg' | 'xl' | 'hero'; palette?: 'standard' | 'brand' }) {
+/** the name in Latin letters, shown on the English site only */
+export function LatinLine({ v, className = '' }: { v?: string; className?: string }) {
+  if (!v || getLang() !== 'en') return null
+  return <span className={`block truncate text-[0.62em] font-semibold tracking-wide opacity-80 ${className}`} dir="ltr">{v}</span>
+}
+
+export function NameSeal({ name, type, size = 'md', palette = 'standard', latin }: { name: string; type: NameType; size?: 'sm' | 'md' | 'lg' | 'xl' | 'hero'; palette?: 'standard' | 'brand'; latin?: string }) {
   const dims = {
     sm: 'h-12 w-16 rounded-md text-[14px]',
     md: 'h-[72px] w-28 rounded-lg text-[19px]',
@@ -21,9 +28,10 @@ export function NameSeal({ name, type, size = 'md', palette = 'standard' }: { na
   }[size]
   return (
     <div className={`lot-field ${palette === 'brand' ? `lot-brand-${type}` : `lot-${type}`} ${dims} relative flex shrink-0 flex-col items-center justify-center overflow-hidden text-center font-extrabold leading-none text-paper`}
-      aria-label={`${name}، ${TYPE_LABEL[type]}`}>
+      aria-label={`${name}${tr('، ', ', ')}${TYPE_LABEL[type]}`}>
       {palette === 'brand' && size !== 'sm' && <img src="./sammha-logo-light.svg" alt="" aria-hidden className="pointer-events-none absolute -bottom-3 end-2 h-[70%] w-auto max-w-none opacity-[.14]" />}
       <span className="relative px-2 drop-shadow-sm">{name}</span>
+      {size !== 'sm' && <LatinLine v={latin} className="relative mt-1 px-2" />}
       {size !== 'sm' && <span className={`relative mt-2 font-medium opacity-80 ${size === 'xl' ? 'text-[14px]' : size === 'hero' ? 'text-[12.5px]' : 'text-[11.5px]'}`}>{TYPE_LABEL[type]}</span>}
     </div>
   )
@@ -60,11 +68,11 @@ export function PhasePill({ phase }: { phase: AuctionPhase }) {
 }
 
 export const REQUEST_STATUS: Record<RequestStatus, [string, string]> = {
-  pending_payment: ['بانتظار سداد الضمان', 'bg-gold-soft text-gold-deep'],
-  under_review: ['تحت المراجعة', 'bg-info-soft text-info-deep'],
-  accepted: ['مقبول', 'bg-ok/10 text-ok'],
-  rejected: ['مرفوض', 'bg-bad/10 text-bad'],
-  cancelled: ['ملغى', 'bg-stone-deep text-muted'],
+  get pending_payment() { return [tr('بانتظار سداد الضمان', 'Awaiting guarantee payment'), 'bg-gold-soft text-gold-deep'] as [string, string] },
+  get under_review() { return [tr('تحت المراجعة', 'Under review'), 'bg-info-soft text-info-deep'] as [string, string] },
+  get accepted() { return [tr('مقبول', 'Accepted'), 'bg-ok/10 text-ok'] as [string, string] },
+  get rejected() { return [tr('مرفوض', 'Rejected'), 'bg-bad/10 text-bad'] as [string, string] },
+  get cancelled() { return [tr('ملغى', 'Cancelled'), 'bg-stone-deep text-muted'] as [string, string] },
 }
 export function RequestStatusPill({ status }: { status: RequestStatus }) {
   const [label, cls] = REQUEST_STATUS[status]

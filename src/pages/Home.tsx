@@ -224,7 +224,7 @@ function NameChecker({ ctaTo }: { ctaTo: string }) {
         <div className={`mt-3 flex flex-wrap items-center gap-3 rounded-md border px-4 py-3 text-[15px] ${tone}`} role="status">
           <span className="flex-1 font-bold text-paper">
             {res.verdict === 'available' ? tr(`«${res.name}» متاح للطلب`, `“${res.name}” is available`) : getLang() === 'ar' ? res.message : ({ similar: 'Available, but similar to existing names; the committee will review it', exact: 'Already registered or under request', invalid: 'Use Arabic letters only (2 to 30)', duplicate: 'Duplicate name' } as Record<string, string>)[res.verdict]}
-            {res.verdict === 'similar' && <span className="font-normal text-paper/70"> ({res.hits.slice(0, 3).map((h) => h.name).join('، ')})</span>}
+            {res.verdict === 'similar' && <span className="font-normal text-paper/70"> ({res.hits.slice(0, 3).map((h) => h.name).join(tr('، ', ', '))})</span>}
           </span>
           {(res.verdict === 'available' || res.verdict === 'similar') && <Link to={ctaTo} className="btn-on-dark btn-sm">{tr('اطلبه الآن', 'Request it')}</Link>}
         </div>

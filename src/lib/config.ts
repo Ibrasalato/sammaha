@@ -42,6 +42,7 @@ export const SELLER = {
   vatNumber: '300000000000003', // TODO: replace with ICO's real VAT registration number
   crNumber: '',
   address: 'الرياض، المملكة العربية السعودية',
+  addressEn: 'Riyadh, Saudi Arabia',
   email: 'sammha@ico.org.sa',
   whatsapp: '966541399022',
   x: 'https://x.com/samha_ico',

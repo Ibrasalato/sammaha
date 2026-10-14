@@ -1,15 +1,25 @@
 import { RULES } from './config'
 import { getLang, locale } from './i18n'
+import { differsFromRiyadh, userTz } from './region'
 
 const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
 export const num = (n: number) => nf.format(n)
 export const sar = (n: number) => (getLang() === 'ar' ? `${nf.format(n)} ر.س` : `SAR ${nf.format(n)}`)
 export const cur = () => (getLang() === 'ar' ? 'ر.س' : 'SAR')
 
-const fmt = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(locale(), { timeZone: RULES.timeZone, ...o })
+/** shown in the viewer's time zone (Settings → Display); Riyadh by default for viewers in Saudi Arabia */
+const fmt = (o: Intl.DateTimeFormatOptions, tz = userTz()) => new Intl.DateTimeFormat(locale(), { timeZone: tz, ...o })
 export const dateTime = (s?: string) => (s ? fmt({ day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(s)) : '—')
 export const date = (s?: string) => (s ? fmt({ day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(s)) : '—')
 export const time = (s?: string) => (s ? fmt({ hour: 'numeric', minute: '2-digit' }).format(new Date(s)) : '—')
+/** Riyadh time of the same moment, for viewers elsewhere: "الرياض 9:00 م" — '' when the viewer is on Riyadh time */
+export const riyadhRef = (s?: string) => {
+  if (!s || !differsFromRiyadh(new Date(s))) return ''
+  const t = fmt({ hour: 'numeric', minute: '2-digit', ...(new Date(s).toDateString() !== new Date().toDateString() ? { day: 'numeric', month: 'short' } : {}) }, RULES.timeZone).format(new Date(s))
+  return getLang() === 'ar' ? `بتوقيت الرياض ${t}` : `Riyadh time ${t}`
+}
+/** a date-time with the Riyadh reference appended when the viewer is in another zone */
+export const dateTimeRef = (s?: string) => { const r = riyadhRef(s); return r ? `${dateTime(s)} (${r})` : dateTime(s) }
 
 export function remaining(ms: number) {
   if (ms <= 0) return { d: 0, h: 0, m: 0, s: 0, done: true }
@@ -41,6 +51,7 @@ export function fromLocalInput(v: string) {
 
 /** Arabic count of names: اسم واحد، اسمين، 3 أسماء، 11 اسمًا */
 export function namesCount(n: number) {
+  if (getLang() === 'en') return n === 1 ? '1 name' : `${n} names`
   if (n === 1) return 'اسم واحد'
   if (n === 2) return 'اسمين'
   if (n >= 3 && n <= 10) return `${n} أسماء`

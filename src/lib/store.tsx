@@ -6,8 +6,42 @@ import { demoApi } from './demoApi'
 import { httpApi } from './httpApi'
 import type { PublicSettings, User } from './types'
 import { DEFAULT_SETTINGS, publicOf } from './demoSettings'
+import { localizeError } from './serverText'
 
-export const api: SammhaApi = IS_DEMO ? demoApi : httpApi
+/**
+ * The backend speaks Arabic only; this wrapper puts error messages into the UI language.
+ * Every method call is forwarded unchanged; a rejected promise (or a synchronous throw) has its
+ * error's `message` translated in place, so its class (`ApiError`) and other fields are kept.
+ * Non-function properties and non-promise results pass through untouched.
+ */
+function withLocalizedErrors<T extends object>(target: T): T {
+  const cache = new Map<PropertyKey, unknown>()
+  return new Proxy(target, {
+    get(t, prop, receiver) {
+      const value = Reflect.get(t, prop, receiver)
+      if (typeof value !== 'function') return value
+      const hit = cache.get(prop)
+      if (hit && (hit as { __orig?: unknown }).__orig === value) return hit
+      const wrapped = (...args: unknown[]) => {
+        let out: unknown
+        try {
+          out = (value as (...a: unknown[]) => unknown).apply(t, args)
+        } catch (e) {
+          throw localizeError(e)
+        }
+        if (out && typeof (out as PromiseLike<unknown>).then === 'function') {
+          return Promise.resolve(out as PromiseLike<unknown>).catch((e: unknown) => { throw localizeError(e) })
+        }
+        return out
+      }
+      Object.defineProperty(wrapped, '__orig', { value })
+      cache.set(prop, wrapped)
+      return wrapped
+    },
+  })
+}
+
+export const api: SammhaApi = withLocalizedErrors(IS_DEMO ? demoApi : httpApi)
 
 interface Toast { id: number; text: string; tone: 'ok' | 'bad' }
 interface Ctx {
@@ -52,7 +86,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppCtx.Provider value={{ user, ready, setUser, toast, settings, reloadSettings }}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4" aria-live="polite">
+      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4 print:hidden" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className={`pointer-events-auto rounded-lg px-4 py-2.5 text-[15px] font-semibold shadow-lg ${t.tone === 'ok' ? 'bg-pine text-paper' : 'bg-bad text-paper'}`}>
             {t.text}
