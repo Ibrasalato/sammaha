@@ -21,6 +21,9 @@ export interface SignUpInput {
   phone: string
   email: string
   password: string
+  /** from startSignUp, with the code texted to the mobile */
+  challenge?: string
+  code?: string
 }
 
 export type PayMethod = 'wallet' | 'card'
@@ -38,6 +41,9 @@ export interface OtpChallenge {
 export interface SammhaApi {
   // auth
   currentUser(): Promise<User | null>
+  /** sign-up step 1: checks the details and texts a code to the mobile */
+  startSignUp(input: SignUpInput): Promise<OtpChallenge>
+  /** step 2: the same details with the challenge and code */
   signUp(input: SignUpInput): Promise<User>
   /** step 1: password. portal 'owner' accepts camel owners only, 'staff' committee and admins only.
    *  Returns a challenge; the session starts only after the one-time code (step 2). */

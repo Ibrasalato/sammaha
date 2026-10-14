@@ -70,17 +70,41 @@ function BankForm({ current, onSaved, onCancel }: { current: BankAccount | null;
   )
 }
 
+/** the owner's bank account card: IBAN checker, holder name and IBAN certificate; used on the wallet page and in settings */
+export function BankAccountCard({ onChange }: { onChange?: (b: BankAccount) => void }) {
+  const { toast } = useApp()
+  const bank = useLoad(() => api.myBankAccount(), [])
+  const [edit, setEdit] = useState(false)
+  const b = bank.data
+  const showForm = edit || (!bank.loading && !b)
+  return (
+    <SectionCard title="الحساب البنكي" icon="wallet" action={b && !edit && <button className="btn-ghost btn-sm" onClick={() => setEdit(true)}>تعديل</button>}>
+      <div className="p-5">
+        {showForm ? <BankForm current={b ?? null} onCancel={b ? () => setEdit(false) : undefined} onSaved={(n) => { bank.setData(n); setEdit(false); onChange?.(n); toast('حُفظ الحساب البنكي، وهو الآن بانتظار الاعتماد') }} />
+          : b ? (
+            <div className="space-y-3 text-[14.5px]">
+              <div className="flex flex-wrap items-center gap-2"><b className="num tracking-wider" dir="ltr">{b.iban.replace(/(.{4})/g, '$1 ').trim()}</b><span className={`pill ${STATUS[b.status][1]}`}>{STATUS[b.status][0]}</span></div>
+              <p>{b.bankName} · {b.accountName}</p>
+              <p className="text-muted">{STATUS[b.status][2]}{b.rejectReason ? ` السبب: ${b.rejectReason}` : ''}</p>
+              <button className="text-[13.5px] font-semibold text-gold-deep underline" onClick={async () => {
+                try { const d = await api.myBankDocument(); const a = document.createElement('a'); a.href = `data:${d.contentType};base64,${d.base64}`; a.download = d.name; a.click() } catch (e) { toast((e as Error).message, 'bad') }
+              }}>تنزيل شهادة الآيبان المرفوعة ({b.docName})</button>
+            </div>
+          ) : null}
+      </div>
+    </SectionCard>
+  )
+}
+
 export function BankAndRefunds({ balance, onChange }: { balance: number; onChange: () => void }) {
   const { toast } = useApp()
   const bank = useLoad(() => api.myBankAccount(), [])
   const ws = useLoad(() => api.myWithdrawals(), [])
-  const [edit, setEdit] = useState(false)
   const [ask, setAsk] = useState(false)
   const [amount, setAmount] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const b = bank.data
-  const showForm = edit || (!bank.loading && !b)
 
   async function withdraw() {
     setBusy(true); setErr('')
@@ -89,21 +113,7 @@ export function BankAndRefunds({ balance, onChange }: { balance: number; onChang
 
   return (
     <div className="mt-8 grid gap-6 lg:grid-cols-2">
-      <SectionCard title="الحساب البنكي" icon="wallet" action={b && !edit && <button className="btn-ghost btn-sm" onClick={() => setEdit(true)}>تعديل</button>}>
-        <div className="p-5">
-          {showForm ? <BankForm current={b ?? null} onCancel={b ? () => setEdit(false) : undefined} onSaved={(n) => { bank.setData(n); setEdit(false); toast('حُفظ الحساب البنكي، وهو الآن بانتظار الاعتماد') }} />
-            : b ? (
-              <div className="space-y-3 text-[14.5px]">
-                <div className="flex flex-wrap items-center gap-2"><b className="num tracking-wider" dir="ltr">{b.iban.replace(/(.{4})/g, '$1 ').trim()}</b><span className={`pill ${STATUS[b.status][1]}`}>{STATUS[b.status][0]}</span></div>
-                <p>{b.bankName} · {b.accountName}</p>
-                <p className="text-muted">{STATUS[b.status][2]}{b.rejectReason ? ` السبب: ${b.rejectReason}` : ''}</p>
-                <button className="text-[13.5px] font-semibold text-gold-deep underline" onClick={async () => {
-                  try { const d = await api.myBankDocument(); const a = document.createElement('a'); a.href = `data:${d.contentType};base64,${d.base64}`; a.download = d.name; a.click() } catch (e) { toast((e as Error).message, 'bad') }
-                }}>تنزيل شهادة الآيبان المرفوعة ({b.docName})</button>
-              </div>
-            ) : null}
-        </div>
-      </SectionCard>
+      <BankAccountCard onChange={(n) => bank.setData(n)} />
       <SectionCard title="الاسترداد إلى حسابك البنكي" icon="arrow" action={<button className="btn-primary btn-sm" disabled={b?.status !== 'verified' || balance < 10} onClick={() => { setAsk(true); setAmount(String(balance)) }}>طلب استرداد</button>}>
         <div className="p-5">
           {b?.status !== 'verified' && <p className="mb-3 text-[14px] text-muted">{b ? 'يُتاح الاسترداد بعد اعتماد حسابك البنكي.' : 'أضف حسابك البنكي وشهادة الآيبان لتتمكن من الاسترداد.'}</p>}

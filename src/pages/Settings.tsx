@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { CardStylePicker } from '../components/AuctionCard'
+const BankAccountCard = lazy(() => import('./owner/Bank').then((m) => ({ default: m.BankAccountCard })))
 import { Icon } from '../components/dash'
 import type { IconName } from '../components/dash'
 import { SettingRow, Switch } from '../components/SettingsUi'
@@ -176,6 +177,7 @@ function DisplaySettings() {
 const OWNER_TABS: Tab[] = [
   { id: 'notifications', label: 'الإشعارات', icon: 'bell' },
   { id: 'security', label: 'الأمان والدخول', icon: 'shield' },
+  { id: 'bank', label: 'الحساب البنكي', icon: 'wallet' },
   { id: 'display', label: 'العرض', icon: 'list' },
 ]
 
@@ -187,6 +189,7 @@ export function OwnerSettings() {
       <Tabs tabs={OWNER_TABS} value={tab} onChange={setTab} />
       {tab === 'notifications' && <NotificationSettings />}
       {tab === 'security' && <SecuritySettings />}
+      {tab === 'bank' && <div className="max-w-2xl space-y-3"><Suspense fallback={<Loading />}><BankAccountCard /></Suspense><p className="text-[13.5px] text-muted">يُستخدم لاسترداد رصيد محفظتك إلى حسابك. بعد اعتماده تطلب الاسترداد من صفحة «المحفظة».</p></div>}
       {tab === 'display' && <DisplaySettings />}
     </>
   )

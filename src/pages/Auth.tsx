@@ -153,6 +153,8 @@ export function Signup() {
   })
   const [confirm, setConfirm] = useState('')
   const [agree, setAgree] = useState(false)
+  // step 2: the code texted to the mobile number
+  const [otp, setOtp] = useState<OtpChallenge | null>(null)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const put = <K extends keyof SignUpInput>(k: K, v: SignUpInput[K]) => setF((x) => ({ ...x, [k]: v }))
@@ -166,8 +168,18 @@ export function Signup() {
     setErr('')
     if (f.password !== confirm) { setErr(tr('كلمتا المرور غير متطابقتين', 'The passwords do not match')); return }
     setBusy(true)
-    try { const u = await api.signUp(f); setUser(u); done(u) } catch (x) { setErr((x as Error).message); window.scrollTo({ top: 0, behavior: 'smooth' }) } finally { setBusy(false) }
+    try { setOtp(await api.startSignUp(f)) } catch (x) { setErr((x as Error).message); window.scrollTo({ top: 0, behavior: 'smooth' }) } finally { setBusy(false) }
   }
+
+  if (otp) return (
+    <AuthFrame title={tr('تأكيد رقم الجوال', 'Confirm your mobile number')}>
+      <p className="mb-4 text-[15px] leading-7 text-muted">{tr('أرسلنا رمز تحقق إلى جوالك. أدخله لإكمال إنشاء حسابك.', 'We texted a code to your mobile. Enter it to finish creating your account.')}</p>
+      <OtpForm c={otp} title={tr('رمز التحقق', 'Verification code')} onBack={() => setOtp(null)}
+        onResend={async () => { const n = await api.resendOtp(otp.challenge); setOtp(n); return n }}
+        onVerify={async (code) => { const u = await api.signUp({ ...f, challenge: otp.challenge, code }); setUser(u); done(u) }} />
+      <p className="mt-4 text-center text-sm text-muted">{tr('الرقم غير صحيح؟', 'Wrong number?')} <button type="button" className="font-semibold text-gold-deep underline" onClick={() => setOtp(null)}>{tr('عدّل البيانات', 'Edit your details')}</button></p>
+    </AuthFrame>
+  )
 
   if (!settings.signupOpen) return (
     <AuthFrame title={tr('حساب مالك إبل جديد', 'New camel owner account')}>
@@ -211,7 +223,7 @@ export function Signup() {
         </FormSection>
 
         <FormSection title={tr('بيانات التواصل', 'Contact details')}>
-          <div><Req htmlFor="ph">{tr('رقم الجوال', 'Mobile number')}</Req><PhoneField id="ph" dial={f.phoneCountry} onDial={(v) => put('phoneCountry', v)} value={f.phone} onChange={(v) => put('phone', v)} /><p className="hint">{tr('يصلك عليه رمز التحقق عند الدخول.', 'Your sign-in code is sent here.')}</p></div>
+          <div><Req htmlFor="ph">{tr('رقم الجوال', 'Mobile number')}</Req><PhoneField id="ph" dial={f.phoneCountry} onDial={(v) => put('phoneCountry', v)} value={f.phone} onChange={(v) => put('phone', v)} /><p className="hint">{tr('نرسل عليه رمز تحقق قبل إنشاء الحساب، ورمز الدخول بعد ذلك.', 'We text a code here before creating the account, and your sign-in codes after.')}</p></div>
           <div><Req htmlFor="em">{tr('البريد الإلكتروني', 'Email')}</Req><input id="em" type="email" className="field" dir="ltr" autoComplete="email" value={f.email} onChange={text('email')} required /><p className="hint">{tr('تصلك عليه الفواتير الإلكترونية، وتوثّقه من لوحة حسابك.', 'Your e-invoices are sent here; verify it from your dashboard.')}</p></div>
         </FormSection>
 
@@ -219,7 +231,7 @@ export function Signup() {
 
         <div className="space-y-4">
           <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1.5" checked={agree} onChange={(e) => setAgree(e.target.checked)} required /><span>{tr('أوافق على', 'I agree to the')} <Link to="/terms" className="underline">{tr('شروط المزاد وضوابط ربط الأسماء', 'auction terms and name-linking rules')}</Link></span></label>
-          <button className="btn-primary w-full" disabled={busy || !agree}>{busy ? tr('جارٍ إنشاء الحساب…', 'Creating…') : tr('إنشاء الحساب', 'Create account')}</button>
+          <button className="btn-primary w-full" disabled={busy || !agree}>{busy ? tr('جارٍ إرسال رمز التحقق…', 'Sending the code…') : tr('متابعة وتأكيد رقم الجوال', 'Continue and confirm mobile')}</button>
         </div>
       </form>
       <p className="mt-5 text-center text-sm text-muted">{tr('لديك حساب؟', 'Have an account?')} <Link to="/login" className="font-semibold text-gold-deep underline underline-offset-4">{tr('سجّل الدخول', 'Sign in')}</Link></p>

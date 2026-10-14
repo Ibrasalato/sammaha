@@ -1,4 +1,13 @@
-import { CITIES, COUNTRIES, DIAL_CODES } from '../lib/countries'
+import { CITIES } from '../lib/countries'
+import { Suspense, lazy } from 'react'
+import type { ComponentProps } from 'react'
+import type { CountryPicker as CP } from './CountryPicker'
+
+// the picker carries the flags; it loads on demand so the first page stays light
+const LazyPicker = lazy(() => import('./CountryPicker').then((m) => ({ default: m.CountryPicker })))
+function CountryPicker(props: ComponentProps<typeof CP>) {
+  return <Suspense fallback={<div className={`field ${props.mode === 'dial' ? 'w-[7.6rem] shrink-0' : ''}`} aria-busy>…</div>}><LazyPicker {...props} /></Suspense>
+}
 import { tr } from '../lib/i18n'
 
 /** a required-field label with a red asterisk */
@@ -11,12 +20,7 @@ export function Req({ htmlFor, children, optional }: { htmlFor: string; children
 }
 
 export function CountrySelect({ id, value, onChange, required = true, placeholder }: { id: string; value: string; onChange: (v: string) => void; required?: boolean; placeholder?: string }) {
-  return (
-    <select id={id} className="field" value={value} onChange={(e) => onChange(e.target.value)} required={required}>
-      <option value="">{placeholder ?? tr('اختر', 'Choose')}</option>
-      {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
-    </select>
-  )
+  return <CountryPicker id={id} value={value} onChange={onChange} required={required} placeholder={placeholder} />
 }
 
 /** a list of cities for Gulf countries, free text for the rest */
@@ -32,13 +36,11 @@ export function CityField({ id, country, value, onChange, required = true }: { i
   )
 }
 
-/** dialling code + number, laid out left-to-right like a phone number */
+/** dialling code (searchable, with flags) + number, laid out left-to-right like a phone number */
 export function PhoneField({ id, dial, onDial, value, onChange, required = true }: { id: string; dial: string; onDial: (v: string) => void; value: string; onChange: (v: string) => void; required?: boolean }) {
   return (
     <div className="flex gap-2" dir="ltr">
-      <select aria-label={tr('كود البلد', 'Country code')} className="field w-[7.5rem] shrink-0" value={dial} onChange={(e) => onDial(e.target.value)} required={required}>
-        {DIAL_CODES.map((c) => <option key={c.dial} value={c.dial}>+{c.dial} {c.code}</option>)}
-      </select>
+      <CountryPicker mode="dial" value={dial} onChange={onDial} label={tr('كود البلد', 'Country code')} />
       <input id={id} className="field min-w-0 flex-1" inputMode="tel" autoComplete="tel-national" placeholder={dial === '966' ? '05xxxxxxxx' : ''} value={value} onChange={(e) => onChange(e.target.value)} required={required} />
     </div>
   )

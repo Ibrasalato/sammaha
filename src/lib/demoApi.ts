@@ -307,7 +307,7 @@ function seedTickets(db: DB, t: number) {
 
 // ───────────────────────── one-time codes ─────────────────────────
 // Demo: the code is OTP.fixedCode until an SMS provider is connected.
-interface Challenge { userId: string; purpose: 'login' | 'phone' | 'email' | 'verify_email'; phone: string; expires: number; attempts: number }
+interface Challenge { userId: string; purpose: 'login' | 'phone' | 'email' | 'verify_email' | 'signup'; phone: string; expires: number; attempts: number }
 const challenges = new Map<string, Challenge>()
 function issueOtp(userId: string, purpose: Challenge['purpose'], phone: string, id = `otp${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`): OtpChallenge {
   const expires = now() + OTP.ttlMinutes * 60_000
@@ -862,6 +862,34 @@ function bankReview(db: DB, userId: string, approve: boolean, reason?: string): 
   return { userId, ownerName: o.fullName, phone: o.phone, account: bankDto(b, true) }
 }
 
+/** every sign-up check, as the API does them */
+function checkSignUp(db: DB, input: SignUpInput) {
+    const policy = readSettings()
+    if (!policy.signupOpen) throw new ApiError('التسجيل في المنصة متوقف مؤقتًا')
+    const part = (v: string, label: string) => { const t = v.trim().replace(/\s+/g, ' '); if (t.length < 2 || t.length > 30 || /\d/.test(t)) throw new ApiError(`اكتب ${label} بالحروف (2 إلى 30 حرفًا)`); return t }
+    const first = part(input.firstName, 'الاسم الأول'), father = part(input.fatherName, 'اسم الأب'), grand = part(input.grandfatherName, 'اسم الجد'), family = part(input.familyName, 'اسم العائلة')
+    const birth = Date.parse(input.birthDate)
+    if (!input.birthDate || Number.isNaN(birth)) throw new ApiError('أدخل تاريخ الميلاد')
+    const age = (now() - birth) / (365.25 * D)
+    if (age < 18) throw new ApiError('التسجيل لمن أتم 18 سنة')
+    if (age > 110) throw new ApiError('تاريخ الميلاد غير صحيح')
+    if (input.gender !== 'male' && input.gender !== 'female') throw new ApiError('اختر الجنس')
+    if (!input.nationality) throw new ApiError('اختر الجنسية')
+    if (!input.residenceCountry) throw new ApiError('اختر بلد الإقامة')
+    if (input.residenceCity.trim().length < 2) throw new ApiError('اختر مدينة الإقامة')
+    const nid = input.nationalId.trim().toUpperCase()
+    const idError = identityError(nid, input.nationality, input.residenceCountry)
+    if (idError) throw new ApiError(idError)
+    const phone = normalizeIntl(input.phoneCountry, input.phone)
+    if (!phone) throw new ApiError(input.phoneCountry === '966' || !input.phoneCountry ? 'رقم الجوال يبدأ بـ 5 ويتكون من 9 أرقام' : 'رقم الجوال غير صحيح لهذا البلد')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) throw new ApiError('البريد الإلكتروني غير صحيح')
+    if (input.password.length < policy.passwordMinLength) throw new ApiError(`كلمة المرور ${policy.passwordMinLength} أحرف على الأقل`)
+    if (db.users.some((u) => u.nationalId === nid)) throw new ApiError('رقم الهوية مسجل مسبقًا، سجّل الدخول')
+    if (db.users.some((u) => u.phone === phone)) throw new ApiError('رقم الجوال مسجل مسبقًا، سجّل الدخول')
+    if (db.users.some((u) => u.email.toLowerCase() === input.email.trim().toLowerCase())) throw new ApiError('البريد الإلكتروني مسجل مسبقًا')
+  return { first, father, grand, family, nid, phone }
+}
+
 /** runs an auction action on the chosen auctions (or all running and upcoming ones); returns what was done and skipped */
 function control(db: DB, scope: AuctionScope, perm: Permission, field: string, note: string | undefined, change: (a: Auction) => string | null): AuctionActionResult {
   const u = need(db, perm)
@@ -983,40 +1011,25 @@ export const demoApi: SammhaApi = {
     return u ? publicUser(u) : null
   }),
 
+  startSignUp: (input: SignUpInput) => tx((db) => {
+    const n = checkSignUp(db, input)
+    return issueOtp('', 'signup', n.phone)
+  }),
   signUp: (input: SignUpInput) => tx((db) => {
-    const policy = readSettings()
-    if (!policy.signupOpen) throw new ApiError('التسجيل في المنصة متوقف مؤقتًا')
-    const part = (v: string, label: string) => { const t = v.trim().replace(/\s+/g, ' '); if (t.length < 2 || t.length > 30 || /\d/.test(t)) throw new ApiError(`اكتب ${label} بالحروف (2 إلى 30 حرفًا)`); return t }
-    const first = part(input.firstName, 'الاسم الأول'), father = part(input.fatherName, 'اسم الأب'), grand = part(input.grandfatherName, 'اسم الجد'), family = part(input.familyName, 'اسم العائلة')
-    const birth = Date.parse(input.birthDate)
-    if (!input.birthDate || Number.isNaN(birth)) throw new ApiError('أدخل تاريخ الميلاد')
-    const age = (now() - birth) / (365.25 * D)
-    if (age < 18) throw new ApiError('التسجيل لمن أتم 18 سنة')
-    if (age > 110) throw new ApiError('تاريخ الميلاد غير صحيح')
-    if (input.gender !== 'male' && input.gender !== 'female') throw new ApiError('اختر الجنس')
-    if (!input.nationality) throw new ApiError('اختر الجنسية')
-    if (!input.residenceCountry) throw new ApiError('اختر بلد الإقامة')
-    if (input.residenceCity.trim().length < 2) throw new ApiError('اختر مدينة الإقامة')
-    const nid = input.nationalId.trim().toUpperCase()
-    const idError = identityError(nid, input.nationality, input.residenceCountry)
-    if (idError) throw new ApiError(idError)
-    const phone = normalizeIntl(input.phoneCountry, input.phone)
-    if (!phone) throw new ApiError(input.phoneCountry === '966' || !input.phoneCountry ? 'رقم الجوال يبدأ بـ 5 ويتكون من 9 أرقام' : 'رقم الجوال غير صحيح لهذا البلد')
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) throw new ApiError('البريد الإلكتروني غير صحيح')
-    if (input.password.length < policy.passwordMinLength) throw new ApiError(`كلمة المرور ${policy.passwordMinLength} أحرف على الأقل`)
-    if (db.users.some((u) => u.nationalId === nid)) throw new ApiError('رقم الهوية مسجل مسبقًا، سجّل الدخول')
-    if (db.users.some((u) => u.phone === phone)) throw new ApiError('رقم الجوال مسجل مسبقًا، سجّل الدخول')
-    if (db.users.some((u) => u.email.toLowerCase() === input.email.trim().toLowerCase())) throw new ApiError('البريد الإلكتروني مسجل مسبقًا')
+    const n = checkSignUp(db, input)
+    if (!input.challenge || !input.code) throw new ApiError('أدخل رمز التحقق المرسل إلى جوالك')
+    const c = consumeOtp(input.challenge, input.code, 'signup')
+    if (c.phone !== n.phone) throw new ApiError('تغيّر رقم الجوال بعد إرسال الرمز، اطلب رمزًا جديدًا')
+    const { first, father, grand, family, nid, phone } = n
     const u: DemoUser = {
       id: uid(db, 'u'), fullName: `${first} ${father} ${grand} ${family}`, phone, email: input.email.trim(), nationalId: nid, role: 'owner', password: input.password, createdAt: iso(now()),
-      p: { firstName: first, fatherName: father, grandfatherName: grand, familyName: family, birthDate: input.birthDate, gender: input.gender, nationality: input.nationality, residenceCountry: input.residenceCountry, residenceCity: input.residenceCity.trim() },
+      p: { firstName: first, fatherName: father, grandfatherName: grand, familyName: family, birthDate: input.birthDate, gender: input.gender as 'male' | 'female', nationality: input.nationality, residenceCountry: input.residenceCountry, residenceCity: input.residenceCity.trim() },
     }
     db.users.push(u)
     setSession(u.id)
     try { localStorage.setItem('sammha-demo-stamp', '0') } catch { /* ignore */ }
     return publicUser(u)
   }),
-
   startSignIn: (login, password, portal) => tx((db) => {
     // the identity number, the mobile (05… or +country…) or the email
     const l = login.trim().toLowerCase()

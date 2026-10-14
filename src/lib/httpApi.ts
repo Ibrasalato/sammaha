@@ -150,6 +150,7 @@ async function card(purpose: 'topup' | 'deposit' | 'invoice' | 'bid_deposit' | '
 export const httpApi: SammhaApi = {
   // ───── auth ─────
   currentUser: async () => (session ? get<User | null>('/api/auth/me').catch(() => null) : null),
+  startSignUp: (input) => post<OtpChallenge>('/api/auth/signup/start', input),
   async signUp(input) {
     const r = await post<AuthResult>('/api/auth/signup', input)
     saveSession(r)
