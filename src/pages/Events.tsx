@@ -57,7 +57,7 @@ export function CalendarRow({ item }: { item: CalItem }) {
             <span className={`pill ${TYPE_CLS[a.type].pill}`}>{TYPE_LABEL[a.type]}</span>
           </div>
           <h3 className="mt-1.5 text-[18px]">{tr(`مزاد اسم «${a.name}»`, `Auction for “${a.name}”`)}</h3>
-          <p className="text-[14px] text-muted">{tr('يبدأ', 'Starts')} {new Date(a.startsAt).toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Riyadh' })} {tr(`بتوقيت الرياض، السعر الافتتاحي ${a.openingPrice} ريال`, `Riyadh time, opening price SAR ${a.openingPrice}`)}</p>
+          <p className="text-[14px] text-muted">{tr('يبدأ', 'Starts')} {new Date(a.startsAt).toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Riyadh' })} {tr(`بتوقيت الرياض، السعر الافتتاحي ${a.openingPrice} ⃁`, `Riyadh time, opening price ⃁ ${a.openingPrice}`)}</p>
         </div>
         <Relative startsOn={a.startsAt.slice(0, 10)} endsOn={a.endsAt.slice(0, 10)} />
       </Link>

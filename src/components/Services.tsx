@@ -57,7 +57,7 @@ export function useServices(): EService[] {
       key: 'mark', icon: 'file', to: '/dashboard/requests/new', mine: '/dashboard/requests',
       title: tr('طلب شعار', 'Request a mark'),
       desc: tr(`سجّل حتى ${RULES.namesPerRequest} أسماء مقترحة، تراجعها اللجنة ثم يُطرح المعتمد منها في مزاد علني.`, `Submit up to ${RULES.namesPerRequest} proposed names; the committee reviews them and the approved one goes to a public auction.`),
-      price: deposit ? tr(`ضمان مسترد ${sar(deposit)}`, `Refundable guarantee ${sar(deposit)}`) : FREE(),
+      price: deposit ? tr(`مبلغ الضمان ${sar(deposit)}`, `Guarantee ${sar(deposit)}`) : FREE(),
       priceNote: deposit ? tr('يُعاد إلى محفظتك عند عدم الترسية أو الرفض، ويدفع الفائز قيمة الشعار منفصلة.', 'Returned to your wallet if not awarded or declined; the winner pays the mark value separately.') : undefined,
       free: !deposit, open: s.requestsOpen, closedNote: s.requestsOpen ? undefined : closed(s.requestsClosedNote),
     },

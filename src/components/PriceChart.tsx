@@ -30,7 +30,7 @@ export function PriceChart({ a, bids }: { a: Auction; bids: Bid[] }) {
 
   return (
     <div className="relative" dir="ltr">
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={tr(`تطور السعر من ${num(vMin)} إلى ${num(vMax)} ريال`, `Price rose from ${num(vMin)} to ${num(vMax)} SAR`)}
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={tr(`تطور السعر من ${num(vMin)} إلى ${num(vMax)} ⃁`, `Price rose from ${num(vMin)} to ${num(vMax)} SAR`)}
         onMouseLeave={() => setHover(null)}
         onMouseMove={(e) => {
           const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect()

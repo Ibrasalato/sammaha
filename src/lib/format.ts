@@ -4,8 +4,10 @@ import { differsFromRiyadh, userTz } from './region'
 
 const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
 export const num = (n: number) => nf.format(n)
-export const sar = (n: number) => (getLang() === 'ar' ? `${nf.format(n)} ر.س` : `SAR ${nf.format(n)}`)
-export const cur = () => (getLang() === 'ar' ? 'ر.س' : 'SAR')
+/** the Saudi riyal sign (U+20C1), drawn by the SammhaRiyal font; it sits to the left of the amount in both languages */
+export const RIYAL = '\u20C1'
+export const sar = (n: number) => (getLang() === 'ar' ? `${nf.format(n)}\u00A0${RIYAL}` : `${RIYAL}\u00A0${nf.format(n)}`)
+export const cur = () => RIYAL
 
 /** shown in the viewer's time zone (Settings → Display); Riyadh by default for viewers in Saudi Arabia */
 const fmt = (o: Intl.DateTimeFormatOptions, tz = userTz()) => new Intl.DateTimeFormat(locale(), { timeZone: tz, ...o })

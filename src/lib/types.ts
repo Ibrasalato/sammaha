@@ -422,7 +422,7 @@ export interface NameListing {
   type: NameType
   sellerId: string
   mode: ListingMode
-  /** auction: the minimum (opening) price; instant: the fixed sale price (SAR, VAT inclusive) */
+  /** auction: the minimum (opening) price; instant: the fixed sale price (⃁, VAT inclusive) */
   price: number
   /** the platform's commission on the final value (0.10 auction, 0.15 instant) */
   commissionRate: number

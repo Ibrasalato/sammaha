@@ -27,8 +27,8 @@ export default {
         bad: '#B0362B',
       },
       fontFamily: {
-        kufi: ['Tajawal', 'system-ui', 'sans-serif'],
-        sans: ['Tajawal', 'system-ui', 'sans-serif'],
+        kufi: ['SammhaRiyal', 'Tajawal', 'system-ui', 'sans-serif'],
+        sans: ['SammhaRiyal', 'Tajawal', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
         card: '0 1px 2px rgba(15,59,36,.06), 0 4px 16px -8px rgba(15,59,36,.12)',

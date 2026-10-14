@@ -169,7 +169,7 @@ function WalletDialog({ row, onClose, onChange }: { row: WalletRow; onClose: () 
             {err && <ErrorBox text={err} />}
             {mode === 'adjust' && <div className="flex gap-2">{([[1, tr('إضافة للرصيد', 'Add to balance')], [-1, tr('خصم من الرصيد', 'Deduct from balance')]] as const).map(([s, l]) => <button key={s} type="button" className={`btn-sm rounded-lg border-2 px-3 ${sign === s ? 'border-pine bg-paper' : 'border-line'}`} onClick={() => setSign(s)}>{l}</button>)}</div>}
             <div className="grid gap-3 sm:grid-cols-2">
-              <div><label className="label" htmlFor="am">{tr('المبلغ (ريال)', 'Amount (SAR)')}</label><input id="am" className="field num" dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} /></div>
+              <div><label className="label" htmlFor="am">{tr('المبلغ (⃁)', 'Amount (⃁)')}</label><input id="am" className="field num" dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} /></div>
               {mode === 'refund' && <div><label className="label" htmlFor="tr">{tr('رقم الحوالة البنكية', 'Bank transfer reference')}</label><input id="tr" className="field num" dir="ltr" value={ref2} onChange={(e) => setRef2(e.target.value)} /></div>}
             </div>
             <div><label className="label" htmlFor="nt">{mode === 'refund' ? tr('ملاحظة (اختياري)', 'Note (optional)') : tr('سبب التسوية (يظهر في كشف المالك)', 'Adjustment reason (shown on the owner’s statement)')}</label><input id="nt" className="field" value={note} onChange={(e) => setNote(e.target.value)} /></div>

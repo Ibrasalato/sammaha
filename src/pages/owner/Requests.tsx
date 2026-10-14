@@ -137,7 +137,7 @@ export function MyRequests() {
 
   return (
     <>
-      <PageHead title={tr('طلبات الشعارات', 'Name requests')} sub={tr('كل طلب يضم ثلاثة أسماء مقترحة وضمان مزاد قدره 50 ريال، وتقبل اللجنة اسمًا واحدًا منها. ولأي اسم تملكه تقدر تطلب له اسمًا مركبًا.', 'Each request has three proposed names and a 50 SAR auction guarantee; the committee accepts one of them. For any name you own, you can request a compound name.')}
+      <PageHead title={tr('طلبات الشعارات', 'Name requests')} sub={tr('كل طلب يضم ثلاثة أسماء مقترحة وضمان مزاد قدره 50 ⃁، وتقبل اللجنة اسمًا واحدًا منها. ولأي اسم تملكه تقدر تطلب له اسمًا مركبًا.', 'Each request has three proposed names and a ⃁ 50 auction guarantee; the committee accepts one of them. For any name you own, you can request a compound name.')}
         action={<div className="flex flex-wrap gap-2"><Link to="/dashboard/names" className="btn-ghost">{tr('طلب اسم مركب', 'Request a compound name')}</Link><Link to="/dashboard/requests/new" className="btn-gold">{tr('طلب شعار جديد', 'New name request')}</Link></div>} />
       {loading && !data ? <Loading /> : data?.length ? (
         <>

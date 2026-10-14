@@ -183,7 +183,7 @@ export function WalletPage() {
                   <td className="font-semibold">{TX_LABEL[t.kind]}</td>
                   <td className="text-muted">{L(t.note ?? '')}</td>
                   <td className="whitespace-nowrap text-muted">{date(t.createdAt)}</td>
-                  <td className={`num whitespace-nowrap text-end font-semibold ${t.amount > 0 ? 'text-ok' : ''}`}>{t.amount > 0 ? '+' : '−'}{num(Math.abs(t.amount))} {tr('ر.س', 'SAR')}</td>
+                  <td className={`num whitespace-nowrap text-end font-semibold ${t.amount > 0 ? 'text-ok' : ''}`}>{t.amount > 0 ? '+' : '−'}{sar(Math.abs(t.amount))}</td>
                 </tr>
               ))}
             </tbody>
@@ -192,7 +192,7 @@ export function WalletPage() {
         </>
       ) : <Empty title={tr('لا توجد عمليات بعد', 'No transactions yet')} />}
       <Modal open={open} onClose={() => setOpen(false)} title={tr('شحن المحفظة', 'Top up wallet')}>
-        <label className="label" htmlFor="amt">{tr('المبلغ بالريال', 'Amount (SAR)')}</label>
+        <label className="label" htmlFor="amt">{tr('المبلغ بالريال', 'Amount (⃁)')}</label>
         <input id="amt" className="field num" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))} />
         <div className="mt-2 flex gap-2">{[50, 100, 500, 1000].map((v) => <button key={v} className="btn-ghost btn-sm flex-1 num" onClick={() => setAmount(String(v))}>{v}</button>)}</div>
         <button className="btn-gold mt-5 w-full" onClick={async () => {

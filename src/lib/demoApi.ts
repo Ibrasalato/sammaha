@@ -114,7 +114,7 @@ function sampleProfiles(db: DB) {
       ...u.p,
     }
     if (p.verified) u.emailVerifiedAt ??= iso(now() - 60 * D)
-    // like the API's sample data: every sample owner starts with a 2,000 SAR test balance
+    // like the API's sample data: every sample owner starts with a ⃁ 2,000 test balance
     if (!db.txs.some((x) => x.userId === u.id && x.kind === 'topup' && x.amount >= 2000))
       db.txs.push({ id: `t-seed-${u.id}`, userId: u.id, amount: 2000, kind: 'topup', note: 'رصيد تجريبي', createdAt: iso(now() - 60 * D) })
   }
@@ -509,7 +509,7 @@ function refundDeposit(db: DB, r: LogoRequest, why: string) {
   if (r.depositState !== 'held') return
   r.depositState = 'refunded'
   db.txs.push({ id: uid(db, 't'), userId: r.userId, amount: r.depositAmount, kind: 'refund', note: `استرداد ضمان الطلب ${r.number} (${why})`, createdAt: iso(now()) })
-  notify(db, r.userId, 'refund', 'أُعيد ضمان المزاد إلى محفظتك', `${r.depositAmount} ريال من الطلب ${r.number} (${why}).`, '/dashboard/wallet')
+  notify(db, r.userId, 'refund', 'أُعيد ضمان المزاد إلى محفظتك', `${r.depositAmount} ⃁ من الطلب ${r.number} (${why}).`, '/dashboard/wallet')
 }
 
 let invSeq = 0
@@ -546,10 +546,10 @@ function settleInvestment(db: DB, a: Auction, r: LogoRequest) {
   inv.ownerShareTo = owner.id
   db.reserved.push({ id: uid(db, 'r'), name: a.name, normalized: normalizeName(a.name), type: a.type, ownerId: winner.id, ownerName: winner.fullName, price, acquiredAt: a.endsAt, source: 'investment' })
   Object.assign(a, { settled: true, winnerId: winner.id, winnerName: winner.fullName, finalPrice: price, wonByRequester: false })
-  notify(db, winner.id, 'won', `مبارك عليك الفوز بمزاد شعار «${a.name}»`, `بسعر ${price} ريال. فاتورتك الإلكترونية جاهزة، سدّدها لإصدار شهادة التسجيل.`, '/dashboard/invoices')
-  notify(db, owner.id, 'won', `بيع اسمك «${a.name}» في المزاد`, `بسعر ${price} ريال. نصيبك ${inv.ownerShare} ريال (30%) يُضاف إلى محفظتك فور سداد الفائز.`, '/dashboard/invest')
+  notify(db, winner.id, 'won', `مبارك عليك الفوز بمزاد شعار «${a.name}»`, `بسعر ${price} ⃁. فاتورتك الإلكترونية جاهزة، سدّدها لإصدار شهادة التسجيل.`, '/dashboard/invoices')
+  notify(db, owner.id, 'won', `بيع اسمك «${a.name}» في المزاد`, `بسعر ${price} ⃁. نصيبك ${inv.ownerShare} ⃁ (30%) يُضاف إلى محفظتك فور سداد الفائز.`, '/dashboard/invest')
   for (const u of new Set(db.bids.filter((b) => b.auctionId === a.id && b.userId !== winner.id).map((b) => b.userId))) {
-    notify(db, u, 'lost', `انتهى مزاد «${a.name}»`, `رسا الاسم بسعر ${price} ريال.`, `/auctions/${a.id}`)
+    notify(db, u, 'lost', `انتهى مزاد «${a.name}»`, `رسا الاسم بسعر ${price} ⃁.`, `/auctions/${a.id}`)
   }
 }
 /** Pays the name owner's 30% once the winner's invoice is paid. */
@@ -559,7 +559,7 @@ function payOwnerShare(db: DB, inv: Invoice) {
   const sale = !!inv.listingId
   db.txs.push({ id: uid(db, 't'), userId: inv.ownerShareTo, amount: inv.ownerShare, kind: sale ? 'sale_payout' : 'investment_payout',
     note: sale ? `ثمن بيع الاسم «${inv.name}» بعد عمولة سمّها (${inv.number})` : `نصيبك 30% من بيع الاسم «${inv.name}» (${inv.number})`, createdAt: iso(now()) })
-  notify(db, inv.ownerShareTo, 'refund', `أُضيف ${inv.ownerShare} ريال إلى محفظتك`, sale ? `ثمن بيع اسمك «${inv.name}» بعد خصم عمولة سمّها.` : `نصيبك من بيع الاسم «${inv.name}» في المزاد.`, '/dashboard/wallet')
+  notify(db, inv.ownerShareTo, 'refund', `أُضيف ${inv.ownerShare} ⃁ إلى محفظتك`, sale ? `ثمن بيع اسمك «${inv.name}» بعد خصم عمولة سمّها.` : `نصيبك من بيع الاسم «${inv.name}» في المزاد.`, '/dashboard/wallet')
   if (sale) { const l = db.listings?.find((x) => x.id === inv.listingId); if (l) l.payoutPaid = true }
 }
 const isInvestment = (db: DB, a: Auction) => db.requests.find((r) => r.id === a.requestId)?.kind === 'investment'
@@ -571,7 +571,7 @@ function resaleGuard(db: DB, a: Auction, userId: string) {
   if (a.listingId && a.requesterId === userId) throw new ApiError('لا يمكنك المزايدة على اسم تبيعه')
   const needs = !!a.listingId || ((a.bidDeposit ?? 0) > 0 && a.requesterId !== userId)
   if (!needs) return
-  if (!hasBidDeposit(db, a.id, userId)) throw new ApiError(`ادفع ضمان دخول المزاد ${a.bidDeposit ?? RULES.resaleBidDeposit} ريال أولًا`)
+  if (!hasBidDeposit(db, a.id, userId)) throw new ApiError(`ادفع ضمان دخول المزاد ${a.bidDeposit ?? RULES.resaleBidDeposit} ⃁ أولًا`)
 }
 const pct = (r: number) => Math.round(r * 100)
 function listingOut(db: DB, l: NameListing): NameListing {
@@ -612,7 +612,7 @@ function settleResale(db: DB, a: Auction) {
     for (const d of db.bidDeposits ?? []) if (d.auctionId === a.id && d.state === 'held' && d.userId !== except) {
       d.state = 'refunded'
       db.txs.push({ id: uid(db, 't'), userId: d.userId, amount: d.amount, kind: 'refund', note: `استرداد ضمان دخول مزاد «${a.name}»`, createdAt: iso(now()) })
-      notify(db, d.userId, 'refund', 'أُعيد ضمان دخول المزاد إلى محفظتك', `${d.amount} ريال من مزاد «${a.name}».`, '/dashboard/wallet')
+      notify(db, d.userId, 'refund', 'أُعيد ضمان دخول المزاد إلى محفظتك', `${d.amount} ⃁ من مزاد «${a.name}».`, '/dashboard/wallet')
     }
   }
   if (a.bidCount === 0 || !a.leaderId) {
@@ -632,10 +632,10 @@ function settleResale(db: DB, a: Auction) {
   const inv = sellerInvoice(db, l, winner, price, Math.min(dep?.amount ?? 0, price), a)
   transferName(db, l, winner, price)
   Object.assign(l, { status: 'sold', soldPrice: price, soldAt: iso(now()) })
-  notify(db, winner.id, 'won', `مبارك عليك الفوز بمزاد شعار «${a.name}»`, `بسعر ${price} ريال، وخُصم منه ضمان الدخول. سدّد الفاتورة خلال 3 أيام لنقل الاسم وإصدار شهادته.`, '/dashboard/invoices')
-  notify(db, seller.id, 'won', `بيع اسمك «${a.name}» في المزاد`, `بسعر ${price} ريال. يصلك ${inv.ownerShare} ريال (بعد عمولة ${pct(l.commissionRate)}%) فور سداد المشتري.`, '/dashboard/sell')
+  notify(db, winner.id, 'won', `مبارك عليك الفوز بمزاد شعار «${a.name}»`, `بسعر ${price} ⃁، وخُصم منه ضمان الدخول. سدّد الفاتورة خلال 3 أيام لنقل الاسم وإصدار شهادته.`, '/dashboard/invoices')
+  notify(db, seller.id, 'won', `بيع اسمك «${a.name}» في المزاد`, `بسعر ${price} ⃁. يصلك ${inv.ownerShare} ⃁ (بعد عمولة ${pct(l.commissionRate)}%) فور سداد المشتري.`, '/dashboard/sell')
   for (const u of new Set(db.bids.filter((b) => b.auctionId === a.id && b.userId !== winner.id).map((b) => b.userId))) {
-    notify(db, u, 'lost', `انتهى مزاد «${a.name}»`, `رسا الاسم بسعر ${price} ريال.`, `/auctions/${a.id}`)
+    notify(db, u, 'lost', `انتهى مزاد «${a.name}»`, `رسا الاسم بسعر ${price} ⃁.`, `/auctions/${a.id}`)
   }
 }
 /** Sample listings: a live resale auction, one opening soon, and fixed-price names on the market. */
@@ -679,7 +679,7 @@ function seedListings(db: DB, t: number) {
 /** Record one bid: price, leader, anti-sniping extension and the outbid notice. */
 function recordBid(db: DB, a: Auction, userId: string, amount: number, auto = false) {
   const u = db.users.find((x) => x.id === userId)!
-  if (a.leaderId && a.leaderId !== userId) notify(db, a.leaderId, 'outbid', `تجاوز مزايد آخر مزايدتك على «${a.name}»`, `أعلى مزايدة الآن ${amount} ريال. زايد قبل انتهاء الوقت.`, `/auctions/${a.id}`)
+  if (a.leaderId && a.leaderId !== userId) notify(db, a.leaderId, 'outbid', `تجاوز مزايد آخر مزايدتك على «${a.name}»`, `أعلى مزايدة الآن ${amount} ⃁. زايد قبل انتهاء الوقت.`, `/auctions/${a.id}`)
   const t = now()
   db.bids.push({ id: uid(db, 'b'), auctionId: a.id, userId, bidderLabel: maskName(u.fullName), amount, createdAt: iso(t), auto: auto || undefined })
   Object.assign(a, { currentPrice: amount, bidCount: a.bidCount + 1, leaderId: userId, leaderLabel: maskName(u.fullName) })
@@ -731,7 +731,7 @@ function remind(db: DB) {
       notify(db, w.userId, 'reminder', `مزاد «${a.name}» يبدأ خلال ساعة`, 'جهّز مزايدتك، أو فعّل المزايدة التلقائية.', `/auctions/${a.id}`); w.notifiedStart = true; changed = true
     }
     if (!w.notifiedEnd && t >= start && t < end && end - t <= H) {
-      notify(db, w.userId, 'reminder', `مزاد «${a.name}» ينتهي خلال ساعة`, `أعلى مزايدة الآن ${a.currentPrice} ريال.`, `/auctions/${a.id}`); w.notifiedEnd = true; changed = true
+      notify(db, w.userId, 'reminder', `مزاد «${a.name}» ينتهي خلال ساعة`, `أعلى مزايدة الآن ${a.currentPrice} ⃁.`, `/auctions/${a.id}`); w.notifiedEnd = true; changed = true
     }
   }
   return changed
@@ -761,7 +761,7 @@ function sweep(db: DB) {
     notify(db, winnerId, 'won', `مبارك عليك الفوز بمزاد شعار «${a.name}»`, wonBody(price, hours), '/dashboard/invoices')
     refundEntry(db, a, winnerId)
     for (const uidLost of new Set(db.bids.filter((b) => b.auctionId === a.id && b.userId !== winnerId).map((b) => b.userId))) {
-      notify(db, uidLost, 'lost', `انتهى مزاد «${a.name}»`, `رسا الاسم بسعر ${price} ريال.`, `/auctions/${a.id}`)
+      notify(db, uidLost, 'lost', `انتهى مزاد «${a.name}»`, `رسا الاسم بسعر ${price} ⃁.`, `/auctions/${a.id}`)
     }
     changed = true
     // the requester did not win: every auction of the request settled → their guarantee returns now
@@ -774,7 +774,7 @@ function sweep(db: DB) {
 }
 
 const wonBody = (price: number, hours: number) =>
-  `بسعر ${price} ريال. سدّد الفاتورة خلال ${hours} ساعة من محفظتك أو بوسائل الدفع، ويُعاد ضمانك إلى محفظتك بعد السداد. إن لم تُسدَّد في المهلة يُلغى فوزك ويُخصم الضمان ويصبح الاسم ملكًا للمنظمة الدولية للإبل.`
+  `بسعر ${price} ⃁. سدّد الفاتورة خلال ${hours} ساعة من محفظتك أو بوسائل الدفع، ويُعاد ضمانك إلى محفظتك بعد السداد. إن لم تُسدَّد في المهلة يُلغى فوزك ويُخصم الضمان ويصبح الاسم ملكًا للمنظمة الدولية للإبل.`
 export const ICO_OWNER = 'المنظمة الدولية للإبل'
 
 /** the entry guarantees of an auction's losers return to their wallets */
@@ -782,7 +782,7 @@ function refundEntry(db: DB, a: Auction, except?: string) {
   for (const d of db.bidDeposits ?? []) if (d.auctionId === a.id && d.state === 'held' && d.userId !== except) {
     d.state = 'refunded'
     db.txs.push({ id: uid(db, 't'), userId: d.userId, amount: d.amount, kind: 'refund', note: `استرداد ضمان دخول مزاد «${a.name}»`, createdAt: iso(now()) })
-    notify(db, d.userId, 'refund', 'أُعيد ضمان دخول المزاد إلى محفظتك', `${d.amount} ريال من مزاد «${a.name}».`, '/dashboard/wallet')
+    notify(db, d.userId, 'refund', 'أُعيد ضمان دخول المزاد إلى محفظتك', `${d.amount} ⃁ من مزاد «${a.name}».`, '/dashboard/wallet')
   }
 }
 
@@ -799,7 +799,7 @@ function settleIco(db: DB, a: Auction) {
   Object.assign(a, { settled: true, winnerId: winner.id, winnerName: winner.fullName, finalPrice: price, wonByRequester: false })
   refundEntry(db, a, winner.id)
   notify(db, winner.id, 'won', `مبارك عليك الفوز بمزاد شعار «${a.name}»`, wonBody(price, hours), '/dashboard/invoices')
-  for (const u of new Set(db.bids.filter((b) => b.auctionId === a.id && b.userId !== winner.id).map((b) => b.userId))) notify(db, u, 'lost', `انتهى مزاد «${a.name}»`, `رسا الاسم بسعر ${price} ريال.`, `/auctions/${a.id}`)
+  for (const u of new Set(db.bids.filter((b) => b.auctionId === a.id && b.userId !== winner.id).map((b) => b.userId))) notify(db, u, 'lost', `انتهى مزاد «${a.name}»`, `رسا الاسم بسعر ${price} ⃁.`, `/auctions/${a.id}`)
 }
 
 /** «اسم مستثنى»: a win not paid by its deadline is cancelled, the guarantee forfeited, and the name passes to the organization */
@@ -819,7 +819,7 @@ function forfeitOverdue(db: DB) {
     if (dep) { dep.state = 'forfeited'; forfeited += dep.amount }
     const rn = a.icoReservedId ? db.reserved.find((x) => x.id === a.icoReservedId) : db.reserved.find((x) => x.auctionId === a.id) ?? db.reserved.find((x) => x.name === a.name && x.ownerId === inv.userId)
     if (rn) Object.assign(rn, { forfeitedFromId: inv.userId, forfeitedFromName: rn.ownerName, forfeitedAt: iso(now()), forfeitedPrice: inv.total, forfeitedDeposit: forfeited, ownerId: undefined, ownerName: ICO_OWNER, source: 'exception', acquiredAt: iso(now()) })
-    notify(db, inv.userId, 'auction_update', `أُلغي فوزك بشعار «${inv.name}»`, `لم تُسدَّد الفاتورة ${inv.number} خلال المهلة، فخُصم الضمان (${forfeited} ريال) وأصبح الاسم ملكًا للمنظمة الدولية للإبل.`, '/dashboard/invoices')
+    notify(db, inv.userId, 'auction_update', `أُلغي فوزك بشعار «${inv.name}»`, `لم تُسدَّد الفاتورة ${inv.number} خلال المهلة، فخُصم الضمان (${forfeited} ⃁) وأصبح الاسم ملكًا للمنظمة الدولية للإبل.`, '/dashboard/invoices')
     changed = true
   }
   return changed
@@ -838,7 +838,7 @@ function releaseWinnerGuarantee(db: DB, inv: Invoice) {
   if (dep) {
     dep.state = 'refunded'
     db.txs.push({ id: uid(db, 't'), userId: dep.userId, amount: dep.amount, kind: 'refund', note: `استرداد ضمان دخول مزاد «${a.name}» بعد سداد الفاتورة ${inv.number}`, createdAt: iso(now()) })
-    notify(db, dep.userId, 'refund', 'أُعيد ضمان دخول المزاد إلى محفظتك', `${dep.amount} ريال بعد سداد فاتورة «${a.name}».`, '/dashboard/wallet')
+    notify(db, dep.userId, 'refund', 'أُعيد ضمان دخول المزاد إلى محفظتك', `${dep.amount} ⃁ بعد سداد فاتورة «${a.name}».`, '/dashboard/wallet')
   }
 }
 
@@ -887,7 +887,7 @@ function routingView(db: DB): TicketRouting {
 // ───────────────────────── audit, customers, finance (demo) ─────────────────────────
 const maskMid = (v?: string) => (!v ? v : v.length <= 5 ? '•'.repeat(v.length) : v.slice(0, 2) + '•'.repeat(v.length - 5) + v.slice(-3))
 const maskIban = (v: string) => (v.length < 8 ? v : `${v.slice(0, 4)} •••• •••• ${v.slice(-4)}`)
-const sarText = (n: number) => `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })} ريال`
+const sarText = (n: number) => `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })} ⃁`
 
 const SAUDI_BANKS: Record<string, string> = {
   '05': 'مصرف الإنماء', '10': 'البنك الأهلي السعودي', '15': 'بنك البلاد', '20': 'بنك الرياض', '30': 'البنك العربي الوطني', '45': 'البنك السعودي الأول (ساب)',
@@ -1593,7 +1593,7 @@ const rawApi: SammhaApi = {
 
   topUp: (amount) => tx((db) => {
     const u = writer(db)
-    if (!(amount >= 10)) throw new ApiError('أقل مبلغ للشحن 10 ريال')
+    if (!(amount >= 10)) throw new ApiError('أقل مبلغ للشحن 10 ⃁')
     db.txs.push({ id: uid(db, 't'), userId: u.id, amount, kind: 'topup', note: 'شحن المحفظة بالبطاقة', createdAt: iso(now()) })
     return { balance: balanceOf(db, u.id), txs: db.txs.filter((t) => t.userId === u.id).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)) }
   }),
@@ -1796,7 +1796,7 @@ const rawApi: SammhaApi = {
     if (db.invoices.some((i) => i.status === 'unpaid' && i.userId === u.id && i.name === r.name)) throw new ApiError('سدّد فاتورة الاسم أولًا قبل عرضه للبيع')
     if (db.auctions.some((a) => !a.settled && a.name === r.name)) throw new ApiError('للاسم مزاد قائم حاليًا')
     const p = Math.floor(Number(price))
-    if (!Number.isFinite(p) || p < RULES.openingPrice) throw new ApiError(`أقل قيمة ${RULES.openingPrice} ريال`)
+    if (!Number.isFinite(p) || p < RULES.openingPrice) throw new ApiError(`أقل قيمة ${RULES.openingPrice} ⃁`)
     if (p > 10_000_000) throw new ApiError('القيمة كبيرة جدًا')
     const t = now()
     const auction = mode === 'auction'
@@ -1818,7 +1818,7 @@ const rawApi: SammhaApi = {
     // announced to every registered user (sent on by SMS through the notification webhook)
     for (const x of db.users) if (x.id !== u.id && x.role === 'owner' && x.active !== false) {
       notify(db, x.id, 'auction_opened', auction ? `مزاد إعادة بيع: «${l.name}»` : `اسم معروض للبيع الفوري: «${l.name}»`,
-        auction ? `يبدأ بعد ${RULES.resaleNoticeHours} ساعة بسعر افتتاحي ${p} ريال، ويستمر ${RULES.resaleAuctionDays} أيام.` : `بسعر ${p} ريال، متاح للشراء ${RULES.instantSaleHours} ساعة.`,
+        auction ? `يبدأ بعد ${RULES.resaleNoticeHours} ساعة بسعر افتتاحي ${p} ⃁، ويستمر ${RULES.resaleAuctionDays} أيام.` : `بسعر ${p} ⃁، متاح للشراء ${RULES.instantSaleHours} ساعة.`,
         auction ? `/auctions/${l.auctionId}` : '/market')
     }
     return listingOut(db, l)
@@ -1865,8 +1865,8 @@ const rawApi: SammhaApi = {
     transferName(db, l, u, l.price)
     Object.assign(l, { status: 'sold', soldPrice: l.price, soldAt: iso(now()) })
     payOwnerShare(db, inv)
-    notify(db, u.id, 'won', `مبارك، أصبح «${l.name}» باسمك`, `اشتريته بـ ${l.price} ريال. فاتورتك وشهادة التسجيل في «أسمائي».`, '/dashboard/names')
-    notify(db, l.sellerId, 'won', `بيع اسمك «${l.name}»`, `بـ ${l.price} ريال، وأُضيف ${inv.ownerShare} ريال إلى محفظتك بعد عمولة ${pct(l.commissionRate)}%.`, '/dashboard/sell')
+    notify(db, u.id, 'won', `مبارك، أصبح «${l.name}» باسمك`, `اشتريته بـ ${l.price} ⃁. فاتورتك وشهادة التسجيل في «أسمائي».`, '/dashboard/names')
+    notify(db, l.sellerId, 'won', `بيع اسمك «${l.name}»`, `بـ ${l.price} ⃁، وأُضيف ${inv.ownerShare} ⃁ إلى محفظتك بعد عمولة ${pct(l.commissionRate)}%.`, '/dashboard/sell')
     return listingOut(db, l)
   }),
 
@@ -1897,7 +1897,7 @@ const rawApi: SammhaApi = {
     if (a.paused) throw new ApiError('المزاد متوقف مؤقتًا، تابع الصفحة لمعرفة موعد الاستئناف')
     if (phase === 'ended') throw new ApiError('انتهى المزاد')
     const min = a.currentPrice + a.minIncrement
-    if (!Number.isFinite(amount) || amount < min) throw new ApiError(`أقل مزايدة ${min} ريال`)
+    if (!Number.isFinite(amount) || amount < min) throw new ApiError(`أقل مزايدة ${min} ⃁`)
     if (a.leaderId === u.id) throw new ApiError('أنت صاحب أعلى مزايدة حاليًا')
     if (isInvestment(db, a) && a.requesterId === u.id) throw new ApiError('لا يمكنك المزايدة على اسم قدّمته في «استثمار الاسم»')
     resaleGuard(db, a, u.id)
@@ -1915,7 +1915,7 @@ const rawApi: SammhaApi = {
     if (isInvestment(db, a) && a.requesterId === u.id) throw new ApiError('لا يمكنك المزايدة على اسم قدّمته في «استثمار الاسم»')
     resaleGuard(db, a, u.id)
     const floor = a.leaderId === u.id ? a.currentPrice + a.minIncrement : a.currentPrice + a.minIncrement
-    if (!Number.isFinite(max) || max < floor) throw new ApiError(`الحد الأقصى ${floor} ريال على الأقل`)
+    if (!Number.isFinite(max) || max < floor) throw new ApiError(`الحد الأقصى ${floor} ⃁ على الأقل`)
     if (max > 1_000_000) throw new ApiError('الحد الأقصى كبير جدًا')
     db.autobids = (db.autobids ?? []).filter((x) => !(x.auctionId === a.id && x.userId === u.id))
     db.autobids.push({ auctionId: a.id, userId: u.id, max: Math.floor(max), createdAt: iso(now()) })
@@ -2508,7 +2508,7 @@ const rawApi: SammhaApi = {
   requestWithdrawal: (amount) => tx((db) => {
     const u = writer(db)
     const a = round2(amount)
-    if (!(a >= 10)) throw new ApiError('أقل مبلغ للاسترداد 10 ريال')
+    if (!(a >= 10)) throw new ApiError('أقل مبلغ للاسترداد 10 ⃁')
     const b = db.banks?.find((x) => x.userId === u.id)
     if (!b) throw new ApiError('أضف حسابك البنكي وشهادة الآيبان أولًا')
     if (b.status !== 'verified') throw new ApiError('حسابك البنكي بانتظار اعتماد الإدارة المالية')

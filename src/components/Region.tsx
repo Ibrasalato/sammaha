@@ -1,3 +1,4 @@
+import { sar } from '../lib/format'
 import { useEffect, useState } from 'react'
 import { tr } from '../lib/i18n'
 import { CURRENCIES, TIME_ZONES, approx, deviceTz, getRegion, refreshRates, setRegion, tzOffsetLabel } from '../lib/region'
@@ -36,7 +37,7 @@ export function RegionForm({ onDone }: { onDone?: () => void }) {
           {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{tr(c.ar, c.en)} ({c.code})</option>)}
         </select>
         <p className="hint">{tr('يظهر المبلغ التقريبي بجانب السعر بالريال للاسترشاد فقط. المزايدة والدفع والفواتير بالريال السعودي.', 'An approximate amount appears next to the riyal price, for guidance only. Bids, payments and invoices are in Saudi riyals.')}</p>
-        {currency !== 'SAR' && <p className="mt-1 text-[13px] font-semibold text-pine">{tr('مثال:', 'Example:')} 1,000 {tr('ر.س', 'SAR')} {approx(1000, currency)}</p>}
+        {currency !== 'SAR' && <p className="mt-1 text-[13px] font-semibold text-pine">{tr('مثال:', 'Example:')} {sar(1000)} {approx(1000, currency)}</p>}
       </div>
       <div className="flex gap-2">
         <button className="btn-primary" disabled={!changed} onClick={() => { setRegion({ tz, currency }); onDone?.(); location.reload() }}>{tr('حفظ', 'Save')}</button>

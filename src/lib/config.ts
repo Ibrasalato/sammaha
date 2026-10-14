@@ -3,13 +3,13 @@ import type { NameType } from './types'
 
 /** Business rules — change here, they're mirrored in the API (appsettings.json → Platform). */
 export const RULES = {
-  /** Auction guarantee paid with every logo request (SAR) */
+  /** Auction guarantee paid with every logo request (⃁) */
   depositAmount: 50,
   /** hours an auction winner has to pay (the live value comes from the platform settings) */
   paymentDeadlineHours: 72,
-  /** Opening price of every name in auction (SAR) */
+  /** Opening price of every name in auction (⃁) */
   openingPrice: 50,
-  /** Minimum raise over the current price (SAR) */
+  /** Minimum raise over the current price (⃁) */
   minIncrement: 10,
   /** A bid in the last N minutes extends the auction by N minutes (anti-sniping) */
   extendMinutes: 2,
@@ -18,7 +18,7 @@ export const RULES = {
   /** VAT rate; prices are VAT inclusive */
   vatRate: 0.15,
   timeZone: 'Asia/Riyadh',
-  /** «استثمار الاسم»: non-refundable study fee per request (SAR) */
+  /** «استثمار الاسم»: non-refundable study fee per request (⃁) */
   investFee: 100,
   /** «اسم مركب»: registration fee, paid by card (0 = free; the live value comes from the platform settings) */
   compoundFee: 0,

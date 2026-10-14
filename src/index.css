@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* the Saudi riyal sign (U+20C1, SAMA 2025): one glyph, used only for that character */
+@font-face {
+  font-family: 'SammhaRiyal';
+  src: url('./assets/riyal.woff2') format('woff2');
+  unicode-range: U+20C1;
+  font-display: block;
+}
+
 @layer base {
   html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
   body {

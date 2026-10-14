@@ -140,7 +140,7 @@ export function BankAndRefunds({ balance, onChange }: { balance: number; onChang
         <div className="space-y-4">
           {err && <ErrorBox text={err} />}
           <p className="text-[14.5px]">{tr('إلى', 'To')} <b>{b?.bankName}</b> <span className="num" dir="ltr">{b?.ibanMasked}</span>. {tr('الرصيد المتاح', 'Available balance')} <b className="num">{sar(balance)}</b>.</p>
-          <div><label className="label" htmlFor="wa">{tr('المبلغ (ريال)', 'Amount (SAR)')}</label><input id="wa" className="field num" dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} /><p className="hint">{tr('أقل مبلغ 10 ريال.', 'Minimum 10 SAR.')}</p></div>
+          <div><label className="label" htmlFor="wa">{tr('المبلغ (⃁)', 'Amount (⃁)')}</label><input id="wa" className="field num" dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} /><p className="hint">{tr('أقل مبلغ 10 ⃁.', 'Minimum ⃁ 10.')}</p></div>
           <button className="btn-primary w-full" disabled={busy || !(Number(amount) >= 10) || Number(amount) > balance} onClick={withdraw}>{busy ? tr('جارٍ الإرسال…', 'Sending…') : tr('إرسال الطلب', 'Send request')}</button>
         </div>
       </Modal>

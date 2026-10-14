@@ -1,3 +1,4 @@
+import { RIYAL } from '../lib/format'
 import { Link } from 'react-router-dom'
 import { Icon } from '../components/dash'
 import type { IconName } from '../components/dash'
@@ -15,7 +16,7 @@ export default function Invest() {
 
   const steps: [IconName, string, string][] = [
     ['plus', tr('قدّم أسماء جديدة', 'Submit new names'), tr(`من أيقونة «استثمار الاسم» في لوحتك، حتى ${RULES.investMaxNames} أسماء فريدة غير مكررة في الطلب.`, `From the «Name investment» icon in your dashboard: up to ${RULES.investMaxNames} unique names per request.`)],
-    ['wallet', tr(`ادفع رسوم الدراسة ${RULES.investFee} ريال`, `Pay the SAR ${RULES.investFee} study fee`), tr('رسوم دراسة الطلب غير مستردة في جميع الأحوال.', 'The study fee is non-refundable in all cases.')],
+    ['wallet', tr(`ادفع رسوم الدراسة ${RULES.investFee} ⃁`, `Pay the ⃁ ${RULES.investFee} study fee`), tr('رسوم دراسة الطلب غير مستردة في جميع الأحوال.', 'The study fee is non-refundable in all cases.')],
     ['shield', tr('دراسة اللجنة المختصة', 'Specialist committee review'), tr('يُقيَّم الاسم وفق المعايير المعتمدة. إن لم يُقبل يصلك إشعار برسالة نصية.', 'The name is assessed against the approved criteria. If it is not accepted you get a text message.')],
     ['gavel', tr('طرح الاسم في مزاد عام', 'Public auction'), tr('الاسم المقبول يُطرح للجميع في مزاد إلكتروني علني.', 'An accepted name is offered to everyone in an open online auction.')],
     ['coins', tr(`لك ${ownerPct}% من قيمة البيع`, `You get ${ownerPct}% of the sale`), tr(`توزَّع العوائد بعد انتهاء المزاد: ${orgPct}% للمنظمة و${ownerPct}% لصاحب الاسم، تُضاف إلى محفظتك فور سداد الفائز.`, `Proceeds are split after the auction: ${orgPct}% to the organization and ${ownerPct}% to the name owner, credited to your wallet once the winner pays.`)],
@@ -38,7 +39,7 @@ export default function Invest() {
             <a href="#how" className="btn border border-paper/30 text-paper hover:bg-paper/10">{tr('كيف تعمل الخدمة', 'How it works')}</a>
           </div>
           <dl className="mt-10 grid max-w-2xl grid-cols-3 gap-3">
-            {[[`${RULES.investFee}`, tr('ريال رسوم الدراسة', 'SAR study fee')], [`${ownerPct}%`, tr('لصاحب الاسم', 'to the name owner')], [`${RULES.investMaxNames}`, tr('أسماء في الطلب', 'names per request')]].map(([v, l]) => (
+            {[[`${RULES.investFee}`, tr(`${RIYAL} رسوم الدراسة`, `${RIYAL} study fee`)], [`${ownerPct}%`, tr('لصاحب الاسم', 'to the name owner')], [`${RULES.investMaxNames}`, tr('أسماء في الطلب', 'names per request')]].map(([v, l]) => (
               <div key={l} className="rounded-xl border border-paper/15 bg-paper/5 p-4"><dt className="num text-[30px] font-extrabold text-gold-light">{v}</dt><dd className="text-[14px] text-paper/75">{l}</dd></div>
             ))}
           </dl>
@@ -70,7 +71,7 @@ export default function Invest() {
               <div className="flex items-center justify-center bg-gold text-pine" style={{ width: `${ownerPct}%` }}>{tr(`صاحب الاسم ${ownerPct}%`, `Owner ${ownerPct}%`)}</div>
             </div>
             <div className="mt-5 rounded-xl border border-line bg-stone p-4 text-[15px] leading-7">
-              <b>{tr('مثال:', 'Example:')}</b> {tr('بيع الاسم بـ 11,500 ريال شاملة الضريبة (10,000 قبلها)، فيضاف 3,000 ريال إلى محفظة صاحب الاسم بعد سداد الفائز.', 'A name sells for SAR 11,500 incl. VAT (10,000 before it); SAR 3,000 goes to the owner’s wallet once the winner pays.')}
+              <b>{tr('مثال:', 'Example:')}</b> {tr('بيع الاسم بـ 11,500 ⃁ شاملة الضريبة (10,000 قبلها)، فيضاف 3,000 ⃁ إلى محفظة صاحب الاسم بعد سداد الفائز.', 'A name sells for ⃁ 11,500 incl. VAT (10,000 before it); ⃁ 3,000 goes to the owner’s wallet once the winner pays.')}
             </div>
           </div>
           <div>
@@ -78,7 +79,7 @@ export default function Invest() {
             <ul className="mt-6 space-y-3">
               {[
                 tr(`حتى ${RULES.investMaxNames} أسماء جديدة في الطلب، غير مسجلة وغير مكررة، ويُدرس كل اسم على حدة.`, `Up to ${RULES.investMaxNames} new names per request, not registered and not duplicated; each is reviewed on its own.`),
-                tr(`رسوم دراسة ${RULES.investFee} ريال للطلب، غير مستردة سواء قُبلت الأسماء أو لم تُقبل.`, `A SAR ${RULES.investFee} study fee, non-refundable whether the name is accepted or not.`),
+                tr(`رسوم دراسة ${RULES.investFee} ⃁ للطلب، غير مستردة سواء قُبلت الأسماء أو لم تُقبل.`, `A ⃁ ${RULES.investFee} study fee, non-refundable whether the name is accepted or not.`),
                 tr('تدرس الطلبَ لجنة مختصة وفق معايير معتمدة، ويُبلَّغ مقدم الطلب برسالة نصية عند عدم القبول.', 'A specialist committee studies each request against approved criteria; the applicant gets a text message if it is not accepted.'),
                 tr('لا يزايد صاحب الاسم على اسمه حفاظًا على عدالة المزاد.', 'The name owner cannot bid on their own name, to keep the auction fair.'),
                 tr(`إن لم تُسجَّل أي مزايدة يؤول الاسم إلى صاحبه دون نسبة الـ${ownerPct}%.`, `If nobody bids, the name passes to its owner without the ${ownerPct}% share.`),

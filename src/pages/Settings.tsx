@@ -224,12 +224,12 @@ const INTAKES: { key: ServiceKey; flag: IntakeFlag; note: IntakeNote; title: str
 type ServiceState = 'open' | 'closed' | 'soon'
 /** the price field each service row edits: an amount in riyals or a commission in percent */
 const PRICE: Record<ServiceKey, { field: 'depositAmount' | 'investFee' | 'resaleCommission' | 'instantCommission' | 'transferFee' | 'compoundFee'; pct?: boolean; label: () => string; hint: () => string }> = {
-  requests: { field: 'depositAmount', label: () => tr('مبلغ الضمان (ريال، مسترد)', 'Guarantee (SAR, refundable)'), hint: () => tr('يُعاد للمالك إن لم يرسُ عليه المزاد.', 'Returned to the owner if they do not win.') },
-  investment: { field: 'investFee', label: () => tr('رسوم الدراسة (ريال)', 'Study fee (SAR)'), hint: () => tr('غير مستردة، تُدفع بالبطاقة.', 'Non-refundable, paid by card.') },
+  requests: { field: 'depositAmount', label: () => tr('مبلغ الضمان (⃁، مسترد)', 'Guarantee (⃁, refundable)'), hint: () => tr('يُعاد للمالك إن لم يرسُ عليه المزاد.', 'Returned to the owner if they do not win.') },
+  investment: { field: 'investFee', label: () => tr('رسوم الدراسة (⃁)', 'Study fee (⃁)'), hint: () => tr('غير مستردة، تُدفع بالبطاقة.', 'Non-refundable, paid by card.') },
   resale: { field: 'resaleCommission', pct: true, label: () => tr('العمولة من قيمة البيع (%)', 'Commission on the sale (%)'), hint: () => tr('تُخصم من قيمة البيع قبل تحويلها للبائع.', 'Deducted from the sale before paying the seller.') },
   instant: { field: 'instantCommission', pct: true, label: () => tr('العمولة من قيمة البيع (%)', 'Commission on the sale (%)'), hint: () => tr('تُخصم من قيمة البيع قبل تحويلها للبائع.', 'Deducted from the sale before paying the seller.') },
-  transfer: { field: 'transferFee', label: () => tr('رسوم النقل (ريال، شاملة الضريبة)', 'Transfer fee (SAR, VAT incl.)'), hint: () => tr('تُدفع بالبطاقة، وتُعاد إن لم يكتمل النقل.', 'Paid by card; returned if the transfer does not complete.') },
-  compound: { field: 'compoundFee', label: () => tr('رسوم التسجيل (ريال)', 'Registration fee (SAR)'), hint: () => tr('تُدفع بالبطاقة عند تقديم الطلب.', 'Paid by card when applying.') },
+  transfer: { field: 'transferFee', label: () => tr('رسوم النقل (⃁، شاملة الضريبة)', 'Transfer fee (⃁, VAT incl.)'), hint: () => tr('تُدفع بالبطاقة، وتُعاد إن لم يكتمل النقل.', 'Paid by card; returned if the transfer does not complete.') },
+  compound: { field: 'compoundFee', label: () => tr('رسوم التسجيل (⃁)', 'Registration fee (⃁)'), hint: () => tr('تُدفع بالبطاقة عند تقديم الطلب.', 'Paid by card when applying.') },
 }
 
 /** price (or free) and the description owners read on the service card */
@@ -352,7 +352,7 @@ function GeneralPanel({ d, set, rules }: { d: Draft; set: (p: SettingsPatch) => 
       <Card icon="lock" title={tr('الضمان والرسوم ومهلة السداد', 'Guarantee, fees and payment deadline')} sub={tr('يدفع مقدم الطلب الضمان مع طلبه، ويدفعه كل مزايد آخر لدخول المزاد. يُعاد لمن لم يرسُ عليه، ويُعاد للفائز بعد سداد قيمة الشعار كاملة. إن لم يسدّد الفائز في المهلة يُخصم ضمانه ويصبح الاسم ملكًا للمنظمة الدولية للإبل.', 'The requester pays the guarantee with the request, and every other bidder pays it to enter the auction. It returns to whoever does not win, and to the winner after paying the full price. If the winner does not pay in time, the guarantee is forfeited and the name passes to the International Camel Organization.')}>
         <div className="grid gap-4 p-5 sm:grid-cols-2">
           <div>
-            <label className="label" htmlFor="g-dep">{tr('مبلغ الضمان (ريال)', 'Guarantee amount (SAR)')}</label>
+            <label className="label" htmlFor="g-dep">{tr('مبلغ الضمان (⃁)', 'Guarantee amount (⃁)')}</label>
             <input id="g-dep" type="number" min={0} step="1" className="field num" dir="ltr" value={d.depositAmount ?? ''} onChange={(e) => set({ depositAmount: Number(e.target.value) })} />
             <p className="hint">{tr('يُطبّق على الطلبات والمزادات الجديدة، ولا يغيّر ما سُدّد من قبل.', 'Applies to new requests and auctions; amounts already paid do not change.')}</p>
           </div>
@@ -362,7 +362,7 @@ function GeneralPanel({ d, set, rules }: { d: Draft; set: (p: SettingsPatch) => 
             <p className="hint">{tr('تبدأ من لحظة انتهاء المزاد. مثال: 72 ساعة = 3 أيام.', 'Counted from the end of the auction. Example: 72 hours = 3 days.')}</p>
           </div>
           <div>
-            <label className="label" htmlFor="g-tf">{tr('رسوم نقل ملكية اسم (ريال، شاملة الضريبة)', 'Name transfer fee (SAR, VAT incl.)')}</label>
+            <label className="label" htmlFor="g-tf">{tr('رسوم نقل ملكية اسم (⃁، شاملة الضريبة)', 'Name transfer fee (⃁, VAT incl.)')}</label>
             <input id="g-tf" type="number" min={0} step="1" className="field num" dir="ltr" value={d.transferFee ?? ''} onChange={(e) => set({ transferFee: Number(e.target.value) })} />
             <p className="hint">{tr('يدفعها المالك بالبطاقة عند طلب النقل، وتُعاد إلى محفظته إن لم يكتمل. 0 = مجانًا.', 'Paid by the owner by card when requesting a transfer, returned to the wallet if it does not complete. 0 = free.')}</p>
           </div>

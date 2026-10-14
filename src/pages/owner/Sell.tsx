@@ -101,7 +101,7 @@ export function SellPage() {
               <ClosedNotice intake={mode === 'auction' ? 'resale' : 'instant'} />
               <div>
                 <label className="label" htmlFor="sell-price">{mode === 'auction' ? tr('حدد القيمة الأدنى للاسم (سعر فتح المزاد)', 'Set the minimum value (auction opening price)') : tr('حدد قيمة الاسم المراد بيعه', 'Set the sale price')}</label>
-                <input id="sell-price" className="field num text-lg" inputMode="numeric" placeholder={tr(`${RULES.openingPrice} ريال أو أكثر`, `${RULES.openingPrice} SAR or more`)} value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ''))} />
+                <input id="sell-price" className="field num text-lg" inputMode="numeric" placeholder={tr(`${RULES.openingPrice} ⃁ أو أكثر`, `${RULES.openingPrice} SAR or more`)} value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ''))} />
                 {value >= RULES.openingPrice && (
                   <p className="mt-1.5 text-[14px] text-muted">
                     {mode === 'auction' ? tr('إن بيع بهذه القيمة', 'If sold at this value') : tr('عند البيع', 'On sale')} {tr('يصلك', 'you receive')} <b className="num text-ok">{sar(round2(value * (1 - rate)))}</b> {tr(`بعد عمولة ${pct(rate)}%`, `after the ${pct(rate)}% commission`)} ({sar(round2(value * rate))}).

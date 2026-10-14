@@ -56,9 +56,9 @@ export default function About() {
         <h2 className="sec-title">{tr('شروط المزاد باختصار', 'Auction rules in brief')}</h2>
         <ul className="mt-6 grid gap-3 sm:grid-cols-2">
           {[
-            tr(`ضمان مزاد ${RULES.depositAmount} ريال مع كل طلب، ويُعاد إن رُفض الطلب أو أُلغي.`, `A SAR ${RULES.depositAmount} guarantee with each request, refunded if it is declined or cancelled.`),
+            tr(`ضمان مزاد ${RULES.depositAmount} ⃁ مع كل طلب، ويُعاد إن رُفض الطلب أو أُلغي.`, `A ⃁ ${RULES.depositAmount} guarantee with each request, refunded if it is declined or cancelled.`),
             tr('يُرفض أي اسم مطابق تمامًا لاسم مسجل، وتُراجع الأسماء الشبيهة.', 'Exact matches are rejected; similar names are reviewed.'),
-            tr(`سعر افتتاحي ${RULES.openingPrice} ريال وأقل زيادة ${RULES.minIncrement} ريال، بتوقيت الرياض.`, `Opening price SAR ${RULES.openingPrice}, minimum raise SAR ${RULES.minIncrement}, Riyadh time.`),
+            tr(`سعر افتتاحي ${RULES.openingPrice} ⃁ وأقل زيادة ${RULES.minIncrement} ⃁، بتوقيت الرياض.`, `Opening price ⃁ ${RULES.openingPrice}, minimum raise ⃁ ${RULES.minIncrement}, Riyadh time.`),
             tr('إن لم يزايد أحد يرسو الاسم على مقدم الطلب بالسعر الافتتاحي.', 'If nobody bids, the requester gets the name at the opening price.'),
             tr('فاتورة إلكترونية متوافقة مع هيئة الزكاة والضريبة والجمارك.', 'A ZATCA-compliant e-invoice is issued to the winner.'),
             tr('شهادة تسجيل برمز QR يتحقق منها أي شخص.', 'A registration certificate with a QR code anyone can verify.'),

@@ -1,7 +1,7 @@
 import { tr } from '../lib/i18n'
 import { useEffect, useState } from 'react'
 import { SELLER, TYPE_LABEL } from '../lib/config'
-import { dateTime, num, sar } from '../lib/format'
+import { dateTime, sar } from '../lib/format'
 import { zatcaQrDataUrl } from '../lib/zatca'
 import type { Invoice } from '../lib/types'
 import { IcoLogo, Logo } from './Layout'
@@ -45,7 +45,7 @@ export function InvoiceDoc({ inv }: { inv: Invoice }) {
           <div className="flex justify-between"><dt className="text-muted">{tr('المبلغ قبل الضريبة', 'Amount before VAT')}</dt><dd>{sar(inv.subtotal)}</dd></div>
           <div className="flex justify-between"><dt className="text-muted">{tr('ضريبة القيمة المضافة 15%', 'VAT 15%')}</dt><dd>{sar(inv.vat)}</dd></div>
           <div className="flex justify-between border-t border-line pt-1.5 font-semibold"><dt>{tr('الإجمالي شامل الضريبة', 'Total incl. VAT')}</dt><dd>{sar(inv.total)}</dd></div>
-          {inv.depositApplied > 0 && <div className="flex justify-between text-ok"><dt>{tr('مخصوم من ضمان المزاد', 'Deducted from auction guarantee')}</dt><dd>−{num(inv.depositApplied)} {tr('ر.س', 'SAR')}</dd></div>}
+          {inv.depositApplied > 0 && <div className="flex justify-between text-ok"><dt>{tr('مخصوم من ضمان المزاد', 'Deducted from auction guarantee')}</dt><dd>−{sar(inv.depositApplied)}</dd></div>}
           <div className="flex justify-between font-extrabold text-lg"><dt>{tr('المستحق', 'Amount due')}</dt><dd>{sar(inv.amountDue)}</dd></div>
           <div className="pt-1 text-end"><span className={`pill ${inv.status === 'paid' ? 'bg-ok/10 text-ok' : 'bg-gold-soft text-gold-deep'}`}>{inv.status === 'paid' ? tr('مدفوعة', 'Paid') : tr('غير مدفوعة', 'Unpaid')}</span></div>
         </dl>

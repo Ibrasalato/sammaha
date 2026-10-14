@@ -20,7 +20,7 @@ export default function Auctions() {
 
   return (
     <div className="wrap py-10">
-      <PageHead title={tr('المزادات', 'Auctions')} sub={tr('السعر الافتتاحي لكل اسم 50 ريال. يرسو الاسم على أعلى مزايد عند انتهاء الوقت.', 'Every name opens at SAR 50 and is awarded to the highest bidder when time runs out.')} />
+      <PageHead title={tr('المزادات', 'Auctions')} sub={tr('السعر الافتتاحي لكل اسم 50 ⃁. يرسو الاسم على أعلى مزايد عند انتهاء الوقت.', 'Every name opens at ⃁ 50 and is awarded to the highest bidder when time runs out.')} />
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <Segmented value={phase} onChange={setPhase} options={[['live', tr('جارية', 'Live')], ['scheduled', tr('قادمة', 'Upcoming')], ['ended', tr('منتهية', 'Ended')], ['all', tr('الكل', 'All')]]} />
         <Segmented value={type} onChange={setType} options={typeOptions('all', tr('الكل', 'All'))} />
