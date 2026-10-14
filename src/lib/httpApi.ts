@@ -273,6 +273,7 @@ export const httpApi: SammhaApi = {
   rejectRequest: (id, reason) => post(`/api/admin/requests/${id}/reject`, { reason }),
   cancelRequest: (id, reason) => post(`/api/admin/requests/${id}/cancel`, { reason }),
   awaitingSchedule: () => get('/api/admin/schedule'),
+  grantException: (id, fee, reason) => post(`/api/admin/candidates/${id}/exception`, { fee, reason }),
   scheduleAuctions: (candidateIds, startsAt, endsAt, staggerMinutes = 0) => post('/api/admin/schedule', { candidateIds, startsAt, endsAt, staggerMinutes }),
   allInvoices: () => get('/api/admin/invoices'),
   markInvoicePaid: (id) => post(`/api/admin/invoices/${id}/paid`),

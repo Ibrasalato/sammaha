@@ -482,6 +482,7 @@ function balanceOf(db: DB, userId: string) {
 function cancellable(db: DB, r: LogoRequest, t = now()) {
   if (r.status === 'pending_payment' || r.status === 'under_review') return true
   if (r.status !== 'accepted' || r.kind === 'compound') return false
+  if (r.candidates.some((c) => c.exceptedAt)) return false
   return r.candidates.every((c) => {
     const a = c.auctionId ? db.auctions.find((x) => x.id === c.auctionId) : undefined
     return !a || (t < Date.parse(a.startsAt) && a.bidCount === 0)
@@ -491,7 +492,7 @@ function cancellable(db: DB, r: LogoRequest, t = now()) {
 function withdrawable(db: DB, r: LogoRequest, c: LogoRequest['candidates'][number], t = now()) {
   if (!['pending_payment', 'under_review', 'accepted'].includes(r.status)) return false
   if (r.kind === 'compound') return false // a single name: cancel the request instead
-  if (c.status !== 'pending' && c.status !== 'accepted') return false
+  if ((c.status !== 'pending' && c.status !== 'accepted') || c.exceptedAt) return false
   const a = c.auctionId ? db.auctions.find((x) => x.id === c.auctionId) : undefined
   return !a || (t < Date.parse(a.startsAt) && a.bidCount === 0)
 }
@@ -759,7 +760,7 @@ function sweep(db: DB) {
     changed = true
     // all of the request's auctions settled and the requester won none → refund the guarantee
     const reqAuctions = db.auctions.filter((x) => x.requestId === r.id)
-    const pendingNames = r.candidates.some((c) => c.status === 'accepted' && !c.auctionId)
+    const pendingNames = r.candidates.some((c) => c.status === 'accepted' && !c.auctionId && !c.exceptedAt)
     if (!pendingNames && reqAuctions.every((x) => x.settled) && r.depositState === 'held') refundDeposit(db, r, 'لم يُرسَ عليك أي اسم')
   }
   return changed
@@ -1680,7 +1681,7 @@ const rawApi: SammhaApi = {
     need(db, 'overview.view')
     return {
       underReview: db.requests.filter((r) => r.status === 'under_review').length,
-      awaitingSchedule: db.requests.filter((r) => r.kind !== 'compound' && r.status === 'accepted').flatMap((r) => r.candidates).filter((c) => c.status === 'accepted' && !c.auctionId).length,
+      awaitingSchedule: db.requests.filter((r) => r.kind !== 'compound' && r.status === 'accepted').flatMap((r) => r.candidates).filter((c) => c.status === 'accepted' && !c.auctionId && !c.exceptedAt).length,
       live: db.auctions.filter((a) => phaseOf(a) === 'live').length,
       scheduled: db.auctions.filter((a) => phaseOf(a) === 'scheduled').length,
       unpaidInvoices: db.invoices.filter((i) => i.status === 'unpaid').length,
@@ -1767,6 +1768,7 @@ const rawApi: SammhaApi = {
     const r = db.requests.find((x) => x.id === id)
     if (!r || !['under_review', 'accepted'].includes(r.status)) throw new ApiError('لا يمكن إلغاء هذا الطلب')
     if (r.candidates.some((c) => c.auctionId)) throw new ApiError('لا يمكن إلغاء طلب فُتح له مزاد')
+    if (r.candidates.some((c) => c.exceptedAt)) throw new ApiError('لا يمكن إلغاء طلب سُجّل أحد أسمائه استثناءً')
     Object.assign(r, { status: 'cancelled', reviewedAt: iso(now()), reviewerName: u.fullName, reviewNote: reason })
     refundDeposit(db, r, 'ألغته اللجنة')
     return r
@@ -1775,7 +1777,40 @@ const rawApi: SammhaApi = {
   awaitingSchedule: () => tx((db) => {
     need(db, 'auctions.schedule')
     return db.requests.filter((r) => r.status === 'accepted' && r.kind !== 'compound')
-      .flatMap((r) => r.candidates.filter((c) => c.status === 'accepted' && !c.auctionId).map((c) => ({ ...c, request: r })))
+      .flatMap((r) => r.candidates.filter((c) => c.status === 'accepted' && !c.auctionId && !c.exceptedAt).map((c) => ({ ...c, request: r })))
+  }),
+
+  grantException: (candidateId, fee, reason) => tx((db) => {
+    const u = need(db, 'requests.exception')
+    if ((reason ?? '').trim().length < 5) throw new ApiError('اكتب سبب الاستثناء')
+    if (!(fee >= 0 && fee <= 10_000_000)) throw new ApiError('رسوم التسجيل غير صحيحة')
+    const r = db.requests.find((x) => x.candidates.some((c) => c.id === candidateId))
+    const c = r?.candidates.find((x) => x.id === candidateId)
+    if (!r || !c) throw new ApiError('الاسم غير موجود')
+    if (r.kind && r.kind !== 'standard') throw new ApiError('الاستثناء لطلبات الشعارات العادية فقط')
+    if (r.status !== 'accepted' || c.status !== 'accepted') throw new ApiError('الاستثناء لاسم مقبول فقط')
+    if (c.auctionId) throw new ApiError('حُدّد لهذا الاسم مزاد، ألغِ المزاد أولًا')
+    if (c.exceptedAt) throw new ApiError('سُجّل هذا الاسم استثناءً من قبل')
+    if (db.reserved.some((x) => x.normalized === c.normalized)) throw new ApiError('الاسم مسجل في السجل مسبقًا')
+    const owner = db.users.find((x) => x.id === r.userId)!
+    fee = round2(fee)
+    let applied = 0
+    if (r.depositState === 'held') {
+      applied = Math.min(r.depositAmount, fee)
+      r.depositState = 'applied'
+      const surplus = round2(r.depositAmount - applied)
+      if (surplus > 0) db.txs.push({ id: uid(db, 't'), userId: r.userId, amount: surplus, kind: 'refund', note: `باقي ضمان الطلب ${r.number} بعد رسوم تسجيل «${c.name}»`, createdAt: iso(now()) })
+    }
+    Object.assign(c, { exceptedAt: iso(now()), exceptionFee: fee, exceptionReason: reason.trim().slice(0, 300) })
+    const inv = issueInvoice(db, { id: '', name: c.name, type: r.type } as Auction, owner, fee, applied)
+    ;(inv as { auctionId?: string }).auctionId = undefined
+    const nid = uid(db, 'rn')
+    db.reserved.push({ id: nid, name: c.name, normalized: c.normalized, type: r.type, ownerId: r.userId, ownerName: owner.fullName, price: fee, acquiredAt: iso(now()), source: 'exception' })
+    notify(db, r.userId, 'reviewed', `سُجّل «${c.name}» باسمك دون مزاد`,
+      inv.status === 'paid' ? `استثنته لجنة الاعتماد من المزاد برسوم ${fee} ريال سُددت من ضمان الطلب.` : `استثنته لجنة الاعتماد من المزاد برسوم تسجيل ${fee} ريال. سدّد الفاتورة ${inv.number} لإصدار الشهادة.`,
+      inv.status === 'paid' ? '/dashboard/names' : '/dashboard/invoices')
+    void u
+    return r
   }),
 
   scheduleAuctions: (candidateIds, startsAt, endsAt, stagger = 0) => tx((db) => {
@@ -1791,7 +1826,7 @@ const rawApi: SammhaApi = {
     for (const cid of candidateIds) {
       const r = db.requests.find((x) => x.candidates.some((c) => c.id === cid))
       const c = r?.candidates.find((x) => x.id === cid)
-      if (!r || !c || c.status !== 'accepted' || c.auctionId) continue
+      if (!r || !c || c.status !== 'accepted' || c.auctionId || c.exceptedAt) continue
       const s = base.s + out.length * stagger * 60_000, e = base.e + out.length * stagger * 60_000
       const a: Auction = {
         id: uid(db, 'a'), requestId: r.id, candidateId: c.id, name: c.name, type: r.type, requesterId: r.userId,
@@ -2596,7 +2631,7 @@ const ACT_CATEGORIES: Record<string, string> = {
 }
 /** each write and its label in the log (same labels as the API) */
 const ACT: Record<string, [string, string]> = {
-  issueCertificate: ['إصدار شهادة', 'certificates'], revokeCertificate: ['إلغاء شهادة', 'certificates'], setLatinName: ['تعديل الكتابة اللاتينية لاسم', 'certificates'],
+  grantException: ['استثناء اسم من المزاد', 'requests'], issueCertificate: ['إصدار شهادة', 'certificates'], revokeCertificate: ['إلغاء شهادة', 'certificates'], setLatinName: ['تعديل الكتابة اللاتينية لاسم', 'certificates'],
   startSignIn: ['محاولة دخول', 'auth'], completeSignIn: ['تسجيل دخول', 'auth'], signOut: ['تسجيل خروج', 'auth'], startSignUp: ['بدء إنشاء حساب', 'auth'], signUp: ['إنشاء حساب مالك', 'auth'],
   changePassword: ['تغيير كلمة المرور', 'account'], revokeMySession: ['إخراج جهاز', 'account'], signOutEverywhere: ['خروج من كل الأجهزة', 'account'], updateMyAccount: ['تعديل بيانات الحساب', 'account'],
   updateMyProfile: ['تعديل الصورة الشخصية', 'account'], updateMyPersonal: ['إكمال البيانات الشخصية', 'account'], updateMyAddress: ['تعديل العنوان', 'account'],

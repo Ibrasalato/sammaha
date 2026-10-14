@@ -188,6 +188,10 @@ export interface Candidate {
   withdrawnAt?: string
   /** the owner can still withdraw this name (no auction of it has started) */
   withdrawable?: boolean
+  /** «استثناء من المزاد»: registered to the requester for a fee, without an auction */
+  exceptedAt?: string
+  exceptionFee?: number
+  exceptionReason?: string
 }
 
 export interface SimilarHit {
@@ -304,7 +308,7 @@ export interface ReservedName {
   ownerName: string
   price: number
   acquiredAt: string
-  source: 'auction' | 'legacy' | 'compound' | 'investment' | 'resale'
+  source: 'auction' | 'legacy' | 'compound' | 'investment' | 'resale' | 'exception'
   /** for a compound name: the owned name it was built on */
   baseName?: string
   /** owner's public photo, only when they chose to show it */

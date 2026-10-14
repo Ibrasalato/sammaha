@@ -508,6 +508,15 @@ const DICT: Record<string, string> = {
   'طباعة أو تصدير بيانات العملاء': 'Customer data printed or exported',
   'حفظ تفويض': 'Delegation saved',
   'إصدار شهادة': 'Certificate issued',
+  'استثناء اسم من المزاد': 'Name registered without auction',
+  'اكتب سبب الاستثناء': 'Write the reason for the exception',
+  'رسوم التسجيل غير صحيحة': 'The registration fee is not valid',
+  'الاستثناء لطلبات الشعارات العادية فقط': 'Exceptions apply to standard mark requests only',
+  'الاستثناء لاسم مقبول فقط': 'Only an accepted name can be registered without auction',
+  'حُدّد لهذا الاسم مزاد، ألغِ المزاد أولًا': 'This name already has an auction. Cancel the auction first',
+  'سُجّل هذا الاسم استثناءً من قبل': 'This name was already registered without auction',
+  'الاسم مسجل في السجل مسبقًا': 'The name is already in the registry',
+  'لا يمكن إلغاء طلب سُجّل أحد أسمائه استثناءً': 'A request with a name registered without auction cannot be cancelled',
   'إلغاء شهادة': 'Certificate revoked',
   'تعديل الكتابة اللاتينية لاسم': 'Latin spelling of a name edited',
   'الشهادات': 'Certificates',
@@ -765,6 +774,12 @@ const TEMPLATES: [string, string][] = [
   ['ألغى {0} تفويضك', '{0} revoked your delegation'],
   ['دخل المفوض {0} إلى حسابك', 'Your delegate {0} signed in to your account'],
   ['التفويض لا يشمل «{0}»', 'The delegation does not cover “{t0}”'],
+
+  // exceptions
+  ['سُجّل «{0}» باسمك دون مزاد', '“{0}” was registered to you without auction'],
+  ['استثنته لجنة الاعتماد من المزاد برسوم {#0} ريال سُددت من ضمان الطلب.', 'The Accreditation Committee registered it without auction for SAR {0}, paid from the request guarantee.'],
+  ['استثنته لجنة الاعتماد من المزاد برسوم تسجيل {#0} ريال. سدّد الفاتورة {1} لإصدار الشهادة.', 'The Accreditation Committee registered it without auction for a fee of SAR {0}. Pay invoice {1} to get the certificate.'],
+  ['باقي ضمان الطلب {0} بعد رسوم تسجيل «{1}»', 'Rest of the guarantee of request {0} after the registration fee of “{1}”'],
 
   // certificates
   ['صدرت شهادة {0}', 'Certificate {0} issued'],

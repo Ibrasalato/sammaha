@@ -358,7 +358,8 @@ export function RequestDetail() {
             </span>
             {c.rejectReason && <p className="text-sm text-bad">{L(c.rejectReason)}</p>}
             {c.withdrawable && <button className="text-[13.5px] font-bold text-bad hover:underline" onClick={() => setWithdrawing(c)}>{tr('سحب هذا الاسم', 'Withdraw this name')}</button>}
-            {c.status === 'accepted' && r.status !== 'cancelled' && (c.auctionId
+            {c.exceptedAt && <p className="rounded-md bg-gold-soft px-2 py-1 text-[13px] font-semibold text-gold-deep">{tr('سُجّل باسمك دون مزاد', 'Registered to you without auction')}</p>}
+            {c.status === 'accepted' && !c.exceptedAt && r.status !== 'cancelled' && (c.auctionId
               ? <Link to={`/auctions/${c.auctionId}`} className="btn-ghost btn-sm">{tr('صفحة المزاد', 'Auction page')}</Link>
               : <p className="text-sm text-muted">{tr('بانتظار تحديد موعد المزاد', 'Awaiting an auction date')}</p>)}
           </div>

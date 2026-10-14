@@ -16,6 +16,7 @@ import type { Auction, AuctionScope, CamelEvent, EventKind, Invoice, NameType, R
 import { EVENT_KIND } from '../../lib/events'
 import { locale, tr } from '../../lib/i18n'
 import { localizeServerText as L } from '../../lib/serverText'
+import { can } from '../../lib/permissions'
 
 export function AdminHome() {
   const { user } = useApp()
@@ -292,8 +293,47 @@ export function AdminReview() {
   )
 }
 
-export function AdminSchedule() {
+/** «استثناء من المزاد»: the name is registered to its requester for a registration fee instead of an auction */
+function ExceptionDialog({ c, onClose, onDone }: { c: { id: string; name: string; request: { number: string; ownerName: string; depositAmount: number; depositState: string } }; onClose: () => void; onDone: () => void }) {
   const { toast } = useApp()
+  const [fee, setFee] = useState(String(RULES.openingPrice))
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const f = Number(fee)
+  const held = c.request.depositState === 'held' ? c.request.depositAmount : 0
+  const applied = Math.min(held, Number.isFinite(f) ? f : 0)
+  async function go() {
+    setBusy(true); setErr('')
+    try { await api.grantException(c.id, f, reason.trim()); toast(tr(`سُجّل «${c.name}» لصاحبه دون مزاد`, `“${c.name}” registered to its requester without auction`)); onDone() } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
+  }
+  return (
+    <Modal open onClose={onClose} title={tr(`استثناء «${c.name}» من المزاد`, `Register “${c.name}” without auction`)}>
+      <div className="space-y-4">
+        {err && <ErrorBox text={err} />}
+        <p className="text-[14.5px] leading-7">{tr(`يُسجَّل الاسم مباشرة باسم ${c.request.ownerName} (الطلب ${c.request.number}) دون طرحه في مزاد، وتصدر له فاتورة برسوم التسجيل.`, `The name is registered directly to ${c.request.ownerName} (request ${c.request.number}) without an auction, with an invoice for the registration fee.`)}</p>
+        <div>
+          <label htmlFor="exf" className="mb-1 block font-bold">{tr('رسوم التسجيل (شاملة الضريبة)', 'Registration fee (VAT inclusive)')}</label>
+          <input id="exf" type="number" min={0} step="1" className="field num" dir="ltr" value={fee} onChange={(e) => setFee(e.target.value)} />
+          {held > 0 && <p className="hint">{tr(`يُخصم ضمان الطلب (${sar(held)}) من الرسوم${held > f ? `، ويعود الباقي ${sar(held - f)} إلى محفظة المالك` : `، ويبقى للسداد ${sar(Math.max(0, f - applied))}`}.`, `The request guarantee (${sar(held)}) goes towards the fee${held > f ? `; the remaining ${sar(held - f)} returns to the owner's wallet` : `; ${sar(Math.max(0, f - applied))} remains to pay`}.`)}</p>}
+        </div>
+        <div>
+          <label htmlFor="exr" className="mb-1 block font-bold">{tr('سبب الاستثناء', 'Reason')}</label>
+          <textarea id="exr" className="field min-h-[80px]" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} placeholder={tr('مثلًا: اسم تاريخي معروف لصاحبه، قرار اللجنة رقم …', 'e.g. a historic name known to its owner, committee decision no. …')} />
+        </div>
+        <div className="flex gap-2">
+          <button className="btn-primary flex-1" disabled={busy || reason.trim().length < 5 || !(f >= 0)} onClick={go}>{busy ? '…' : tr('تسجيل دون مزاد', 'Register without auction')}</button>
+          <button className="btn-ghost" onClick={onClose}>{tr('إلغاء', 'Cancel')}</button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+export function AdminSchedule() {
+  const { toast, user } = useApp()
+  const canExcept = can(user, 'requests.exception')
+  const [excepting, setExcepting] = useState<{ id: string; name: string; request: { number: string; ownerName: string; depositAmount: number; depositState: string } } | null>(null)
   const { data, loading, reload } = useLoad(() => api.awaitingSchedule(), [])
   // selection keeps its order: with a stagger, marks are released in this order
   const [sel, setSelList] = useState<string[]>([])
@@ -318,6 +358,7 @@ export function AdminSchedule() {
 
   return (
     <>
+      {excepting && <ExceptionDialog c={excepting} onClose={() => setExcepting(null)} onDone={() => { setExcepting(null); setSelList((p) => p.filter((x) => x !== excepting.id)); reload() }} />}
       <PageHead title={tr('فتح المزادات', 'Open auctions')} sub={tr(`الأسماء المقبولة بانتظار تحديد موعد المزاد. السعر الافتتاحي ${sar(RULES.openingPrice)}، والتوقيت بتوقيت الرياض.`, `Accepted names awaiting an auction date. Opening price ${sar(RULES.openingPrice)}; times are Riyadh time.`)} />
       {loading && !data ? <Loading /> : data?.length ? (
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -325,7 +366,7 @@ export function AdminSchedule() {
           <TableTools t={tf} placeholder={tr('بحث بالاسم أو الطلب أو المالك', 'Search by name, request or owner')} />
           <div className="panel overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th><input type="checkbox" aria-label={tr('تحديد الظاهر', 'Select visible')} checked={!!tf.list.length && tf.list.every((c) => sel.includes(c.id))} onChange={(e) => { const s = new Set(sel); tf.list.forEach((c) => (e.target.checked ? s.add(c.id) : s.delete(c.id))); setSel(s) }} /></th><th>{tr('الاسم', 'Name')}</th><th>{tr('النوع', 'Type')}</th><th>{tr('الطلب', 'Request')}</th><th>{tr('المالك', 'Owner')}</th></tr></thead>
+              <thead><tr><th><input type="checkbox" aria-label={tr('تحديد الظاهر', 'Select visible')} checked={!!tf.list.length && tf.list.every((c) => sel.includes(c.id))} onChange={(e) => { const s = new Set(sel); tf.list.forEach((c) => (e.target.checked ? s.add(c.id) : s.delete(c.id))); setSel(s) }} /></th><th>{tr('الاسم', 'Name')}</th><th>{tr('النوع', 'Type')}</th><th>{tr('الطلب', 'Request')}</th><th>{tr('المالك', 'Owner')}</th>{canExcept && <th />}</tr></thead>
               <tbody>
                 {!tf.list.length && <NoResults cols={5} onReset={tf.reset} />}
                 {tf.list.map((c) => (
@@ -335,6 +376,7 @@ export function AdminSchedule() {
                     <td><TypeBadge type={c.request.type} /></td>
                     <td className="num">{c.request.number}</td>
                     <td><OwnerCell id={c.request.userId} name={c.request.ownerName} /></td>
+                    {canExcept && <td onClick={(e) => e.stopPropagation()}>{(!c.request.kind || c.request.kind === 'standard') && <button className="btn-ghost btn-sm whitespace-nowrap border-gold/60 text-gold-deep" onClick={() => setExcepting(c)}>{tr('تسجيل دون مزاد', 'Register without auction')}</button>}</td>}
                   </tr>
                 ))}
               </tbody>
