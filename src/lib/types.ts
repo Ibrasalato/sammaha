@@ -89,6 +89,51 @@ export interface TicketRouting {
 export interface AuctionScope { ids?: string[]; all?: boolean; type?: NameType }
 export interface AuctionActionResult { affected: number; skipped: { id: string; name: string; reason: string }[] }
 
+export type MatchRelation = 'exact' | 'article' | 'gender' | 'plural' | 'singular' | 'similar'
+export interface AuditMatch { name: string; type: NameType; source: SimilarHit['source']; score: number; relation: MatchRelation; price?: number; priceKind?: 'sold' | 'current'; at?: string }
+export interface AuditRow {
+  requestId: string; number: string; kind: string; type: NameType; ownerName: string; requestStatus: RequestStatus; submittedAt?: string
+  candidateId: string; name: string; status: CandidateStatus; rejectReason?: string; verdict: 'exact' | 'similar' | 'clear'; matches: AuditMatch[]; topPrice?: AuditMatch
+}
+
+export interface OwnedName { id: string; name: string; type: NameType; price: number; acquiredAt: string; source: string; certCode: string }
+export interface OwnerCrm {
+  id: string; nationalId?: string; fullName: string; nationality?: string; residenceCountry?: string; residenceCity?: string
+  phone: string; altPhone?: string; email: string; emailVerified: boolean; active: boolean; createdAt: string; lastLoginAt?: string
+  completion: number; names: OwnedName[]; totalValue: number; requests: number; openRequests: number; masked: boolean
+}
+
+export interface MarkRow {
+  auctionId: string; number: string; name: string; type: NameType; kind: 'request' | 'investment' | 'resale'; requestNumber?: string; listingNumber?: string
+  ownerName: string; status: 'scheduled' | 'live' | 'paused' | 'settling' | 'sold' | 'cancelled'; startsAt: string; endsAt: string; openingPrice: number
+  price: number; bidCount: number; bidders: number; winnerName?: string; wonByRequester?: boolean; invoiceNumber?: string; invoiceStatus?: 'paid' | 'unpaid'
+  vat?: number; certCode?: string; extensions: number
+}
+
+export interface IbanCheck { valid: boolean; iban: string; country?: string; bankCode?: string; bankName?: string; message: string }
+export type BankStatus = 'pending' | 'verified' | 'rejected'
+export interface BankAccount {
+  iban: string; ibanMasked: string; bankName: string; accountName: string; docName: string; docType: string; status: BankStatus
+  rejectReason?: string; updatedAt: string; reviewedAt?: string; reviewedBy?: string
+}
+export interface BankAccountInput { iban: string; accountName: string; bankName?: string; docName?: string; docType?: string; docBase64?: string }
+export interface StaffBankAccount { userId: string; ownerName: string; phone?: string; account: BankAccount }
+export interface DocumentFile { name: string; contentType: string; base64: string }
+export type WithdrawalStatus = 'pending' | 'completed' | 'rejected'
+export interface Withdrawal {
+  id: string; number: string; userId: string; ownerName: string; amount: number; iban: string; bankName: string; accountName: string
+  status: WithdrawalStatus; byStaff: boolean; createdAt: string; processedAt?: string; processedBy?: string; transferRef?: string; note?: string
+}
+export interface WalletRow {
+  userId: string; ownerName: string; phone?: string; balance: number; totalIn: number; totalOut: number; pendingWithdrawals: number
+  txCount: number; lastTxAt?: string; bankStatus?: BankStatus; bankName?: string
+}
+export interface WalletDetail { wallet: WalletRow; txs: WalletTx[]; withdrawals: Withdrawal[]; bank?: BankAccount }
+export interface DepositRow {
+  kind: 'request' | 'bid'; requestId?: string; auctionId?: string; userId: string; ownerName: string; reference: string; auctionNumber?: string
+  names: string; type: NameType; amount: number; state: 'held' | 'applied' | 'refunded' | 'fee'; context: string; at: string
+}
+
 export interface StaffInput {
   fullName: string
   phone: string
@@ -196,6 +241,8 @@ export interface Auction {
   /** cancelled by the administration: closed with no sale */
   cancelled?: boolean
   cancelReason?: string
+  /** serial auction number, AU-1001 onwards */
+  number?: string
 }
 
 export interface Bid {
@@ -242,7 +289,7 @@ export interface ReservedName {
   listingId?: string
 }
 
-export type TxKind = 'topup' | 'deposit' | 'refund' | 'invoice_payment' | 'service_fee' | 'investment_payout' | 'bid_deposit' | 'sale_payout' | 'purchase'
+export type TxKind = 'topup' | 'deposit' | 'refund' | 'invoice_payment' | 'service_fee' | 'investment_payout' | 'bid_deposit' | 'sale_payout' | 'purchase' | 'withdrawal' | 'adjustment'
 
 export interface WalletTx {
   id: string

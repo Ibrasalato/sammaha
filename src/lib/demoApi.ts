@@ -5,7 +5,7 @@
  */
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'
-import type { AuctionActionResult, AuctionScope, AuctionView, NameListing, OwnerProfile, Preferences, StaffRole, TicketRouting } from './types'
+import type { AuctionActionResult, AuctionScope, AuctionView, AuditRow, BankAccount, DepositRow, IbanCheck, MarkRow, NameListing, OwnerCrm, OwnerProfile, Preferences, SimilarHit, StaffBankAccount, StaffRole, TicketRouting, WalletRow, Withdrawal } from './types'
 import { ALL_PERMISSIONS, COMMITTEE_DEFAULT, COMMITTEE_ROLE_ID, permissionLabel } from './permissions'
 import type { Permission } from './permissions'
 import { demoRules, ensureOpen, ensureWritable, logAction, publicOf, readLog, readRouting, readSettings, writeRouting, writeSettings } from './demoSettings'
@@ -14,7 +14,7 @@ import { maskEmail, maskPhone, otpDigits } from './otp'
 import { namesCount } from './format'
 import { SEED_EVENTS } from './events'
 import { certNo } from './cert'
-import { findMatches, normalizeName, validateName } from './names'
+import { SIMILAR_THRESHOLD, findMatches, normalizeName, relation, sameForms, similarity, validateName } from './names'
 import { emailTicketEvent, normalizePhone, publicTicket, validateTicket } from './tickets'
 import type { MatchSource } from './names'
 import type {
@@ -55,6 +55,9 @@ interface DB {
   bidDeposits?: BidDeposit[]
   /** staff roles (the built-in committee role is added on first use) */
   roles?: StaffRole[]
+  auctionSeq?: number
+  withdrawals?: Withdrawal[]
+  banks?: (Omit<BankAccount, 'ibanMasked'> & { userId: string; docBase64: string })[]
 }
 interface BidDeposit { auctionId: string; userId: string; amount: number; state: 'held' | 'refunded' | 'applied'; createdAt: string }
 
@@ -721,12 +724,22 @@ function sweep(db: DB) {
   return changed
 }
 
+/** serial auction numbers AU-1001…, older demo auctions numbered by start time */
+function numberAuctions(db: DB) {
+  const missing = db.auctions.filter((a) => !a.number)
+  if (!missing.length) return
+  db.auctionSeq ??= 1000 + db.auctions.filter((a) => a.number).length
+  for (const a of missing.sort((x, y) => Date.parse(x.startsAt) - Date.parse(y.startsAt))) a.number = `AU-${++db.auctionSeq}`
+}
+
 function tx<T>(fn: (db: DB) => T): Promise<T> {
   const db = load()
   currentDb = db
+  numberAuctions(db)
   if (sweep(db)) save(db)
   try {
     const out = fn(db)
+    numberAuctions(db)
     save(db)
     return delay(out)
   } catch (e) {
@@ -750,6 +763,71 @@ function routingView(db: DB): TicketRouting {
     ...r, handlers: r.handlers as TicketRouting['handlers'], emails: r.emails as TicketRouting['emails'],
     staff: db.users.filter((x) => x.role !== 'owner').map((x) => ({ id: x.id, fullName: x.fullName, role: x.role, staffRoleName: x.role === 'admin' ? 'مدير النظام' : roleOf(db, x)?.name, canReply: permsOf(db, x).includes('tickets.reply'), active: x.active !== false })),
   }
+}
+
+
+// ───────────────────────── audit, customers, finance (demo) ─────────────────────────
+const maskMid = (v?: string) => (!v ? v : v.length <= 5 ? '•'.repeat(v.length) : v.slice(0, 2) + '•'.repeat(v.length - 5) + v.slice(-3))
+const maskIban = (v: string) => (v.length < 8 ? v : `${v.slice(0, 4)} •••• •••• ${v.slice(-4)}`)
+const sarText = (n: number) => `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })} ريال`
+
+const SAUDI_BANKS: Record<string, string> = {
+  '05': 'مصرف الإنماء', '10': 'البنك الأهلي السعودي', '15': 'بنك البلاد', '20': 'بنك الرياض', '30': 'البنك العربي الوطني', '45': 'البنك السعودي الأول (ساب)',
+  '55': 'البنك السعودي الفرنسي', '60': 'بنك الجزيرة', '65': 'البنك السعودي للاستثمار', '80': 'مصرف الراجحي', '90': 'بنك الخليج الدولي', '95': 'بنك الإمارات دبي الوطني',
+}
+const IBAN_LEN: Record<string, number> = { SA: 24, AE: 23, KW: 30, QA: 29, BH: 22, OM: 23, JO: 30, EG: 29, LB: 28, IQ: 23, PS: 29, TN: 24, DZ: 26, MA: 28, MR: 27, LY: 25, SD: 18, YE: 30, TR: 26, PK: 24, GB: 22, FR: 27, DE: 22 }
+/** same rules as Domain/Iban.cs: length per country, mod-97 check digits, Saudi bank from its code */
+export function checkIbanLocal(raw: string): IbanCheck {
+  const iban = raw.replace(/[\s-]/g, '').toUpperCase().replace(/[٠-٩]/g, (c) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))
+  if (iban.length < 4) return { valid: false, iban, message: 'اكتب رقم الآيبان' }
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]+$/.test(iban)) return { valid: false, iban, message: 'الآيبان يبدأ بحرفي الدولة ثم رقمين، مثل SA03…' }
+  const country = iban.slice(0, 2), len = IBAN_LEN[country]
+  if (len ? iban.length !== len : iban.length < 15 || iban.length > 34) return { valid: false, iban, country, message: len ? `آيبان ${country} يتكون من ${len} خانة، المُدخل ${iban.length}` : 'طول الآيبان غير صحيح' }
+  if (country === 'SA' && !/^\d+$/.test(iban.slice(4))) return { valid: false, iban, country, message: 'الآيبان السعودي أرقام بعد SA' }
+  const digits = [...(iban.slice(4) + iban.slice(0, 4))].map((c) => (/\d/.test(c) ? c : String(c.charCodeAt(0) - 55))).join('')
+  let rem = 0
+  for (const d of digits) rem = (rem * 10 + Number(d)) % 97
+  if (rem !== 1) return { valid: false, iban, country, message: 'رقم الآيبان غير صحيح (خانات التحقق لا تطابق)، راجعه من شهادة الآيبان' }
+  const bankCode = country === 'SA' ? iban.slice(4, 6) : undefined
+  const bankName = bankCode ? SAUDI_BANKS[bankCode] : undefined
+  return { valid: true, iban, country, bankCode, bankName, message: bankName ? `آيبان صحيح · ${bankName}` : 'آيبان صحيح' }
+}
+function sniff(b64: string): string | null {
+  const head = atob(b64.slice(0, 16))
+  if (head.startsWith('%PDF')) return 'application/pdf'
+  if (head.charCodeAt(0) === 0x89 && head.slice(1, 4) === 'PNG') return 'image/png'
+  if (head.charCodeAt(0) === 0xff && head.charCodeAt(1) === 0xd8) return 'image/jpeg'
+  return null
+}
+function walletRow(db: DB, u: DemoUser, full: boolean): WalletRow {
+  const t = db.txs.filter((x) => x.userId === u.id)
+  const b = db.banks?.find((x) => x.userId === u.id)
+  return {
+    userId: u.id, ownerName: u.fullName, phone: full ? u.phone : maskMid(u.phone), balance: balanceOf(db, u.id),
+    totalIn: round2(t.filter((x) => x.amount > 0).reduce((s, x) => s + x.amount, 0)), totalOut: round2(-t.filter((x) => x.amount < 0).reduce((s, x) => s + x.amount, 0)),
+    pendingWithdrawals: round2((db.withdrawals ?? []).filter((w) => w.userId === u.id && w.status === 'pending').reduce((s, w) => s + w.amount, 0)),
+    txCount: t.length, lastTxAt: t.map((x) => x.createdAt).sort().at(-1), bankStatus: b?.status, bankName: b?.bankName,
+  }
+}
+const bankDto = (b: NonNullable<DB['banks']>[number], full: boolean): BankAccount => {
+  const { userId: _u, docBase64: _d, ...rest } = b
+  return { ...rest, iban: full ? b.iban : maskIban(b.iban), ibanMasked: maskIban(b.iban) }
+}
+const wDto = (w: Withdrawal, full: boolean): Withdrawal => ({ ...w, iban: full ? w.iban : maskIban(w.iban) })
+const wNumber = (db: DB) => `WD-${1001 + (db.withdrawals?.length ?? 0)}`
+const can_ = (db: DB, u: DemoUser, p: Permission) => permsOf(db, u).includes(p)
+
+function bankReview(db: DB, userId: string, approve: boolean, reason?: string): StaffBankAccount {
+  const u = need(db, 'banks.verify')
+  const b = db.banks?.find((x) => x.userId === userId)
+  if (!b) throw new ApiError('لا يوجد حساب بنكي')
+  const why = (reason ?? '').trim()
+  if (!approve && why.length < 3) throw new ApiError('اكتب سبب الرفض، يصل للمالك')
+  Object.assign(b, { status: approve ? 'verified' : 'rejected', rejectReason: approve ? undefined : why, reviewedAt: iso(now()), reviewedBy: u.fullName })
+  const o = db.users.find((x) => x.id === userId)!
+  logAction(approve ? 'BankVerified' : 'BankRejected', u.fullName, `${o.fullName} · ${b.bankName} ${maskIban(b.iban)}${approve ? '' : ` · ${why}`}`)
+  notify(db, userId, 'refund', approve ? 'اعتُمد حسابك البنكي' : 'لم يُعتمد حسابك البنكي', approve ? 'يمكنك الآن طلب استرداد رصيد محفظتك إلى حسابك.' : `السبب: ${why}. حدّث البيانات أو الشهادة من «المحفظة».`, '/dashboard/wallet')
+  return { userId, ownerName: o.fullName, phone: o.phone, account: bankDto(b, true) }
 }
 
 /** runs an auction action on the chosen auctions (or all running and upcoming ones); returns what was done and skipped */
@@ -1957,5 +2035,286 @@ export const demoApi: SammhaApi = {
       for (const b of bidders) if (b !== a.requesterId) notify(db, b, 'auction_update', `أُلغي مزاد «${a.name}»`, `لم تُحتسب المزايدات على هذا المزاد. السبب: ${why}`, `/auctions/${a.id}`)
       return null
     })
+  }),
+
+  // ───── audit of requested names ─────
+  requestsAudit: (status = 'under_review', type = 'all') => tx((db) => {
+    need(db, 'requests.audit')
+    const reqs = db.requests.filter((r) => r.status !== 'pending_payment' && (status === 'all' || r.status === status) && (type === 'all' || r.type === type))
+    type K = { name: string; normalized: string; type: NameType; source: SimilarHit['source']; price?: number; priceKind?: 'sold' | 'current'; at?: string; requestId?: string }
+    const pool: K[] = db.reserved.map((x) => ({ name: x.name, normalized: x.normalized, type: x.type, source: 'reserved', price: x.price, priceKind: 'sold', at: x.acquiredAt }))
+    for (const r of db.requests) {
+      if (r.status !== 'under_review' && r.status !== 'accepted') continue
+      for (const c of r.candidates) {
+        if (c.status === 'rejected' || c.status === 'withdrawn') continue
+        const a = c.auctionId ? db.auctions.find((x) => x.id === c.auctionId) : undefined
+        if (a?.settled || a?.cancelled) continue
+        pool.push({ name: c.name, normalized: c.normalized, type: r.type, source: a ? 'auction' : 'request', price: a?.currentPrice, priceKind: a ? 'current' : undefined, at: a?.startsAt, requestId: r.id })
+      }
+    }
+    const rows: AuditRow[] = []
+    for (const r of reqs.sort((x, y) => (y.submittedAt ?? y.createdAt).localeCompare(x.submittedAt ?? x.createdAt))) for (const c of r.candidates) {
+      const matches: AuditRow['matches'] = []
+      for (const k of pool) {
+        if (k.requestId === r.id) continue
+        if (r.kind === 'compound' && r.baseName && k.normalized === normalizeName(r.baseName)) continue
+        let score = similarity(c.normalized, k.normalized)
+        const forms = sameForms(c.normalized, k.normalized)
+        if (score < SIMILAR_THRESHOLD && !forms) continue
+        if (forms && score < 0.9) score = 0.9
+        matches.push({ name: k.name, type: k.type, source: k.source, score: Math.round(score * 100) / 100, relation: relation(c.name, k.name), price: k.price, priceKind: k.priceKind, at: k.at })
+      }
+      matches.sort((x, y) => y.score - x.score || (y.price ?? 0) - (x.price ?? 0))
+      const top = matches.filter((m) => m.priceKind === 'sold' && (m.price ?? 0) > 0).sort((x, y) => (y.price ?? 0) - (x.price ?? 0))[0]
+      rows.push({
+        requestId: r.id, number: r.number, kind: r.kind ?? 'standard', type: r.type, ownerName: r.ownerName, requestStatus: r.status, submittedAt: r.submittedAt,
+        candidateId: c.id, name: c.name, status: c.status, rejectReason: c.rejectReason, verdict: matches.some((m) => m.score >= 1) ? 'exact' : matches.length ? 'similar' : 'clear',
+        matches: matches.slice(0, 12), topPrice: top,
+      })
+    }
+    return rows
+  }),
+
+  // ───── customers (CRM) ─────
+  listOwners: () => tx((db) => {
+    const u = need(db, 'owners.view')
+    const full = can_(db, u, 'owners.full')
+    return db.users.filter((x) => x.role === 'owner').map((x): OwnerCrm => {
+      const names = db.reserved.filter((n) => n.ownerId === x.id).sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name, 'ar'))
+        .map((n) => ({ id: n.id, name: n.name, type: n.type, price: n.price, acquiredAt: n.acquiredAt, source: n.source, certCode: `SMC-${n.id.slice(-8).toUpperCase()}` }))
+      const reqs = db.requests.filter((r) => r.userId === x.id && r.status !== 'pending_payment')
+      return {
+        id: x.id, nationalId: full ? x.nationalId : maskMid(x.nationalId), fullName: x.fullName, nationality: x.p?.nationality, residenceCountry: x.p?.residenceCountry,
+        residenceCity: x.p?.residenceCity, phone: full ? x.phone : maskMid(x.phone)!, altPhone: full ? x.p?.altPhone : maskMid(x.p?.altPhone), email: x.email,
+        emailVerified: !!x.emailVerifiedAt, active: x.active !== false, createdAt: x.createdAt, lastLoginAt: x.lastLoginAt, completion: profileOf(x).completion,
+        names, totalValue: round2(names.reduce((s, n) => s + n.price, 0)), requests: reqs.length, openRequests: reqs.filter((r) => r.status === 'under_review' || r.status === 'accepted').length, masked: !full,
+      }
+    }).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  }),
+  logOwnersReport: (kind, count, filter) => tx((db) => {
+    const u = need(db, 'owners.full')
+    logAction('OwnersReport', u.fullName, `${kind === 'csv' ? 'تصدير CSV' : 'طباعة'} · ${count} عميل${filter ? ` · ${filter}` : ''}`)
+  }),
+
+  // ───── marks report ─────
+  marksReport: (f = {}) => tx((db) => {
+    need(db, 'reports.marks')
+    const t = now()
+    const st = (a: Auction): MarkRow['status'] => (a.cancelled ? 'cancelled' : a.settled ? 'sold' : a.paused ? 'paused' : phaseOf(a, t) === 'scheduled' ? 'scheduled' : phaseOf(a, t) === 'live' ? 'live' : 'settling')
+    return db.auctions
+      .filter((a) => (!f.type || f.type === 'all' || a.type === f.type) && (!f.state || f.state === 'all' || st(a) === f.state)
+        && (!f.from || Date.parse(a.endsAt) >= Date.parse(f.from)) && (!f.to || Date.parse(a.startsAt) <= Date.parse(f.to)))
+      .sort((x, y) => Date.parse(y.endsAt) - Date.parse(x.endsAt))
+      .map((a): MarkRow => {
+        const r = db.requests.find((x) => x.id === a.requestId)
+        const l = a.listingId ? db.listings?.find((x) => x.id === a.listingId) : undefined
+        const inv = db.invoices.filter((i) => i.auctionId === a.id).sort((x, y) => y.issuedAt.localeCompare(x.issuedAt))[0]
+        const res = a.settled && !a.cancelled ? db.reserved.find((x) => x.type === a.type && x.normalized === normalizeName(a.name)) : undefined
+        return {
+          auctionId: a.id, number: a.number ?? '', name: a.name, type: a.type, kind: a.listingId ? 'resale' : a.investment ? 'investment' : 'request',
+          requestNumber: r?.number, listingNumber: l?.number, ownerName: db.users.find((u) => u.id === a.requesterId)?.fullName ?? '', status: st(a),
+          startsAt: a.startsAt, endsAt: a.endsAt, openingPrice: a.openingPrice, price: a.finalPrice ?? a.currentPrice, bidCount: a.bidCount,
+          bidders: new Set(db.bids.filter((b) => b.auctionId === a.id).map((b) => b.userId)).size, winnerName: a.winnerId ? db.users.find((u) => u.id === a.winnerId)?.fullName : undefined,
+          wonByRequester: a.wonByRequester, invoiceNumber: inv?.number, invoiceStatus: inv?.status, vat: inv?.vat, certCode: res ? `SMC-${res.id.slice(-8).toUpperCase()}` : undefined, extensions: a.extensions ?? 0,
+        }
+      })
+  }),
+
+  // ───── owner: bank account and refunds ─────
+  checkIban: (iban) => delay(checkIbanLocal(iban)),
+  myBankAccount: () => tx((db) => { const u = me(db); const b = db.banks?.find((x) => x.userId === u.id); return b ? bankDto(b, true) : null }),
+  saveMyBankAccount: (i) => tx((db) => {
+    const u = me(db)
+    if (u.role !== 'owner') throw new ApiError('الحساب البنكي لملاك الإبل')
+    const c = checkIbanLocal(i.iban)
+    if (!c.valid) throw new ApiError(c.message)
+    const name = i.accountName.trim()
+    if (name.length < 3) throw new ApiError('اكتب اسم صاحب الحساب كما في شهادة الآيبان')
+    const bank = c.bankName ?? (i.bankName ?? '').trim()
+    if (bank.length < 2) throw new ApiError('اكتب اسم البنك')
+    db.banks ??= []
+    let b = db.banks.find((x) => x.userId === u.id)
+    let doc: string | undefined
+    if (i.docBase64) {
+      doc = i.docBase64.includes(',') ? i.docBase64.slice(i.docBase64.indexOf(',') + 1) : i.docBase64
+      if (doc.length * 0.75 > 5 * 1024 * 1024) throw new ApiError('حجم شهادة الآيبان أكبر من 5 ميجابايت')
+    } else if (!b) throw new ApiError('ارفع شهادة الآيبان (PDF أو صورة)')
+    const type = doc ? sniff(doc) : null
+    if (doc && !type) throw new ApiError('شهادة الآيبان تكون PDF أو صورة PNG أو JPG')
+    const changed = !b || b.iban !== c.iban || b.accountName !== name || !!doc
+    if (!b) { b = { userId: u.id, iban: '', bankName: '', accountName: '', docName: '', docType: '', docBase64: '', status: 'pending', updatedAt: iso(now()) }; db.banks.push(b) }
+    Object.assign(b, { iban: c.iban, bankName: bank, accountName: name, updatedAt: iso(now()) })
+    if (doc) Object.assign(b, { docBase64: doc, docType: type, docName: (i.docName || 'iban-certificate').slice(0, 120) })
+    if (changed) Object.assign(b, { status: 'pending', rejectReason: undefined, reviewedAt: undefined, reviewedBy: undefined })
+    return bankDto(b, true)
+  }),
+  myBankDocument: () => tx((db) => {
+    const u = me(db); const b = db.banks?.find((x) => x.userId === u.id)
+    if (!b) throw new ApiError('لا يوجد حساب بنكي')
+    return { name: b.docName, contentType: b.docType, base64: b.docBase64 }
+  }),
+  myWithdrawals: () => tx((db) => { const u = me(db); return (db.withdrawals ?? []).filter((w) => w.userId === u.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)) }),
+  requestWithdrawal: (amount) => tx((db) => {
+    const u = writer(db)
+    const a = round2(amount)
+    if (!(a >= 10)) throw new ApiError('أقل مبلغ للاسترداد 10 ريال')
+    const b = db.banks?.find((x) => x.userId === u.id)
+    if (!b) throw new ApiError('أضف حسابك البنكي وشهادة الآيبان أولًا')
+    if (b.status !== 'verified') throw new ApiError('حسابك البنكي بانتظار اعتماد الإدارة المالية')
+    if ((db.withdrawals ?? []).filter((w) => w.userId === u.id && w.status === 'pending').length >= 3) throw new ApiError('لديك 3 طلبات استرداد قيد التنفيذ')
+    if (balanceOf(db, u.id) < a) throw new ApiError('المبلغ أكبر من رصيد المحفظة')
+    const w: Withdrawal = { id: uid(db, 'wd'), number: wNumber(db), userId: u.id, ownerName: u.fullName, amount: a, iban: b.iban, bankName: b.bankName, accountName: b.accountName, status: 'pending', byStaff: false, createdAt: iso(now()) }
+    ;(db.withdrawals ??= []).push(w)
+    db.txs.push({ id: uid(db, 't'), userId: u.id, amount: -a, kind: 'withdrawal', note: `طلب استرداد ${w.number} إلى ${b.bankName} ${maskIban(b.iban)}`, createdAt: iso(now()) })
+    return w
+  }),
+
+  // ───── finance ─────
+  bankAccounts: (status = 'all') => tx((db) => {
+    const u = staff(db)
+    if (!can_(db, u, 'banks.verify') && !can_(db, u, 'wallets.view')) throw new ApiError('ليست لديك صلاحية «اعتماد الحسابات البنكية»')
+    const full = can_(db, u, 'banks.verify')
+    return (db.banks ?? []).filter((b) => status === 'all' || b.status === status).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .map((b) => { const o = db.users.find((x) => x.id === b.userId)!; return { userId: b.userId, ownerName: o.fullName, phone: o.phone, account: bankDto(b, full) } })
+  }),
+  bankDocument: (userId) => tx((db) => {
+    need(db, 'banks.verify')
+    const b = db.banks?.find((x) => x.userId === userId)
+    if (!b) throw new ApiError('لا يوجد حساب بنكي')
+    return { name: b.docName, contentType: b.docType, base64: b.docBase64 }
+  }),
+  verifyBankAccount: (userId) => tx((db) => bankReview(db, userId, true)),
+  rejectBankAccount: (userId, reason) => tx((db) => bankReview(db, userId, false, reason)),
+  wallets: () => tx((db) => {
+    const u = need(db, 'wallets.view')
+    const full = can_(db, u, 'owners.full')
+    const ids = new Set(db.txs.map((t) => t.userId))
+    return db.users.filter((x) => x.role === 'owner' && ids.has(x.id)).map((x) => walletRow(db, x, full)).sort((a, b) => b.balance - a.balance)
+  }),
+  walletDetail: (userId) => tx((db) => {
+    const u = need(db, 'wallets.view')
+    const o = db.users.find((x) => x.id === userId && x.role === 'owner')
+    if (!o) throw new ApiError('المالك غير موجود')
+    const full = can_(db, u, 'wallets.refund')
+    const b = db.banks?.find((x) => x.userId === userId)
+    return {
+      wallet: walletRow(db, o, can_(db, u, 'owners.full')),
+      txs: db.txs.filter((t) => t.userId === userId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      withdrawals: (db.withdrawals ?? []).filter((w) => w.userId === userId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((w) => wDto(w, full)),
+      bank: b ? bankDto(b, full) : undefined,
+    }
+  }),
+  directRefund: (userId, amount, transferRef, note) => tx((db) => {
+    const u = need(db, 'wallets.refund')
+    const a = round2(amount)
+    if (!(a > 0)) throw new ApiError('اكتب مبلغًا صحيحًا')
+    if (transferRef.trim().length < 3) throw new ApiError('اكتب رقم الحوالة البنكية')
+    const o = db.users.find((x) => x.id === userId && x.role === 'owner')
+    if (!o) throw new ApiError('المالك غير موجود')
+    const b = db.banks?.find((x) => x.userId === userId)
+    if (b?.status !== 'verified') throw new ApiError('لا يوجد حساب بنكي معتمد لهذا المالك؛ اعتمد شهادة الآيبان أولًا')
+    if (balanceOf(db, userId) < a) throw new ApiError('المبلغ أكبر من رصيد المحفظة')
+    const w: Withdrawal = { id: uid(db, 'wd'), number: wNumber(db), userId, ownerName: o.fullName, amount: a, iban: b.iban, bankName: b.bankName, accountName: b.accountName, status: 'completed', byStaff: true, createdAt: iso(now()), processedAt: iso(now()), processedBy: u.fullName, transferRef: transferRef.trim(), note: note?.trim() || undefined }
+    ;(db.withdrawals ??= []).push(w)
+    db.txs.push({ id: uid(db, 't'), userId, amount: -a, kind: 'withdrawal', note: `استرداد ${w.number} إلى ${b.bankName} ${maskIban(b.iban)}، حوالة ${w.transferRef}`, createdAt: iso(now()) })
+    logAction('WithdrawalDirect', u.fullName, `${o.fullName} · ${w.number} · ${sarText(a)} · حوالة ${w.transferRef}`)
+    notify(db, userId, 'refund', 'حُوّل رصيد من محفظتك إلى حسابك البنكي', `${sarText(a)} إلى ${b.bankName} ${maskIban(b.iban)}، رقم الحوالة ${w.transferRef}.`, '/dashboard/wallet')
+    return w
+  }),
+  adjustWallet: (userId, amount, reason) => tx((db) => {
+    const u = need(db, 'wallets.adjust')
+    const a = round2(amount)
+    if (!a || Math.abs(a) > 1_000_000) throw new ApiError('اكتب مبلغ التسوية (موجب للإضافة، سالب للخصم)')
+    const why = reason.trim()
+    if (why.length < 5) throw new ApiError('اكتب سبب التسوية بوضوح، يظهر في كشف المالك')
+    const o = db.users.find((x) => x.id === userId && x.role === 'owner')
+    if (!o) throw new ApiError('المالك غير موجود')
+    if (a < 0 && balanceOf(db, userId) < -a) throw new ApiError('الخصم أكبر من رصيد المحفظة')
+    db.txs.push({ id: uid(db, 't'), userId, amount: a, kind: 'adjustment', note: `تسوية: ${why}`, createdAt: iso(now()) })
+    logAction('WalletAdjust', u.fullName, `${o.fullName} · ${a > 0 ? '+' : ''}${sarText(a)} · ${why}`)
+    notify(db, userId, 'refund', a > 0 ? 'أُضيف مبلغ إلى محفظتك' : 'خُصم مبلغ من محفظتك', `${sarText(Math.abs(a))}: ${why}`, '/dashboard/wallet')
+    return walletRow(db, o, can_(db, u, 'owners.full'))
+  }),
+  withdrawals: (status = 'all') => tx((db) => {
+    const u = staff(db)
+    if (!can_(db, u, 'wallets.view') && !can_(db, u, 'wallets.refund')) throw new ApiError('ليست لديك صلاحية «تقرير المحافظ»')
+    const full = can_(db, u, 'wallets.refund')
+    return (db.withdrawals ?? []).filter((w) => status === 'all' || w.status === status).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((w) => wDto(w, full))
+  }),
+  completeWithdrawal: (id, transferRef) => tx((db) => {
+    const u = need(db, 'wallets.refund')
+    const ref = transferRef.trim()
+    if (ref.length < 3) throw new ApiError('اكتب رقم الحوالة البنكية')
+    const w = db.withdrawals?.find((x) => x.id === id)
+    if (!w) throw new ApiError('طلب الاسترداد غير موجود')
+    if (w.status !== 'pending') throw new ApiError('تمت معالجة هذا الطلب')
+    Object.assign(w, { status: 'completed', transferRef: ref, processedAt: iso(now()), processedBy: u.fullName })
+    logAction('WithdrawalCompleted', u.fullName, `${w.ownerName} · ${w.number} · ${sarText(w.amount)} · حوالة ${ref}`)
+    notify(db, w.userId, 'refund', 'حُوّل مبلغ الاسترداد إلى حسابك', `${sarText(w.amount)} إلى ${w.bankName} ${maskIban(w.iban)}، رقم الحوالة ${ref}.`, '/dashboard/wallet')
+    return w
+  }),
+  rejectWithdrawal: (id, reason) => tx((db) => {
+    const u = need(db, 'wallets.refund')
+    const why = reason.trim()
+    if (why.length < 3) throw new ApiError('اكتب سبب الرفض، يصل للمالك')
+    const w = db.withdrawals?.find((x) => x.id === id)
+    if (!w) throw new ApiError('طلب الاسترداد غير موجود')
+    if (w.status !== 'pending') throw new ApiError('تمت معالجة هذا الطلب')
+    Object.assign(w, { status: 'rejected', note: why, processedAt: iso(now()), processedBy: u.fullName })
+    db.txs.push({ id: uid(db, 't'), userId: w.userId, amount: w.amount, kind: 'withdrawal', note: `إعادة مبلغ طلب الاسترداد ${w.number} (${why})`, createdAt: iso(now()) })
+    logAction('WithdrawalRejected', u.fullName, `${w.ownerName} · ${w.number} · ${sarText(w.amount)} · ${why}`)
+    notify(db, w.userId, 'refund', 'لم يُنفّذ طلب الاسترداد', `أُعيد ${sarText(w.amount)} إلى محفظتك. السبب: ${why}`, '/dashboard/wallet')
+    return w
+  }),
+  deposits: (state = 'all') => tx((db) => {
+    need(db, 'deposits.view')
+    const rows: DepositRow[] = []
+    for (const r of db.requests) {
+      if (r.depositState === 'none' || !r.depositAmount) continue
+      if (state !== 'all' && r.depositState !== state) continue
+      rows.push({
+        kind: 'request', requestId: r.id, userId: r.userId, ownerName: r.ownerName, reference: r.number,
+        auctionNumber: db.auctions.filter((a) => a.requestId === r.id && a.number).map((a) => a.number).join('، ') || undefined,
+        names: r.candidates.filter((c) => c.status !== 'withdrawn').map((c) => c.name).join('، '), type: r.type, amount: r.depositAmount, state: r.depositState as DepositRow['state'],
+        context: r.kind === 'investment' ? 'رسوم دراسة استثمار' : r.status, at: r.submittedAt ?? r.createdAt,
+      })
+    }
+    for (const d of db.bidDeposits ?? []) {
+      if (state !== 'all' && d.state !== state) continue
+      const a = db.auctions.find((x) => x.id === d.auctionId)
+      if (!a) continue
+      rows.push({
+        kind: 'bid', auctionId: a.id, userId: d.userId, ownerName: db.users.find((u) => u.id === d.userId)?.fullName ?? '', reference: db.listings?.find((l) => l.id === a.listingId)?.number ?? '',
+        auctionNumber: a.number, names: a.name, type: a.type, amount: d.amount, state: d.state, context: a.cancelled ? 'cancelled' : a.settled ? 'settled' : now() >= Date.parse(a.endsAt) ? 'ended' : 'open', at: d.createdAt,
+      })
+    }
+    return rows.sort((a, b) => b.at.localeCompare(a.at))
+  }),
+  refundDeposit: (i) => tx((db) => {
+    const u = need(db, 'deposits.refund')
+    const why = i.reason.trim()
+    if (why.length < 3) throw new ApiError('اكتب سبب الاسترداد، يصل للمالك')
+    if (i.kind === 'request') {
+      const r = db.requests.find((x) => x.id === i.requestId)
+      if (!r) throw new ApiError('الطلب غير موجود')
+      if (r.kind === 'investment') throw new ApiError('رسوم دراسة الاستثمار غير مستردة؛ للاستثناء استخدم تسوية المحفظة')
+      if (r.depositState !== 'held') throw new ApiError('هذا الضمان ليس محجوزًا (رُدّ أو خُصم من الفاتورة)')
+      r.depositState = 'refunded'
+      db.txs.push({ id: uid(db, 't'), userId: r.userId, amount: r.depositAmount, kind: 'refund', note: `استرداد ضمان الطلب ${r.number} (${why})`, createdAt: iso(now()) })
+      notify(db, r.userId, 'refund', 'أُعيد ضمان المزاد إلى محفظتك', `${sarText(r.depositAmount)} من الطلب ${r.number} (${why}).`, '/dashboard/wallet')
+      logAction('DepositRefund', u.fullName, `${r.ownerName} · ضمان الطلب ${r.number} · ${sarText(r.depositAmount)} · ${why}`)
+      return { kind: 'request', requestId: r.id, userId: r.userId, ownerName: r.ownerName, reference: r.number, names: r.candidates.map((c) => c.name).join('، '), type: r.type, amount: r.depositAmount, state: 'refunded', context: r.status, at: r.submittedAt ?? r.createdAt }
+    }
+    const d = db.bidDeposits?.find((x) => x.auctionId === i.auctionId && x.userId === i.userId)
+    const a = db.auctions.find((x) => x.id === i.auctionId)
+    if (!d || !a) throw new ApiError('الضمان غير موجود')
+    if (d.state !== 'held') throw new ApiError('هذا الضمان ليس محجوزًا')
+    if (!a.settled && !a.cancelled && a.leaderId === d.userId) throw new ApiError('المالك متصدر المزاد حاليًا؛ لا يُرد ضمانه قبل انتهاء المزاد')
+    d.state = 'refunded'
+    db.txs.push({ id: uid(db, 't'), userId: d.userId, amount: d.amount, kind: 'refund', note: `استرداد ضمان دخول مزاد «${a.name}» (${why})`, createdAt: iso(now()) })
+    const o = db.users.find((x) => x.id === d.userId)!
+    notify(db, d.userId, 'refund', 'أُعيد ضمان دخول المزاد إلى محفظتك', `${sarText(d.amount)} من مزاد «${a.name}» (${why}).`, '/dashboard/wallet')
+    logAction('DepositRefund', u.fullName, `${o.fullName} · ضمان دخول ${a.number} «${a.name}» · ${sarText(d.amount)} · ${why}`)
+    return { kind: 'bid', auctionId: a.id, userId: d.userId, ownerName: o.fullName, reference: '', auctionNumber: a.number, names: a.name, type: a.type, amount: d.amount, state: 'refunded', context: a.settled ? 'settled' : 'open', at: d.createdAt }
   }),
 }

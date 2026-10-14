@@ -17,6 +17,7 @@ import { date, dateTime, humanLeft, num, sar } from '../../lib/format'
 import { ClosedNotice, useClosed } from '../../components/SettingsUi'
 import { api, useApp, useLoad } from '../../lib/store'
 import { ProfileCompletion, ProfileSections } from './Profile'
+import { BankAndRefunds } from './Bank'
 
 export function DashHome() {
   const { user } = useApp()
@@ -142,7 +143,7 @@ export function DashHome() {
   )
 }
 
-const TX_LABEL = { topup: 'شحن', deposit: 'ضمان مزاد', refund: 'استرداد', invoice_payment: 'سداد فاتورة', service_fee: 'رسوم استثمار الاسم', investment_payout: 'عائد استثمار الاسم', bid_deposit: 'ضمان دخول مزاد', sale_payout: 'ثمن بيع اسم', purchase: 'شراء اسم' }
+const TX_LABEL = { topup: 'شحن', deposit: 'ضمان مزاد', refund: 'استرداد', invoice_payment: 'سداد فاتورة', service_fee: 'رسوم استثمار الاسم', investment_payout: 'عائد استثمار الاسم', bid_deposit: 'ضمان دخول مزاد', sale_payout: 'ثمن بيع اسم', purchase: 'شراء اسم', withdrawal: 'استرداد إلى البنك', adjustment: 'تسوية' }
 
 export function WalletPage() {
   const { toast } = useApp()
@@ -158,7 +159,7 @@ export function WalletPage() {
   })
   return (
     <>
-      <PageHead title="المحفظة" sub="يُعاد إليها ضمان الطلبات المرفوضة أو الملغاة، ويمكنك الدفع منها." action={<button className="btn-gold" onClick={() => setOpen(true)}>شحن المحفظة</button>} />
+      <PageHead title="المحفظة" sub="يُعاد إليها ضمان الطلبات المرفوضة أو الملغاة، ويمكنك الدفع منها أو استرداد رصيدها إلى حسابك البنكي." action={<button className="btn-gold" onClick={() => setOpen(true)}>شحن المحفظة</button>} />
       <div className="panel mb-6 p-5">
         <p className="text-muted">الرصيد المتاح</p>
         <p className="num font-extrabold text-4xl font-semibold">{data ? sar(data.balance) : '…'}</p>
@@ -192,6 +193,7 @@ export function WalletPage() {
           try { await api.topUp(Number(amount)); toast(`تم شحن ${sar(Number(amount))}`); setOpen(false); reload() } catch (e) { toast((e as Error).message, 'bad') }
         }}>ادفع {sar(Number(amount) || 0)} بالبطاقة</button>
       </Modal>
+      <BankAndRefunds balance={data?.balance ?? 0} onChange={reload} />
     </>
   )
 }

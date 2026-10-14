@@ -1,4 +1,4 @@
-import type { NameType, SimilarHit } from './types'
+import type { MatchRelation, NameType, SimilarHit } from './types'
 
 /**
  * Arabic normalisation used for matching. The same rules live in SQL
@@ -64,10 +64,49 @@ export interface MatchSource {
   source: SimilarHit['source']
 }
 
+/**
+ * Root-letter forms of a normalised name: long vowels (ا و ي) removed, with and without a sound-plural ending
+ * (ات ون ين ان) or a final ه, so singular and plural meet: صقر/صقور، غزال/غزلان، شاهين/شواهين، سلطان/سلاطين.
+ * Same rules as NameMatcher.Skeletons in the API.
+ */
+export function skeletons(normalized: string): Set<string> {
+  const core = (x: string) => [...x].filter((c, i) => i === 0 || (c !== 'ا' && c !== 'و' && c !== 'ي')).join('')
+  const forms = [normalized]
+  for (const end of ['ات', 'ون', 'ين', 'ان']) if (normalized.length >= 5 && normalized.endsWith(end)) forms.push(normalized.slice(0, -2))
+  if (normalized.length >= 4 && normalized.endsWith('ه')) forms.push(normalized.slice(0, -1))
+  return new Set(forms.map(core).filter((c) => c.length >= 3))
+}
+
+/** a likely singular/plural pair of normalised names */
+export function sameForms(a: string, b: string): boolean {
+  if (a === b || a.length < 3 || b.length < 3) return false
+  const sa = skeletons(a)
+  for (const x of skeletons(b)) if (sa.has(x)) return true
+  return false
+}
+
+/** how a requested name relates to an existing one */
+export function relation(candidate: string, other: string): MatchRelation {
+  const na = normalizeName(candidate), nb = normalizeName(other)
+  if (na === nb) {
+    const bare = (x: string) => x.replace(/[ً-ٰٟۖ-ۭـ\s]/g, '').startsWith('ال')
+    return bare(candidate) !== bare(other) ? 'article' : 'exact'
+  }
+  if (na + 'ه' === nb || nb + 'ه' === na) return 'gender'
+  if (sameForms(na, nb)) return na.length > nb.length ? 'plural' : 'singular'
+  return 'similar'
+}
+
+export const RELATION_LABEL: Record<MatchRelation, string> = {
+  exact: 'مطابق تمامًا', article: 'مطابق بـ«ال» أو بدونها', gender: 'مذكر / مؤنث', plural: 'جمع للاسم', singular: 'مفرد للاسم', similar: 'مشابه',
+}
+
 export function findMatches(normalized: string, pool: MatchSource[]): SimilarHit[] {
   const hits: SimilarHit[] = []
   for (const p of pool) {
-    const score = similarity(normalized, p.normalized)
+    let score = similarity(normalized, p.normalized)
+    // a singular or plural of an existing name is always shown to the committee
+    if (score < SIMILAR_THRESHOLD && sameForms(normalized, p.normalized)) score = 0.9
     if (score >= SIMILAR_THRESHOLD) hits.push({ name: p.name, type: p.type, source: p.source, score: Math.round(score * 100) / 100 })
   }
   return hits.sort((x, y) => y.score - x.score).slice(0, 8)

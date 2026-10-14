@@ -41,11 +41,14 @@ const MyRequests = pick(reqMod, 'MyRequests'), NewRequest = pick(reqMod, 'NewReq
 const SellPage = pick(() => import('./pages/owner/Sell'), 'SellPage')
 const InvestPage = pick(() => import('./pages/owner/Invest'), 'InvestPage')
 const MyTickets = pick(() => import('./pages/owner/Tickets'), 'MyTickets')
-const AdminHome = pick(adminMod, 'AdminHome'), AdminRequests = pick(adminMod, 'AdminRequests'), AdminReview = pick(adminMod, 'AdminReview')
+const AdminHome = pick(adminMod, 'AdminHome'), AdminRequests = pick(() => import('./pages/admin/RequestsBoard'), 'AdminRequestsBoard'), AdminReview = pick(adminMod, 'AdminReview')
 const AdminSchedule = pick(adminMod, 'AdminSchedule'), AdminAuctions = pick(adminMod, 'AdminAuctions'), AdminInvoices = pick(adminMod, 'AdminInvoices')
 const AdminEvents = pick(adminMod, 'AdminEvents')
 const AdminTickets = pick(() => import('./pages/admin/Tickets'), 'AdminTickets'), AdminTicket = pick(() => import('./pages/admin/Tickets'), 'AdminTicket')
 const AdminRoles = pick(() => import('./pages/admin/Roles'), 'AdminRoles')
+const AdminCustomers = pick(() => import('./pages/admin/Customers'), 'AdminCustomers')
+const AdminMarksReport = pick(() => import('./pages/admin/MarksReport'), 'AdminMarksReport')
+const AdminWallets = pick(() => import('./pages/admin/Finance'), 'AdminWallets'), AdminDeposits = pick(() => import('./pages/admin/Finance'), 'AdminDeposits')
 const AdminUsers = pick(() => import('./pages/admin/Users'), 'AdminUsers'), StaffAccount = pick(() => import('./pages/admin/Users'), 'StaffAccount')
 
 /** Tab titles per page (the auction page sets its own with the name). */
@@ -100,7 +103,11 @@ const ADMIN_NAV: (NavItem & { perms?: Permission[] })[] = [
   { to: '/admin/requests', label: 'مراجعة الطلبات', short: 'المراجعة', icon: 'shield', perms: ['requests.view'] },
   { to: '/admin/schedule', label: 'فتح المزادات', short: 'فتح مزاد', icon: 'calendar', perms: ['auctions.schedule'] },
   { to: '/admin/auctions', label: 'التحكم في المزادات', short: 'المزادات', icon: 'gavel', perms: ['auctions.manage', 'auctions.cancel', 'auctions.schedule'] },
+  { to: '/admin/reports/marks', label: 'تقرير الشعارات', short: 'التقرير', icon: 'list', perms: ['reports.marks'] },
+  { to: '/admin/customers', label: 'بيانات العملاء', short: 'العملاء', icon: 'users', perms: ['owners.view'] },
   { to: '/admin/invoices', label: 'الفواتير', icon: 'receipt', perms: ['invoices.view'] },
+  { to: '/admin/wallets', label: 'المحافظ والاسترداد', short: 'المحافظ', icon: 'wallet', perms: ['wallets.view', 'wallets.refund', 'banks.verify'] },
+  { to: '/admin/deposits', label: 'الضمانات', icon: 'lock', perms: ['deposits.view'] },
   { to: '/admin/tickets', label: 'الشكاوى والبلاغات', icon: 'alert', perms: ['tickets.view'] },
   { to: '/admin/events', label: 'المواعيد والفعاليات', icon: 'list', perms: ['events.manage'] },
   { to: '/admin/users', label: 'المستخدمون', icon: 'users', perms: ['users.view'] },
@@ -194,6 +201,10 @@ function AppRoutes() {
             <Route path="schedule" element={<Can perms={['auctions.schedule']}><AdminSchedule /></Can>} />
             <Route path="auctions" element={<Can perms={['auctions.manage', 'auctions.cancel', 'auctions.schedule']}><AdminAuctions /></Can>} />
             <Route path="invoices" element={<Can perms={['invoices.view']}><AdminInvoices /></Can>} />
+            <Route path="reports/marks" element={<Can perms={['reports.marks']}><AdminMarksReport /></Can>} />
+            <Route path="customers" element={<Can perms={['owners.view']}><AdminCustomers /></Can>} />
+            <Route path="wallets" element={<Can perms={['wallets.view', 'wallets.refund', 'banks.verify']}><AdminWallets /></Can>} />
+            <Route path="deposits" element={<Can perms={['deposits.view']}><AdminDeposits /></Can>} />
             <Route path="users" element={<Can perms={['users.view']}><AdminUsers /></Can>} />
             <Route path="roles" element={<Can perms={['roles.manage']}><AdminRoles /></Can>} />
             <Route path="account" element={<StaffAccount />} />

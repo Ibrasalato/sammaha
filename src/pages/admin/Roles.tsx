@@ -15,7 +15,9 @@ const PRESETS: { name: string; perms: Permission[] }[] = [
   { name: 'مراجع طلبات', perms: ['overview.view', 'requests.view', 'requests.review'] },
   { name: 'مسؤول مزادات', perms: ['overview.view', 'requests.view', 'auctions.schedule', 'auctions.manage', 'auctions.cancel'] },
   { name: 'خدمة العملاء', perms: ['overview.view', 'tickets.view', 'tickets.reply', 'tickets.manage'] },
-  { name: 'المالية', perms: ['overview.view', 'invoices.view', 'invoices.mark_paid'] },
+  { name: 'المالية', perms: ['overview.view', 'invoices.view', 'invoices.mark_paid', 'wallets.view', 'wallets.refund', 'banks.verify', 'deposits.view', 'deposits.refund', 'reports.marks'] },
+  { name: 'علاقات العملاء', perms: ['overview.view', 'owners.view', 'tickets.view', 'tickets.reply'] },
+  { name: 'مدقق الشعارات', perms: ['overview.view', 'requests.view', 'requests.review', 'requests.audit'] },
 ]
 
 function RoleEditor({ role, onClose, onSaved }: { role: StaffRole | 'new'; onClose: () => void; onSaved: (r: StaffRole) => void }) {

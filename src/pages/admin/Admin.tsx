@@ -408,7 +408,7 @@ export function AdminAuctions() {
                 return (
                   <tr key={a.id} className={a.cancelled ? 'opacity-60' : ''}>
                     <td>{open(a) && <input type="checkbox" aria-label={`تحديد ${a.name}`} checked={sel.has(a.id)} onChange={() => toggle(a.id)} />}</td>
-                    <td><Link to={`/auctions/${a.id}`} className="flex items-center gap-2 font-extrabold text-lg hover:text-gold-deep"><TypeBadge type={a.type} />{a.name}</Link></td>
+                    <td><Link to={`/auctions/${a.id}`} className="flex items-center gap-2 font-extrabold text-lg hover:text-gold-deep"><TypeBadge type={a.type} />{a.name}</Link>{a.number && <span className="num text-[12px] text-muted">{a.number}</span>}</td>
                     <td><AuctionStatePill a={a} phase={p} />{(a.pauseReason || a.cancelReason) && <span className="mt-1 block max-w-[14rem] truncate text-[12.5px] text-muted" title={a.cancelReason || a.pauseReason}>{a.cancelReason || a.pauseReason}</span>}</td>
                     <td className="num whitespace-nowrap font-semibold">{sar(a.finalPrice ?? a.currentPrice)}</td>
                     <td className="num">{num(a.bidCount)}</td>

@@ -1,5 +1,6 @@
 import type {
   AppNotification, CamelEvent, AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
+  AuditRow, BankAccount, BankAccountInput, BankStatus, DepositRow, DocumentFile, IbanCheck, MarkRow, OwnerCrm, StaffBankAccount, WalletDetail, WalletRow, Withdrawal, WithdrawalStatus,
   AddressInput, AdminSettings, AuctionActionResult, AuctionScope, AuctionView, PersonalInput, StaffRole, TicketRouting, InvestmentItem, ListingMode, NameListing, Preferences, PublicSettings, PublicStats, SecuritySummary, SessionInfo, SettingsChange, SettingsPatch, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
 } from './types'
 
@@ -175,6 +176,35 @@ export interface SammhaApi {
   resumeAuctions(scope: AuctionScope): Promise<AuctionActionResult>
   extendAuctions(scope: AuctionScope, minutes: number): Promise<AuctionActionResult>
   cancelAuctions(scope: AuctionScope, reason: string): Promise<AuctionActionResult>
+
+  // committee audit of requested names
+  requestsAudit(status?: RequestStatus | 'all', type?: NameType | 'all'): Promise<AuditRow[]>
+  // customers (CRM)
+  listOwners(): Promise<OwnerCrm[]>
+  logOwnersReport(kind: 'print' | 'csv', count: number, filter?: string): Promise<void>
+  // reports
+  marksReport(f?: { type?: NameType | 'all'; state?: string; from?: string; to?: string }): Promise<MarkRow[]>
+  // owner bank account and refunds
+  checkIban(iban: string): Promise<IbanCheck>
+  myBankAccount(): Promise<BankAccount | null>
+  saveMyBankAccount(input: BankAccountInput): Promise<BankAccount>
+  myBankDocument(): Promise<DocumentFile>
+  myWithdrawals(): Promise<Withdrawal[]>
+  requestWithdrawal(amount: number): Promise<Withdrawal>
+  // finance
+  bankAccounts(status?: BankStatus | 'all'): Promise<StaffBankAccount[]>
+  bankDocument(userId: string): Promise<DocumentFile>
+  verifyBankAccount(userId: string): Promise<StaffBankAccount>
+  rejectBankAccount(userId: string, reason: string): Promise<StaffBankAccount>
+  wallets(): Promise<WalletRow[]>
+  walletDetail(userId: string): Promise<WalletDetail>
+  directRefund(userId: string, amount: number, transferRef: string, note?: string): Promise<Withdrawal>
+  adjustWallet(userId: string, amount: number, reason: string): Promise<WalletRow>
+  withdrawals(status?: WithdrawalStatus | 'all'): Promise<Withdrawal[]>
+  completeWithdrawal(id: string, transferRef: string): Promise<Withdrawal>
+  rejectWithdrawal(id: string, reason: string): Promise<Withdrawal>
+  deposits(state?: 'held' | 'all' | 'refunded' | 'applied'): Promise<DepositRow[]>
+  refundDeposit(input: { kind: 'request' | 'bid'; requestId?: string; auctionId?: string; userId?: string; reason: string }): Promise<DepositRow>
 }
 
 export class ApiError extends Error {}

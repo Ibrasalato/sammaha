@@ -342,6 +342,8 @@ const FIELD_LABEL: Record<string, string> = {
   AuctionPause: 'إيقاف مزادات مؤقتًا', AuctionResume: 'استئناف مزادات', AuctionExtend: 'تمديد مزادات', AuctionCancel: 'إلغاء مزادات',
   StaffRole: 'تعديل دور', StaffRoleCreated: 'إنشاء دور', StaffRoleDeleted: 'حذف دور', UserStaffRole: 'تغيير دور موظف',
   TicketRouting: 'مسؤولو الشكاوى والبلاغات', TicketsRestrictToHandlers: 'قصر التذاكر على المسؤولين',
+  OwnersReport: 'طباعة أو تصدير بيانات العملاء', BankVerified: 'اعتماد حساب بنكي', BankRejected: 'رفض حساب بنكي', WithdrawalCompleted: 'تنفيذ استرداد إلى البنك',
+  WithdrawalRejected: 'رفض طلب استرداد', WithdrawalDirect: 'استرداد مباشر إلى البنك', WalletAdjust: 'تسوية رصيد محفظة', DepositRefund: 'استرداد ضمان',
   'TicketEmails:complaint': 'بريد الشكاوى', 'TicketEmails:report': 'بريد البلاغات', 'TicketEmails:inquiry': 'بريد الاستفسارات', 'TicketEmails:suggestion': 'بريد الاقتراحات',
 }
 

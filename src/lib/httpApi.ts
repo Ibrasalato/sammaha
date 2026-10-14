@@ -1,6 +1,6 @@
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi } from './api'
-import type { AppNotification, Auction, AuctionView, Invoice, LogoRequest, NameListing, User, Wallet } from './types'
+import type { AppNotification, Auction, AuctionView, BankAccount, Invoice, LogoRequest, NameListing, User, Wallet } from './types'
 
 /**
  * The production backend: Sammha API (ASP.NET Core + SQL Server, repo Ibrasalato/sammaha-api).
@@ -307,4 +307,28 @@ export const httpApi: SammhaApi = {
   resumeAuctions: (scope) => post('/api/admin/auctions/resume', { scope }),
   extendAuctions: (scope, minutes) => post('/api/admin/auctions/extend', { scope, minutes }),
   cancelAuctions: (scope, reason) => post('/api/admin/auctions/cancel', { scope, reason }),
+
+  requestsAudit: (status, type) => get(`/api/admin/requests/audit${qs({ status, type: type === 'all' ? undefined : type })}`),
+  listOwners: () => get('/api/admin/owners'),
+  logOwnersReport: (kind, count, filter) => post('/api/admin/owners/report', { kind, count, filter }),
+  marksReport: (f = {}) => get(`/api/admin/reports/marks${qs({ type: f.type === 'all' ? undefined : f.type, state: f.state, from: f.from, to: f.to })}`),
+  checkIban: (iban) => get(`/api/banks/check-iban${qs({ iban })}`),
+  myBankAccount: async () => (await get<BankAccount | undefined>('/api/me/bank-account')) ?? null,
+  saveMyBankAccount: (input) => put('/api/me/bank-account', input),
+  myBankDocument: () => get('/api/me/bank-account/document'),
+  myWithdrawals: () => get('/api/me/withdrawals'),
+  requestWithdrawal: (amount) => post('/api/me/withdrawals', { amount }),
+  bankAccounts: (status) => get(`/api/admin/bank-accounts${qs({ status })}`),
+  bankDocument: (userId) => get(`/api/admin/bank-accounts/${userId}/document`),
+  verifyBankAccount: (userId) => post(`/api/admin/bank-accounts/${userId}/verify`),
+  rejectBankAccount: (userId, reason) => post(`/api/admin/bank-accounts/${userId}/reject`, { reason }),
+  wallets: () => get('/api/admin/wallets'),
+  walletDetail: (userId) => get(`/api/admin/wallets/${userId}`),
+  directRefund: (userId, amount, transferRef, note) => post(`/api/admin/wallets/${userId}/refund`, { amount, transferRef, note }),
+  adjustWallet: (userId, amount, reason) => post(`/api/admin/wallets/${userId}/adjust`, { amount, reason }),
+  withdrawals: (status) => get(`/api/admin/withdrawals${qs({ status })}`),
+  completeWithdrawal: (id, transferRef) => post(`/api/admin/withdrawals/${id}/complete`, { transferRef }),
+  rejectWithdrawal: (id, reason) => post(`/api/admin/withdrawals/${id}/reject`, { reason }),
+  deposits: (state) => get(`/api/admin/deposits${qs({ state })}`),
+  refundDeposit: (input) => post('/api/admin/deposits/refund', input),
 }
