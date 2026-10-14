@@ -100,6 +100,8 @@ export function useServices(): EService[] {
       free: !compoundFee, open: s.compoundOpen, closedNote: s.compoundOpen ? undefined : closed(s.compoundClosedNote),
     },
   ] as Omit<EService, 'terms'>[]).map((x) => ({ ...x, desc: textOf(x.key, x.desc), terms: termsOf(own[x.key] as SettingKey, s, lang) })).map((x) => (soonOf[x.key] ? { ...x, open: false, soon: true, closedNote: undefined } : x))
+    // available services first (they start from the right in Arabic), then closed, then «قريبًا»; the original order inside each group
+    .map((x, i) => ({ x, i, rank: x.open ? 0 : x.soon ? 2 : 1 })).sort((a, b) => a.rank - b.rank || a.i - b.i).map(({ x }) => x)
 }
 
 /** Grid of e-service cards. Public: links go through sign-in unless an owner is signed in. */
