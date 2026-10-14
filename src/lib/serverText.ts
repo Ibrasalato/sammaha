@@ -14,6 +14,11 @@ const AR = /[؀-ۿ]/
 // ───────────────────────── exact matches ─────────────────────────
 const DICT: Record<string, string> = {
   // ── session, sign-in, sign-up ──
+  'إشعار': 'Notice',
+  'شحن المحفظة (المنصة السابقة)': 'Wallet top-up (previous platform)',
+  'استرداد ضمان (المنصة السابقة)': 'Guarantee refund (previous platform)',
+  'تسوية الرصيد المنقول من المنصة السابقة': 'Balance carried over from the previous platform',
+  'ألغي في المنصة السابقة': 'Cancelled on the previous platform',
   'انتهت صلاحية الرمز، اطلب رمزًا جديدًا': 'The code has expired. Request a new one',
   'تجاوزت عدد المحاولات، اطلب رمزًا جديدًا': 'Too many attempts. Request a new code',
   'سجّل الدخول أولًا': 'Please sign in first',
