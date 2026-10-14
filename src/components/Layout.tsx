@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { LangSwitch, tr } from '../lib/i18n'
 import type { ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -179,10 +179,13 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
   const { pathname } = useLocation()
   const on = (also?: string[]) => !!also?.some((p) => pathname === p || pathname.startsWith(p + '/'))
   useStaffIdle()
+  // the page area scrolls by itself on desktop, so a new page starts at its top
+  const scroller = useRef<HTMLElement>(null)
+  useEffect(() => { scroller.current?.scrollTo({ top: 0 }) }, [pathname])
   const roleLabel = user?.role === 'owner' ? tr('مالك إبل', 'Camel owner') : user?.role === 'committee' ? tr('لجنة الاعتماد', 'Accreditation Committee') : tr('مدير المنصة', 'Platform administrator')
   return (
-    <div className="flex min-h-screen flex-col bg-stone">
-      <header className="bg-pine text-paper">
+    <div className="flex min-h-screen flex-col bg-stone lg:h-dvh lg:min-h-0 lg:overflow-hidden print:block print:h-auto print:overflow-visible">
+      <header className="shrink-0 bg-pine text-paper">
         <div className="flex h-16 items-center gap-4 px-4 lg:px-6">
           <button className="rounded-md border border-paper/25 px-2.5 py-1 text-sm font-bold lg:hidden" onClick={() => setOpen(!open)} aria-expanded={open}>{tr('القائمة', 'Menu')}</button>
           <Link to="/" aria-label={tr('الرئيسية', 'Home')}><Logo light className="h-10" /></Link>
@@ -213,9 +216,10 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
           </div>
         </div>
       )}
-      <div className="flex flex-1">
-        <aside className={`${open ? 'fixed inset-0 z-30 block bg-pine/40' : 'hidden'} lg:static lg:block lg:bg-transparent`} onClick={() => setOpen(false)}>
-          <nav className="h-full w-64 shrink-0 border-e border-line bg-paper px-3 py-5" onClick={(e) => e.stopPropagation()} aria-label={title}>
+      {/* desktop: the sidebar and the page scroll on their own; phones keep the normal page scroll */}
+      <div className="flex flex-1 lg:min-h-0 print:block">
+        <aside className={`${open ? 'fixed inset-0 z-30 block bg-pine/40' : 'hidden'} lg:static lg:block lg:shrink-0 lg:bg-transparent print:hidden`} onClick={() => setOpen(false)}>
+          <nav className="h-full w-64 shrink-0 overflow-y-auto overscroll-contain border-e border-line bg-paper px-3 py-5" onClick={(e) => e.stopPropagation()} aria-label={title}>
             <p className="mb-2 px-3 text-[12.5px] font-medium text-muted">{title}</p>
             <ul className="flex flex-col gap-0.5">
               {nav.map(({ to, label, end, icon, also }) => (
@@ -235,7 +239,7 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
             </ul>
           </nav>
         </aside>
-        <main className="min-w-0 flex-1 px-4 pb-28 pt-7 lg:px-8 lg:pb-7">
+        <main ref={scroller} className="min-w-0 flex-1 px-4 pb-28 pt-7 lg:overflow-y-auto lg:px-8 lg:pb-7 print:overflow-visible">
           <div className="mx-auto max-w-6xl">{children ?? <Outlet />}</div>
         </main>
       </div>
