@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import type { ComponentType } from 'react'
 import { PageSkeleton } from './components/Skeleton'
 import { usePageTitle } from './lib/usePageTitle'
@@ -70,6 +70,9 @@ const TITLES: [RegExp, string, string][] = [
 ]
 function RouteTitle() {
   const { pathname } = useLocation()
+  // every page change picks up the latest service switches and prices
+  const { reloadSettings } = useApp()
+  useEffect(() => { void reloadSettings() }, [pathname, reloadSettings])
   const { lang } = useLang()
   const hit = /^\/auctions\/[^/]+$/.test(pathname) ? null : TITLES.find(([re]) => re.test(pathname))
   usePageTitle(hit === null ? undefined : hit ? (lang === 'ar' ? hit[1] : hit[2]) || undefined : undefined)

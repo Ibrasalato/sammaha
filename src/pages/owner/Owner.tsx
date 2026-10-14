@@ -23,7 +23,8 @@ import { Approx } from '../../components/Region'
 import { InvoiceStatus } from '../../components/InvoiceStatus'
 
 export function DashHome() {
-  const { user, settings } = useApp()
+  const { user } = useApp()
+  const requestsClosed = useClosed('requests')
   const wallet = useLoad(() => api.myWallet(), [])
   const reqs = useLoad(() => api.myRequests(), [])
   const bids = useLoad(() => api.myBids(), [], 15000)
@@ -49,7 +50,7 @@ export function DashHome() {
             <h1 className="mt-1 text-[28px] font-extrabold text-paper sm:text-[32px]">{tr('مرحبًا', 'Welcome,')} {user?.fullName.split(' ')[0] ?? ''}</h1>
             <p className="mt-1 text-paper/75">{todo ? tr(`لديك ${todo === 1 ? 'إجراء واحد' : todo === 2 ? 'إجراءان' : `${todo} إجراءات`} بانتظارك.`, `You have ${todo} pending ${todo === 1 ? 'action' : 'actions'}.`) : tr('كل شيء على ما يرام، لا توجد إجراءات معلّقة.', 'All good, nothing pending.')}</p>
             <div className="mt-5 flex flex-wrap gap-2">
-              {settings.requestsOpen && <Link to="/dashboard/requests/new" className="btn-gold"><Icon name="plus" className="h-4 w-4" />{tr('طلب شعار جديد', 'New name request')}</Link>}
+              {!requestsClosed && <Link to="/dashboard/requests/new" className="btn-gold"><Icon name="plus" className="h-4 w-4" />{tr('طلب شعار جديد', 'New name request')}</Link>}
               <Link to="/dashboard/services" className="btn-on-dark"><Icon name="list" className="h-4 w-4" />{tr('الخدمات الإلكترونية', 'E-services')}</Link>
               <Link to="/auctions" className="btn-on-dark">{tr('تصفّح المزادات', 'Browse auctions')}</Link>
             </div>

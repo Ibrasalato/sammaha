@@ -80,10 +80,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     reloadSettings()
-    const t = setInterval(reloadSettings, 60_000)
+    const t = setInterval(reloadSettings, 30_000)
     const onFocus = () => { if (document.visibilityState === 'visible') reloadSettings() }
     document.addEventListener('visibilitychange', onFocus)
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onFocus) }
+    // demo: settings saved in another tab (the admin's) apply here at once
+    const onStorage = (e: StorageEvent) => { if (!e.key || e.key.startsWith('sammha-demo-settings')) reloadSettings() }
+    window.addEventListener('storage', onStorage)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onFocus); window.removeEventListener('storage', onStorage) }
   }, [reloadSettings])
 
   useEffect(() => {

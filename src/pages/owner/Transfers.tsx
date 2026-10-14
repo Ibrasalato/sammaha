@@ -7,6 +7,7 @@ import { dateTime, sar } from '../../lib/format'
 import { api, useApp, useLoad } from '../../lib/store'
 import type { NameTransfer, TransferReason, TransferStatus } from '../../lib/types'
 import { tr } from '../../lib/i18n'
+import { ClosedNotice, useClosed } from '../../components/SettingsUi'
 
 const NOTE_MAX = 500
 
@@ -38,6 +39,7 @@ function StatusPill({ s }: { s: TransferStatus }) {
 /** «نقل ملكية اسم»: the owner transfers a name to another user; the recipient accepts, then the committee approves. */
 export function TransfersPage() {
   const { toast } = useApp()
+  const closed = useClosed('transfer')
   const [params] = useSearchParams()
   const data = useLoad(() => api.myTransfers(), [])
   const names = useLoad(() => api.myNames(), [])
@@ -129,6 +131,7 @@ export function TransfersPage() {
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <section className="panel p-5">
           <h2 className="flex items-center gap-2 text-lg"><span className="grid h-9 w-9 place-items-center rounded-lg bg-gold-soft text-gold-deep"><Icon name="arrow" /></span>{tr('طلب نقل جديد', 'New transfer request')}</h2>
+          <ClosedNotice intake="transfer" className="mt-3" />
           {names.loading && !names.data ? <Loading /> : !transferable.length ? (
             <p className="mt-4 rounded-lg bg-stone p-4 text-[15px] text-muted">{tr('لا يوجد اسم متاح للنقل. تظهر هنا أسماؤك غير المعروضة للبيع وليس عليها طلب نقل قائم.', 'No names available to transfer. Your names that are not listed for sale and have no open transfer request appear here.')}</p>
           ) : (
@@ -177,7 +180,7 @@ export function TransfersPage() {
                 <span>{tr('أقرّ برغبتي في نقل ملكية هذا الاسم نهائيًا إلى المستلم بعد موافقته واعتماد اللجنة، وأن أي شهادة تتضمنه لن تعود سارية لي.', 'I confirm I want to permanently transfer ownership of this name to the recipient once they accept and the committee approves, and that any certificate including it will no longer be valid for me.')}{fee > 0 && tr(` وأوافق على رسوم النقل ${sar(fee)}.`, ` I agree to the transfer fee of ${sar(fee)}.`)}</span>
               </label>
 
-              <button className="btn-gold w-full sm:w-auto sm:px-6" disabled={!valid || busy} onClick={submit}>
+              <button className="btn-gold w-full sm:w-auto sm:px-6" disabled={!valid || busy || !!closed} onClick={submit}>
                 {busy ? tr('جارٍ الإرسال…', 'Submitting…') : fee > 0 ? tr(`إرسال الطلب ودفع ${sar(fee)}`, `Submit and pay ${sar(fee)}`) : tr('إرسال طلب النقل', 'Submit transfer request')}
               </button>
             </div>

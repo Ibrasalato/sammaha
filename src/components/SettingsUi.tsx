@@ -16,11 +16,13 @@ export function useClosed(intake: Intake): string | null {
 /** Banner on a form whose service is closed: says why and keeps the form from being sent. */
 export function ClosedNotice({ intake, className = '' }: { intake: Intake; className?: string }) {
   const msg = useClosed(intake)
+  const { settings } = useApp()
   if (!msg) return null
+  const soon = (settings.comingSoon ?? []).includes(intake)
   return (
     <div role="status" className={`flex items-start gap-3 rounded-xl border border-gold/50 bg-gold-soft p-4 text-[15px] leading-7 text-gold-deep ${className}`}>
-      <Icon name="lock" className="mt-1 h-5 w-5 shrink-0" />
-      <div><b className="block text-ink">{tr('الخدمة متوقفة مؤقتًا', 'Service temporarily paused')}</b>{msg}</div>
+      <Icon name={soon ? 'clock' : 'lock'} className="mt-1 h-5 w-5 shrink-0" />
+      <div><b className="block text-ink">{soon ? tr('الخدمة قريبًا', 'Coming soon') : tr('الخدمة متوقفة مؤقتًا', 'Service temporarily paused')}</b>{msg}</div>
     </div>
   )
 }
