@@ -1,10 +1,14 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from './dash'
 import type { IconName } from './dash'
 import { RULES } from '../lib/config'
 import { sar } from '../lib/format'
 import { getLang, tr } from '../lib/i18n'
 import { useApp } from '../lib/store'
+import { termsOf } from '../lib/serviceTerms'
+import type { ServiceKey as SettingKey } from '../lib/types'
+import { Modal } from './ui'
 
 export type ServiceKey = 'mark' | 'invest' | 'resale' | 'transfer' | 'compound'
 
@@ -27,6 +31,8 @@ export interface EService {
   to: string
   /** where an owner follows what they already submitted */
   mine?: string
+  /** the service's terms and policy, one item per line */
+  terms: string[]
 }
 
 const pct = (r: number) => Math.round(r * 100)
@@ -93,7 +99,7 @@ export function useServices(): EService[] {
       priceNote: compoundFee ? tr('تُدفع بالبطاقة، ويُطلب من بطاقة الاسم في «أسمائي».', 'Paid by card; requested from the name card in “My names”.') : tr('يُطلب من بطاقة الاسم في «أسمائي».', 'Requested from the name card in “My names”.'),
       free: !compoundFee, open: s.compoundOpen, closedNote: s.compoundOpen ? undefined : closed(s.compoundClosedNote),
     },
-  ] as EService[]).map((x) => ({ ...x, desc: textOf(x.key, x.desc) })).map((x) => (soonOf[x.key] ? { ...x, open: false, soon: true, closedNote: undefined } : x))
+  ] as Omit<EService, 'terms'>[]).map((x) => ({ ...x, desc: textOf(x.key, x.desc), terms: termsOf(own[x.key] as SettingKey, s, lang) })).map((x) => (soonOf[x.key] ? { ...x, open: false, soon: true, closedNote: undefined } : x))
 }
 
 /** Grid of e-service cards. Public: links go through sign-in unless an owner is signed in. */
@@ -111,6 +117,10 @@ export function ServicesGrid({ audience, className = '' }: { audience: 'public' 
 
 function ServiceCard({ s, isOwner, signedIn }: { s: EService; isOwner: boolean; signedIn: boolean }) {
   const label = tr('تقدّم للخدمة', 'Apply')
+  const nav = useNavigate()
+  const [terms, setTerms] = useState<null | 'read' | 'apply'>(null)
+  const [agree, setAgree] = useState(false)
+  const go = () => (isOwner ? nav(s.to) : nav('/login', { state: { from: s.to } }))
   return (
     <li className={`panel group relative flex flex-col overflow-hidden p-5 transition-shadow ${s.open ? 'hover:shadow-lift' : 'opacity-90'}`}>
       <span className={`absolute inset-x-0 top-0 h-1 ${s.open ? 'bg-gold' : 'bg-stone-deep'}`} aria-hidden />
@@ -137,14 +147,41 @@ function ServiceCard({ s, isOwner, signedIn }: { s: EService; isOwner: boolean; 
         </p>
       )}
 
+      <button type="button" className="mt-3 flex items-center justify-center gap-1.5 text-[13.5px] font-bold text-gold-deep hover:underline" onClick={() => { setAgree(false); setTerms('read') }}>
+        <Icon name="file" className="h-4 w-4" />{tr('الشروط والسياسة', 'Terms and policy')}
+      </button>
       {s.open ? (
-        isOwner
-          ? <Link to={s.to} className="btn-primary mt-4 w-full">{label}<Icon name="arrow" className="h-4 w-4 rtl:rotate-180" /></Link>
-          : <Link to="/login" state={{ from: s.to }} className="btn-primary mt-4 w-full">{signedIn ? label : tr('سجّل الدخول للتقديم', 'Sign in to apply')}<Icon name="arrow" className="h-4 w-4 rtl:rotate-180" /></Link>
+        <button type="button" className="btn-primary mt-3 w-full" onClick={() => { setAgree(false); setTerms('apply') }}>
+          {isOwner || signedIn ? label : tr('سجّل الدخول للتقديم', 'Sign in to apply')}<Icon name="arrow" className="h-4 w-4 rtl:rotate-180" />
+        </button>
       ) : (
         <button type="button" disabled className="btn-ghost mt-4 w-full">{s.soon ? tr('قريبًا', 'Coming soon') : label}</button>
       )}
       {isOwner && signedIn && s.mine && !s.soon && <Link to={s.mine} className="mt-2 text-center text-[13.5px] font-bold text-pine hover:underline">{tr('متابعة طلباتي', 'Track my requests')}</Link>}
+      {terms && (
+        <Modal open onClose={() => setTerms(null)} title={tr(`شروط وسياسة خدمة «${s.title}»`, `“${s.title}” terms and policy`)}>
+          <div className="space-y-4">
+            <div className="rounded-lg bg-stone px-4 py-3">
+              <span className="block text-[12px] font-medium text-muted">{tr('رسوم الخدمة', 'Service fee')}</span>
+              <span className={`num block font-extrabold ${s.free ? 'text-ok' : 'text-gold-deep'}`}>{s.price}</span>
+            </div>
+            <ol className="list-decimal space-y-2 ps-5 text-[15px] leading-7">
+              {s.terms.map((t, i) => <li key={i}>{t}</li>)}
+            </ol>
+            {terms === 'apply' && (
+              <>
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 text-[14.5px]">
+                  <input type="checkbox" className="mt-1.5" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+                  <span>{tr('قرأت شروط الخدمة وسياستها وأوافق عليها.', 'I have read and accept the service terms and policy.')}</span>
+                </label>
+                <button type="button" className="btn-primary w-full" disabled={!agree} onClick={() => { setTerms(null); go() }}>
+                  {isOwner ? tr('أوافق، تابع التقديم', 'Accept and continue') : tr('أوافق، سجّل الدخول للتقديم', 'Accept and sign in to apply')}
+                </button>
+              </>
+            )}
+          </div>
+        </Modal>
+      )}
     </li>
   )
 }

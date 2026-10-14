@@ -606,7 +606,7 @@ export interface PublicSettings {
   resaleCommission: number
   instantCommission: number
   /** the admin's description of each e-service (empty = the built-in text) */
-  serviceTexts?: Partial<Record<ServiceKey, { ar?: string; en?: string }>>
+  serviceTexts?: Partial<Record<ServiceKey, { ar?: string; en?: string; termsAr?: string; termsEn?: string }>>
 }
 
 export type ServiceKey = 'requests' | 'compound' | 'resale' | 'instant' | 'investment' | 'transfer'

@@ -12,7 +12,8 @@ import { ErrorBox, Loading, Modal, PageHead, Segmented } from '../components/ui'
 import { STAFF_LOGIN_PATH } from '../lib/config'
 import { dateTime, num, sar } from '../lib/format'
 import { api, useApp, useLoad } from '../lib/store'
-import type { AdminSettings, AuctionScope, NameType, Preferences, ServiceKey, SessionInfo, SettingsPatch, TicketKind, TicketRouting } from '../lib/types'
+import { defaultTerms } from '../lib/serviceTerms'
+import type { AdminSettings, AuctionScope, NameType, Preferences, PublicSettings, ServiceKey, SessionInfo, SettingsPatch, TicketKind, TicketRouting } from '../lib/types'
 import { AuctionActionDialog, useAuctionRights } from '../components/AuctionControls'
 import type { AuctionAction } from '../components/AuctionControls'
 import { can, canAny } from '../lib/permissions'
@@ -232,6 +233,9 @@ const PRICE: Record<ServiceKey, { field: 'depositAmount' | 'investFee' | 'resale
   compound: { field: 'compoundFee', label: () => tr('رسوم التسجيل (⃁)', 'Registration fee (⃁)'), hint: () => tr('تُدفع بالبطاقة عند تقديم الطلب.', 'Paid by card when applying.') },
 }
 
+/** the draft as owners would see it, for the default terms preview */
+const publicDraft = (d: Draft) => ({ ...d, announcement: undefined }) as unknown as PublicSettings
+
 /** price (or free) and the description owners read on the service card */
 function ServiceDetails({ i, d, set }: { i: (typeof INTAKES)[number]; d: Draft; set: (p: SettingsPatch) => void }) {
   const p = PRICE[i.key]
@@ -239,7 +243,7 @@ function ServiceDetails({ i, d, set }: { i: (typeof INTAKES)[number]; d: Draft; 
   const shown = p.pct ? Math.round(raw * 10000) / 100 : raw
   const free = raw === 0
   const text = d.serviceTexts?.[i.key] ?? {}
-  const setText = (patch: { ar?: string; en?: string }) => set({ serviceTexts: { ...(d.serviceTexts ?? {}), [i.key]: { ...text, ...patch } } })
+  const setText = (patch: { ar?: string; en?: string; termsAr?: string; termsEn?: string }) => set({ serviceTexts: { ...(d.serviceTexts ?? {}), [i.key]: { ...text, ...patch } } })
   return (
     <div className="mt-3 grid gap-3 rounded-lg bg-stone/60 p-3 sm:grid-cols-2">
       <div>
@@ -259,6 +263,15 @@ function ServiceDetails({ i, d, set }: { i: (typeof INTAKES)[number]; d: Draft; 
           <textarea id={`d-${i.key}`} className="field min-h-[70px]" maxLength={300} placeholder={tr('الوصف بالعربية', 'Arabic description')} value={text.ar ?? ''} onChange={(e) => setText({ ar: e.target.value })} />
           <textarea className="field min-h-[60px]" dir="ltr" maxLength={300} placeholder="English description (optional)" value={text.en ?? ''} onChange={(e) => setText({ en: e.target.value })} />
         </div>
+      )}
+      {i.key !== 'instant' && (
+        <details className="sm:col-span-2" open={!!(text.termsAr || text.termsEn)}>
+          <summary className="cursor-pointer text-[14px] font-bold text-pine">{tr('شروط وسياسة الخدمة', 'Service terms and policy')} <span className="font-normal text-muted">({text.termsAr || text.termsEn ? tr('نص مخصّص', 'custom text') : tr('النص الافتراضي من الأسعار الحالية', 'default text from the current prices')})</span></summary>
+          <p className="hint mt-2">{tr('بند في كل سطر. يراها المالك قبل التقديم ويوافق عليها. اتركها فارغة لاستخدام النص الافتراضي الظاهر، وهو يتحدث تلقائيًا مع الأسعار والمهلة.', 'One item per line. Owners read and accept them before applying. Leave empty to use the default shown, which follows the prices and deadline automatically.')}</p>
+          <textarea className="field mt-2 min-h-[180px] text-[14px] leading-7" maxLength={4000} placeholder={defaultTerms(i.key, publicDraft(d)).map((t) => `• ${t}`).join('\n')} value={text.termsAr ?? ''} onChange={(e) => setText({ termsAr: e.target.value })} />
+          <textarea className="field mt-2 min-h-[120px] text-[14px] leading-7" dir="ltr" maxLength={4000} placeholder="English terms (optional), one per line" value={text.termsEn ?? ''} onChange={(e) => setText({ termsEn: e.target.value })} />
+          {!(text.termsAr || text.termsEn) && <button type="button" className="btn-ghost btn-sm mt-2" onClick={() => setText({ termsAr: defaultTerms(i.key, publicDraft(d)).map((t) => `• ${t}`).join('\n') })}>{tr('انسخ النص الافتراضي لتعديله', 'Copy the default text to edit it')}</button>}
+        </details>
       )}
     </div>
   )
