@@ -1,7 +1,7 @@
 import { AuctionGrid } from '../../components/AuctionCard'
 import { typeOptions } from '../../lib/config'
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Avatar, resizeToSquare } from '../../components/Avatar'
 import { InvoiceDoc } from '../../components/InvoiceDoc'
 import { NoResults, TableTools, useTableFilter } from '../../components/TableTools'
@@ -222,12 +222,12 @@ export function MyInvoices() {
         <TableTools t={tf} placeholder={tr('بحث برقم الفاتورة أو الاسم', 'Search by invoice number or name')} />
         <div className="panel overflow-x-auto">
           <table className="tbl">
-            <thead><tr><th>{tr('رقم الفاتورة', 'Invoice no.')}</th><th>{tr('الاسم', 'Name')}</th><th>{tr('التاريخ', 'Date')}</th><th>{tr('الإجمالي', 'Total')}</th><th>{tr('المستحق', 'Due')}</th><th>{tr('الحالة', 'Status')}</th></tr></thead>
+            <thead><tr><th>{tr('الرقم', 'Number')}</th><th>{tr('الاسم', 'Name')}</th><th>{tr('التاريخ', 'Date')}</th><th>{tr('الإجمالي', 'Total')}</th><th>{tr('المستحق', 'Due')}</th><th>{tr('الحالة', 'Status')}</th></tr></thead>
             <tbody>
               {!tf.list.length && <NoResults cols={6} onReset={tf.reset} />}
               {tf.list.map((i) => (
                 <tr key={i.id}>
-                  <td><Link to={`/dashboard/invoices/${i.id}`} className="num font-semibold underline-offset-4 hover:underline">{i.number}</Link></td>
+                  <td><Link to={`/dashboard/invoices/${i.id}`} className="num font-semibold underline-offset-4 hover:underline">{i.number}</Link><span className="block text-[12px] text-muted">{i.status === 'paid' ? tr('فاتورة ضريبية', 'Tax invoice') : tr('طلب سداد', 'Payment request')}</span></td>
                   <td className="font-extrabold">{i.name}</td>
                   <td className="text-muted">{date(i.issuedAt)}</td>
                   <td className="num">{sar(i.total)}</td>
@@ -247,23 +247,39 @@ export function MyInvoices() {
 export function InvoicePage() {
   const { id = '' } = useParams()
   const { toast } = useApp()
+  const { search } = useLocation()
   const { data, loading, reload } = useLoad(() => api.myInvoices().then((l) => l.find((i) => i.id === id) ?? null), [id])
   const [paying, setPaying] = useState(false)
+  // after paying (or coming back from the payment page): «جاري معالجة الطلب» until the tax invoice is issued
+  const [processing, setProcessing] = useState(() => new URLSearchParams(search).get('payment') === 'paid' || new URLSearchParams(search).get('payment') === 'pending')
+  useEffect(() => {
+    if (!processing) return
+    if (data?.status === 'paid') { const t = setTimeout(() => { setProcessing(false); toast(tr('صدرت الفاتورة الضريبية', 'The tax invoice has been issued')) }, 1200); return () => clearTimeout(t) }
+    const t = setInterval(() => { void reload() }, 3000)
+    return () => clearInterval(t)
+  }, [processing, data?.status, reload, toast])
   if (loading && !data) return <Loading />
   if (!data) return <ErrorBox text={tr('الفاتورة غير موجودة', 'Invoice not found')} />
+  const paid = data.status === 'paid'
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
         <Link to="/dashboard/invoices" className="text-sm font-medium text-muted hover:text-ink">{tr('الفواتير', 'Invoices')}</Link>
         <span className="ms-auto" />
-        {data.status === 'unpaid' && data.dueAt && <span className="text-[13.5px] font-semibold text-bad">{tr('سدّد قبل', 'Pay before')} {dateTime(data.dueAt)} {tr('وإلا يُلغى فوزك ويُخصم الضمان', 'or the win is cancelled and the guarantee forfeited')}</span>}
+        {data.status === 'unpaid' && data.dueAt && !processing && <span className="text-[13.5px] font-semibold text-bad">{tr('سدّد قبل', 'Pay before')} {dateTime(data.dueAt)} {tr('وإلا يُلغى فوزك ويُخصم الضمان', 'or the win is cancelled and the guarantee forfeited')}</span>}
         {data.status === 'cancelled' && <span className="pill bg-bad/10 text-bad">{tr('أُلغيت لانتهاء مهلة السداد، وآل الاسم إلى المنظمة الدولية للإبل', 'Cancelled: the deadline passed and the name passed to the International Camel Organization')}</span>}
-        {data.status === 'unpaid' && <button className="btn-gold" onClick={() => setPaying(true)}>{tr('سداد', 'Pay')} {sar(data.amountDue)}</button>}
-        <button className="btn-ghost" onClick={() => window.print()}>{tr('طباعة أو حفظ PDF', 'Print or save PDF')}</button>
+        {data.status === 'unpaid' && !processing && <button className="btn-gold" onClick={() => setPaying(true)}>{tr('سداد', 'Pay')} {sar(data.amountDue)}</button>}
+        {paid && !processing && <button className="btn-ghost" onClick={() => window.print()}>{tr('طباعة أو حفظ PDF', 'Print or save PDF')}</button>}
       </div>
-      <InvoiceDoc inv={data} />
-      {paying && <PayModal open cardOnly title={tr(`سداد الفاتورة ${data.number}`, `Pay invoice ${data.number}`)} amount={data.amountDue} onClose={() => setPaying(false)}
-        onPay={async (m) => { try { await api.payInvoice(data.id, m); toast(tr('تم سداد الفاتورة', 'Invoice paid')); reload() } catch (e) { toast((e as Error).message, 'bad'); throw e } }} />}
+      {processing ? (
+        <div className="panel mx-auto flex max-w-2xl flex-col items-center gap-3 p-10 text-center" role="status">
+          <span className="h-10 w-10 animate-spin rounded-full border-4 border-gold border-t-transparent" aria-hidden />
+          <p className="text-lg font-extrabold">{tr('جاري معالجة الطلب', 'Processing your payment')}</p>
+          <p className="text-muted">{paid ? tr('تم السداد، جاري إصدار الفاتورة الضريبية…', 'Payment received; issuing the tax invoice…') : tr('نتحقق من عملية الدفع مع البنك، وتصدر الفاتورة الضريبية فور اكتمالها.', 'We are confirming the payment with the bank; the tax invoice is issued as soon as it completes.')}</p>
+        </div>
+      ) : <InvoiceDoc inv={data} />}
+      {paying && <PayModal open cardOnly title={tr(`سداد طلب السداد ${data.number}`, `Pay request ${data.number}`)} amount={data.amountDue} onClose={() => setPaying(false)}
+        onPay={async (m) => { try { await api.payInvoice(data.id, m); setProcessing(true); await reload() } catch (e) { toast((e as Error).message, 'bad'); throw e } }} />}
     </>
   )
 }

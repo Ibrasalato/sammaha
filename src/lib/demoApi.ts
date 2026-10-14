@@ -513,11 +513,21 @@ function refundDeposit(db: DB, r: LogoRequest, why: string) {
 }
 
 let invSeq = 0
+let prSeq = 0
+const taxNo = (db: DB) => { invSeq = Math.max(invSeq, db.invoices.filter((i) => i.number.startsWith('INV-')).length); return `INV-${new Date().getFullYear()}-${String(++invSeq).padStart(5, '0')}` }
+/** ZATCA: the tax invoice (number and date) is issued once it is paid; before that it is a payment request (PR-) */
+function markPaid(db: DB, inv: Invoice) {
+  inv.status = 'paid'
+  inv.paidAt = iso(now())
+  if (!inv.number.startsWith('INV-')) { inv.requestNumber = inv.requestNumber ?? inv.number; inv.number = taxNo(db); inv.issuedAt = inv.paidAt }
+}
 function issueInvoice(db: DB, a: Auction, buyer: User, price: number, depositApplied: number) {
-  invSeq = Math.max(invSeq, db.invoices.length)
+  prSeq = Math.max(prSeq, db.invoices.filter((i) => i.requestNumber || i.number.startsWith('PR-')).length)
   const vat = round2((price * RULES.vatRate) / (1 + RULES.vatRate))
+  const paidNow = price - depositApplied <= 0
+  const pr = paidNow ? undefined : `PR-${new Date().getFullYear()}-${String(++prSeq).padStart(5, '0')}`
   const inv: Invoice = {
-    id: uid(db, 'i'), number: `INV-${new Date().getFullYear()}-${String(++invSeq).padStart(5, '0')}`,
+    id: uid(db, 'i'), number: pr ?? taxNo(db), requestNumber: pr,
     userId: buyer.id, buyerName: buyer.fullName, buyerPhone: buyer.phone, auctionId: a.id, name: a.name, type: a.type,
     total: price, vat, subtotal: round2(price - vat), depositApplied, amountDue: round2(price - depositApplied),
     status: price - depositApplied <= 0 ? 'paid' : 'unpaid', issuedAt: iso(now()),
@@ -1611,9 +1621,8 @@ const rawApi: SammhaApi = {
     if (inv.status === 'cancelled') throw new ApiError('أُلغيت هذه الفاتورة لانتهاء مهلة السداد')
     if (method === 'wallet') throw new ApiError(CARD_ONLY)
     db.txs.push({ id: uid(db, 't'), userId: inv.userId, amount: inv.amountDue, kind: 'topup', note: `دفع بالبطاقة للفاتورة ${inv.number}`, createdAt: iso(now()) })
-    db.txs.push({ id: uid(db, 't'), userId: inv.userId, amount: -inv.amountDue, kind: 'invoice_payment', note: `سداد الفاتورة ${inv.number} — ${inv.name}`, createdAt: iso(now()) })
-    inv.status = 'paid'
-    inv.paidAt = iso(now())
+    db.txs.push({ id: uid(db, 't'), userId: inv.userId, amount: -inv.amountDue, kind: 'invoice_payment', note: `سداد طلب السداد ${inv.number} — ${inv.name}`, createdAt: iso(now()) })
+    markPaid(db, inv)
     payOwnerShare(db, inv)
     releaseWinnerGuarantee(db, inv)
     return inv
@@ -1861,7 +1870,7 @@ const rawApi: SammhaApi = {
     db.txs.push({ id: uid(db, 't'), userId: u.id, amount: l.price, kind: 'topup', note: `دفع بالبطاقة لشراء «${l.name}»`, createdAt: iso(now()) })
     db.txs.push({ id: uid(db, 't'), userId: u.id, amount: -l.price, kind: 'purchase', note: `شراء فوري للاسم «${l.name}» (${l.number})`, createdAt: iso(now()) })
     const inv = sellerInvoice(db, l, u, l.price, 0)
-    inv.status = 'paid'; inv.paidAt = iso(now())
+    markPaid(db, inv)
     transferName(db, l, u, l.price)
     Object.assign(l, { status: 'sold', soldPrice: l.price, soldAt: iso(now()) })
     payOwnerShare(db, inv)
@@ -2090,8 +2099,7 @@ const rawApi: SammhaApi = {
     const inv = db.invoices.find((i) => i.id === id)
     if (!inv || inv.status === 'paid') throw new ApiError('الفاتورة غير موجودة أو مدفوعة')
     if (inv.status === 'cancelled') throw new ApiError('أُلغيت هذه الفاتورة لانتهاء مهلة السداد')
-    inv.status = 'paid'
-    inv.paidAt = iso(now())
+    markPaid(db, inv)
     payOwnerShare(db, inv)
     releaseWinnerGuarantee(db, inv)
     return inv

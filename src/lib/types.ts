@@ -384,6 +384,8 @@ export interface WalletTx {
 }
 
 export interface Invoice {
+  /** the payment request number (PR-…) before payment; `number` becomes the tax invoice number (INV-…) once paid */
+  requestNumber?: string
   id: string
   number: string
   userId: string
