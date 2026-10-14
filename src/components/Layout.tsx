@@ -186,7 +186,7 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
           <div className="ms-auto flex items-center gap-3">
             <div className="hidden text-end leading-tight sm:block">
               <div className="text-[14px] font-bold">{user?.fullName}</div>
-              <div className="text-[12px] text-paper/60">{roleLabel}</div>
+              <div className="text-[12px] text-paper/60">{user?.acting ? `مفوَّض: ${user.acting.actorName}` : roleLabel}</div>
             </div>
             <NotificationBell />
             {user && (user.role === 'owner'
@@ -198,6 +198,15 @@ export function Shell({ nav, title, children }: { nav: NavItem[]; title: string;
         <div className="h-[3px] bg-gold" aria-hidden />
       </header>
       <SiteBanner dashboard />
+      {user?.acting && (
+        <div className="border-b border-gold/40 bg-gold-soft px-4 py-2.5 lg:px-6 print:hidden" role="status">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[14px]">
+            <Icon name="users" className="h-[18px] w-[18px] text-gold-deep" />
+            <span>أنت <b>{user.acting.actorName}</b> تدير حساب <b>{user.fullName}</b> بالتفويض{user.acting.endsAt ? ` حتى ${new Date(user.acting.endsAt).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn')}` : ''}. كل إجراء يُسجَّل باسمك.</span>
+            <button className="btn-primary btn-sm ms-auto" onClick={async () => { try { setUser(await api.stopActing()); navigate('/dashboard/settings?tab=delegation') } catch { setUser(null); navigate('/') } }}>العودة إلى حسابي</button>
+          </div>
+        </div>
+      )}
       <div className="flex flex-1">
         <aside className={`${open ? 'fixed inset-0 z-30 block bg-pine/40' : 'hidden'} lg:static lg:block lg:bg-transparent`} onClick={() => setOpen(false)}>
           <nav className="h-full w-64 shrink-0 border-e border-line bg-paper px-3 py-5" onClick={(e) => e.stopPropagation()} aria-label={title}>

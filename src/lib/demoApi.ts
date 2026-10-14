@@ -5,7 +5,7 @@
  */
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'
-import type { AuctionActionResult, AuctionScope, AuctionView, AuditRow, BankAccount, DepositRow, IbanCheck, MarkRow, NameListing, OwnerCrm, OwnerProfile, Preferences, SimilarHit, StaffBankAccount, StaffRole, TicketRouting, WalletRow, Withdrawal } from './types'
+import type { ActivityEntry, Delegation, DelegationScope, AuctionActionResult, AuctionScope, AuctionView, AuditRow, BankAccount, DepositRow, IbanCheck, MarkRow, NameListing, OwnerCrm, OwnerProfile, Preferences, SimilarHit, StaffBankAccount, StaffRole, TicketRouting, WalletRow, Withdrawal } from './types'
 import { ALL_PERMISSIONS, COMMITTEE_DEFAULT, COMMITTEE_ROLE_ID, permissionLabel } from './permissions'
 import type { Permission } from './permissions'
 import { demoRules, ensureOpen, ensureWritable, logAction, publicOf, readLog, readRouting, readSettings, writeRouting, writeSettings } from './demoSettings'
@@ -58,6 +58,7 @@ interface DB {
   auctionSeq?: number
   withdrawals?: Withdrawal[]
   banks?: (Omit<BankAccount, 'ibanMasked'> & { userId: string; docBase64: string })[]
+  delegations?: (Omit<Delegation, 'ownerName' | 'status' | 'capacityLabel' | 'linked'> & { delegateUserId?: string; revokedAt?: string })[]
 }
 interface BidDeposit { auctionId: string; userId: string; amount: number; state: 'held' | 'refunded' | 'applied'; createdAt: string }
 
@@ -984,7 +985,12 @@ function identityError(id: string, nationality: string, residence: string): stri
 let currentDb: DB | null = null
 const publicUser = (full: DemoUser): User => {
   const { password: _p, prefs: _q, failedLogins: _f, lockedUntil: _l, lastLoginAt: _a, stamp: _s, p: _pr, emailVerifiedAt: _e, ...u } = full
-  if (u.role === 'owner') return { ...u, profile: profileOf(full) }
+  if (u.role === 'owner') {
+    const act = readActing()
+    const d = act && currentDb?.delegations?.find((x) => x.id === act.delegationId && x.ownerId === u.id)
+    const actor = d && currentDb?.users.find((x) => x.id === act!.actorId)
+    return { ...u, profile: profileOf(full), ...(d && actor ? { acting: { delegationId: d.id, actorId: actor.id, actorName: actor.fullName, capacity: d.capacity, scopes: d.scopes, endsAt: d.permanent ? undefined : d.endsAt } } : {}) }
+  }
   const db = currentDb
   return db ? { ...u, permissions: permsOf(db, full), staffRoleName: u.role === 'admin' ? 'مدير النظام' : roleOf(db, full)?.name } : u
 }
@@ -1005,7 +1011,7 @@ function need(db: DB, perm: Permission): DemoUser {
 const DEFAULT_PREFS: Preferences = { notifyOutbid: true, notifyReminders: true, notifyResults: true, notifyRequests: true }
 
 // ───────────────────────── API ─────────────────────────
-export const demoApi: SammhaApi = {
+const rawApi: SammhaApi = {
   currentUser: () => tx((db) => {
     const u = db.users.find((x) => x.id === getSession())
     return u ? publicUser(u) : null
@@ -1026,6 +1032,8 @@ export const demoApi: SammhaApi = {
       p: { firstName: first, fatherName: father, grandfatherName: grand, familyName: family, birthDate: input.birthDate, gender: input.gender as 'male' | 'female', nationality: input.nationality, residenceCountry: input.residenceCountry, residenceCity: input.residenceCity.trim() },
     }
     db.users.push(u)
+    // delegations waiting for this person (same national ID and mobile) link to the new account
+    for (const d of db.delegations ?? []) if (!d.delegateUserId && !d.revokedAt && d.nationalId === nid && d.phone === phone) d.delegateUserId = u.id
     setSession(u.id)
     try { localStorage.setItem('sammha-demo-stamp', '0') } catch { /* ignore */ }
     return publicUser(u)
@@ -2370,4 +2378,238 @@ export const demoApi: SammhaApi = {
     logAction('DepositRefund', u.fullName, `${o.fullName} · ضمان دخول ${a.number} «${a.name}» · ${sarText(d.amount)} · ${why}`)
     return { kind: 'bid', auctionId: a.id, userId: d.userId, ownerName: o.fullName, reference: '', auctionNumber: a.number, names: a.name, type: a.type, amount: d.amount, state: 'refunded', context: a.settled ? 'settled' : 'open', at: d.createdAt }
   }),
+
+  // ───── activity log (the wrapper below writes it) ─────
+  activity: (f = {}) => tx((db) => {
+    need(db, 'logs.view')
+    let list = readActivity()
+    if (f.from) list = list.filter((a) => a.at >= f.from!)
+    if (f.to) list = list.filter((a) => a.at <= f.to!)
+    if (f.category) list = list.filter((a) => a.category === f.category)
+    if (f.role) list = list.filter((a) => (f.role === 'staff' ? a.actorRole === 'admin' || a.actorRole === 'committee' : a.actorRole === f.role))
+    if (f.failed) list = list.filter((a) => !a.success)
+    if (f.q?.trim()) { const t = f.q.trim(); list = list.filter((a) => [a.actorName, a.action, a.details, a.onBehalfOfName, a.ip].some((x) => x?.includes(t))) }
+    const size = Math.min(500, Math.max(10, f.size ?? 100)), page = Math.max(1, f.page ?? 1)
+    return { items: list.slice((page - 1) * size, page * size), total: list.length, categories: Object.entries(ACT_CATEGORIES).map(([key, value]) => ({ key, value })) }
+  }),
+
+  // ───── account delegation ─────
+  myDelegations: () => tx((db) => {
+    const u = ownerSelf(db)
+    return (db.delegations ?? []).filter((d) => d.ownerId === u.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((d) => delegationDto(db, d))
+  }),
+  saveDelegation: (id, i) => tx((db) => {
+    const u = ownerSelf(db)
+    const name = i.fullName.trim().replace(/\s+/g, ' ')
+    if (name.length < 6) throw new ApiError('اكتب اسم المفوض الرباعي')
+    const nid = i.nationalId.trim().toUpperCase()
+    if (!/^[A-Z0-9]{5,20}$/.test(nid)) throw new ApiError('رقم هوية المفوض غير صحيح')
+    const phone = normalizeIntl(i.phoneCountry, i.phone)
+    if (!phone) throw new ApiError('رقم جوال المفوض غير صحيح')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(i.email.trim())) throw new ApiError('بريد المفوض غير صحيح')
+    if (nid === u.nationalId || phone === u.phone) throw new ApiError('لا يمكنك تفويض نفسك')
+    if (!i.capacity) throw new ApiError('اختر صفة المفوض')
+    if (i.capacity === 'other' && !i.capacityNote?.trim()) throw new ApiError('اكتب صفة المفوض')
+    const starts = i.startsAt ? Date.parse(i.startsAt) : now()
+    let ends: number | undefined
+    if (!i.permanent) {
+      if (!i.endsAt) throw new ApiError('حدّد نهاية التفويض المؤقت')
+      ends = Date.parse(i.endsAt)
+      if (ends <= starts) throw new ApiError('نهاية التفويض بعد بدايته')
+      if (ends <= now()) throw new ApiError('نهاية التفويض في الماضي')
+      if (ends > starts + 3 * 365.25 * D) throw new ApiError('أقصى مدة للتفويض المؤقت 3 سنوات، أو اختر تفويضًا دائمًا')
+    }
+    db.delegations ??= []
+    let d = id ? db.delegations.find((x) => x.id === id && x.ownerId === u.id) : undefined
+    if (id && !d) throw new ApiError('التفويض غير موجود')
+    if (d?.revokedAt) throw new ApiError('التفويض ملغى؛ أضف تفويضًا جديدًا')
+    if (!d) {
+      const live = db.delegations.filter((x) => x.ownerId === u.id && delegationStatus(x) !== 'revoked' && delegationStatus(x) !== 'expired')
+      if (live.length >= 5) throw new ApiError('5 تفويضات قائمة على الأكثر، ألغِ أحدها أولًا')
+      if (live.some((x) => x.nationalId === nid)) throw new ApiError('يوجد تفويض قائم لهذا الشخص، عدّله بدل إضافة تفويض جديد')
+      d = { id: uid(db, 'dlg'), ownerId: u.id, fullName: '', nationalId: '', phone: '', email: '', capacity: 'agent', scopes: [], permanent: true, startsAt: iso(now()), createdAt: iso(now()) }
+      db.delegations.push(d)
+    }
+    const relink = d.nationalId !== nid || d.phone !== phone
+    Object.assign(d, { fullName: name, nationalId: nid, phone, email: i.email.trim(), capacity: i.capacity, capacityNote: i.capacityNote?.trim() || undefined,
+      scopes: [...new Set(i.scopes)], permanent: i.permanent, startsAt: iso(starts), endsAt: ends ? iso(ends) : undefined })
+    if (relink) {
+      const t = db.users.find((x) => x.nationalId === nid && x.phone === phone && x.role === 'owner' && x.active !== false)
+      d.delegateUserId = t?.id
+      if (t) notify(db, t.id, 'delegation', `فوّضك ${u.fullName} لإدارة حسابه`, 'ادخل إلى حسابه من «التفويض» في إعدادات لوحة التحكم.', '/dashboard/settings?tab=delegation')
+    }
+    return delegationDto(db, d)
+  }),
+  revokeDelegation: (id) => tx((db) => {
+    const u = ownerSelf(db)
+    const d = db.delegations?.find((x) => x.id === id && x.ownerId === u.id)
+    if (!d) throw new ApiError('التفويض غير موجود')
+    if (!d.revokedAt) {
+      d.revokedAt = iso(now())
+      if (d.delegateUserId) notify(db, d.delegateUserId, 'delegation', `ألغى ${u.fullName} تفويضك`, 'لم تعد تستطيع إدارة حسابه.', '/dashboard/settings?tab=delegation')
+    }
+    return delegationDto(db, d)
+  }),
+  delegatedToMe: () => tx((db) => {
+    if (readActing()) return []
+    const u = me(db)
+    return (db.delegations ?? []).filter((d) => d.delegateUserId === u.id).map((d) => delegationDto(db, d))
+  }),
+  actAs: (delegationId) => tx((db) => {
+    if (readActing()) throw new ApiError('ارجع إلى حسابك أولًا')
+    const u = me(db)
+    const d = db.delegations?.find((x) => x.id === delegationId && x.delegateUserId === u.id)
+    if (!d) throw new ApiError('التفويض غير موجود')
+    const st = delegationStatus(d)
+    if (st !== 'active') throw new ApiError(st === 'scheduled' ? 'لم يبدأ التفويض بعد' : st === 'expired' ? 'انتهت مدة التفويض' : 'التفويض ملغى')
+    const owner = db.users.find((x) => x.id === d.ownerId && x.active !== false)
+    if (!owner) throw new ApiError('حساب صاحب التفويض موقوف')
+    d.lastUsedAt = iso(now())
+    notify(db, owner.id, 'delegation', `دخل المفوض ${u.fullName} إلى حسابك`, 'كل ما يجريه مسجّل باسمه في سجل النشاط.', '/dashboard/settings?tab=delegation')
+    writeActing({ delegationId: d.id, actorId: u.id })
+    setSession(owner.id)
+    try { localStorage.setItem('sammha-demo-stamp', String(owner.stamp ?? 0)) } catch { /* ignore */ }
+    return publicUser(owner)
+  }),
+  stopActing: () => tx((db) => {
+    const a = readActing()
+    if (!a) throw new ApiError('أنت في حسابك')
+    const actor = db.users.find((x) => x.id === a.actorId)
+    writeActing(null)
+    if (!actor) { setSession(null); throw new ApiError('سجّل الدخول من جديد') }
+    setSession(actor.id)
+    try { localStorage.setItem('sammha-demo-stamp', String(actor.stamp ?? 0)) } catch { /* ignore */ }
+    return publicUser(actor)
+  }),
 }
+
+// ───────────────────────── activity log and delegated sessions (demo) ─────────────────────────
+const ACT_KEY = 'sammha-demo-activity'
+const ACTING_KEY = 'sammha-demo-acting'
+const ACT_CATEGORIES: Record<string, string> = {
+  auth: 'الدخول', account: 'الحساب', requests: 'طلبات الشعارات', auctions: 'المزادات', payments: 'المدفوعات', finance: 'المالية',
+  users: 'المستخدمون والأدوار', settings: 'الإعدادات', tickets: 'الشكاوى والبلاغات', delegation: 'التفويض', content: 'المحتوى', reports: 'التقارير',
+}
+/** each write and its label in the log (same labels as the API) */
+const ACT: Record<string, [string, string]> = {
+  startSignIn: ['محاولة دخول', 'auth'], completeSignIn: ['تسجيل دخول', 'auth'], signOut: ['تسجيل خروج', 'auth'], startSignUp: ['بدء إنشاء حساب', 'auth'], signUp: ['إنشاء حساب مالك', 'auth'],
+  changePassword: ['تغيير كلمة المرور', 'account'], revokeMySession: ['إخراج جهاز', 'account'], signOutEverywhere: ['خروج من كل الأجهزة', 'account'], updateMyAccount: ['تعديل بيانات الحساب', 'account'],
+  updateMyProfile: ['تعديل الصورة الشخصية', 'account'], updateMyPersonal: ['إكمال البيانات الشخصية', 'account'], updateMyAddress: ['تعديل العنوان', 'account'],
+  confirmEmailChange: ['تغيير البريد', 'account'], confirmPhoneChange: ['تغيير الجوال', 'account'], confirmEmailVerification: ['توثيق البريد', 'account'], saveMyPreferences: ['تعديل الإشعارات', 'account'],
+  saveMyBankAccount: ['حفظ الحساب البنكي', 'finance'],
+  createRequest: ['تقديم طلب شعار', 'requests'], payDeposit: ['سداد ضمان طلب', 'requests'], cancelMyRequest: ['إلغاء طلب من المالك', 'requests'], withdrawName: ['سحب اسم من طلب', 'requests'],
+  createCompoundRequest: ['طلب اسم مركب', 'requests'], createInvestmentRequest: ['طلب استثمار اسم', 'requests'], reviewRequest: ['اعتماد قرار طلب', 'requests'], rejectRequest: ['رفض طلب', 'requests'], cancelRequest: ['إلغاء طلب من الإدارة', 'requests'],
+  scheduleAuctions: ['فتح مزادات', 'auctions'], pauseAuctions: ['إيقاف مزادات مؤقتًا', 'auctions'], resumeAuctions: ['استئناف مزادات', 'auctions'], extendAuctions: ['تمديد مزادات', 'auctions'], cancelAuctions: ['إلغاء مزادات', 'auctions'],
+  placeBid: ['مزايدة', 'auctions'], setAutoBid: ['تفعيل مزايدة آلية', 'auctions'], cancelAutoBid: ['إيقاف مزايدة آلية', 'auctions'], toggleWatch: ['متابعة مزاد', 'auctions'], payBidDeposit: ['سداد ضمان دخول مزاد', 'auctions'],
+  createListing: ['عرض اسم للبيع', 'auctions'], cancelListing: ['إلغاء عرض بيع', 'auctions'], buyListing: ['شراء اسم', 'auctions'],
+  topUp: ['شحن المحفظة', 'payments'], payInvoice: ['سداد فاتورة', 'payments'], markInvoicePaid: ['تسجيل سداد فاتورة', 'payments'],
+  requestWithdrawal: ['طلب استرداد للبنك', 'finance'], completeWithdrawal: ['تنفيذ استرداد', 'finance'], rejectWithdrawal: ['رفض استرداد', 'finance'], directRefund: ['استرداد مباشر للبنك', 'finance'],
+  adjustWallet: ['تسوية رصيد محفظة', 'finance'], verifyBankAccount: ['اعتماد حساب بنكي', 'finance'], rejectBankAccount: ['رفض حساب بنكي', 'finance'], refundDeposit: ['استرداد ضمان', 'finance'],
+  createStaff: ['إضافة موظف', 'users'], setUserRole: ['تغيير نوع حساب', 'users'], setUserStaffRole: ['تغيير دور موظف', 'users'], setUserActive: ['إيقاف أو تفعيل حساب', 'users'], saveRole: ['حفظ دور', 'users'], deleteRole: ['حذف دور', 'users'],
+  updateSettings: ['تعديل إعدادات المنصة', 'settings'], signOutEveryone: ['تسجيل خروج الجميع', 'settings'], saveTicketRouting: ['توزيع الشكاوى والبلاغات', 'settings'],
+  submitTicket: ['تقديم شكوى أو استفسار', 'tickets'], followUpTicket: ['متابعة تذكرة', 'tickets'], replyTicket: ['رد على تذكرة', 'tickets'], updateTicket: ['تحديث تذكرة', 'tickets'],
+  saveEvent: ['حفظ فعالية', 'content'], deleteEvent: ['حذف فعالية', 'content'], logOwnersReport: ['طباعة أو تصدير بيانات العملاء', 'reports'],
+  saveDelegation: ['حفظ تفويض', 'delegation'], revokeDelegation: ['إلغاء تفويض', 'delegation'], actAs: ['الدخول بتفويض', 'delegation'], stopActing: ['الخروج من التفويض', 'delegation'],
+}
+/** the scope each owner write needs in a delegated session (same map as the API) */
+const SCOPE_OF: Record<string, DelegationScope> = {
+  createRequest: 'requests', payDeposit: 'requests', cancelMyRequest: 'requests', withdrawName: 'requests', createCompoundRequest: 'requests', createInvestmentRequest: 'invest',
+  placeBid: 'bids', setAutoBid: 'bids', cancelAutoBid: 'bids', toggleWatch: 'bids', payBidDeposit: 'bids', buyListing: 'bids',
+  topUp: 'payments', payInvoice: 'payments', createListing: 'sales', cancelListing: 'sales', submitTicket: 'tickets', followUpTicket: 'tickets',
+}
+const SCOPE_LABEL: Record<DelegationScope, string> = { requests: 'طلبات الشعارات', invest: 'استثمار الاسم', bids: 'المزايدة والشراء', payments: 'المحفظة والفواتير', sales: 'بيع الأسماء', tickets: 'الشكاوى والاستفسارات' }
+const ALWAYS = new Set(['signOut', 'markNotificationsRead', 'stopActing'])
+const HIDDEN = new Set(['myBankAccount', 'myBankDocument', 'mySessions', 'mySecurity', 'myDelegations', 'myWithdrawals'])
+const SECRET = /password|code|challenge|token|base64|iban|card|secret|^cur$|^next$/i
+
+function readActivity(): ActivityEntry[] { try { return JSON.parse(localStorage.getItem(ACT_KEY) ?? '[]') } catch { return [] } }
+function readActing(): { delegationId: string; actorId: string } | null { try { return JSON.parse(localStorage.getItem(ACTING_KEY) ?? 'null') } catch { return null } }
+function writeActing(a: { delegationId: string; actorId: string } | null) { try { if (a) localStorage.setItem(ACTING_KEY, JSON.stringify(a)); else localStorage.removeItem(ACTING_KEY) } catch { /* ignore */ } }
+
+type DemoDelegation = NonNullable<DB['delegations']>[number]
+function delegationStatus(d: DemoDelegation): Delegation['status'] {
+  const t = now()
+  if (d.revokedAt) return 'revoked'
+  if (!d.permanent && d.endsAt && t >= Date.parse(d.endsAt)) return 'expired'
+  if (t < Date.parse(d.startsAt)) return 'scheduled'
+  return d.delegateUserId ? 'active' : 'awaiting_account'
+}
+const CAP_LABEL: Record<string, string> = { agent: 'وكيل شرعي', family: 'فرد من العائلة', employee: 'موظف أو مدير أعمال', partner: 'شريك', other: 'أخرى' }
+function delegationDto(db: DB, d: DemoDelegation): Delegation {
+  const { delegateUserId, revokedAt: _r, ...rest } = d
+  return { ...rest, ownerName: db.users.find((u) => u.id === d.ownerId)?.fullName ?? '', capacityLabel: CAP_LABEL[d.capacity] ?? d.capacity, status: delegationStatus(d), linked: !!delegateUserId }
+}
+/** the owner on their own account, never a delegate on it */
+function ownerSelf(db: DB): DemoUser {
+  if (readActing()) throw new ApiError('إدارة التفويض لصاحب الحساب فقط')
+  const u = me(db)
+  if (u.role !== 'owner') throw new ApiError('التفويض لحسابات ملاك الإبل')
+  return u
+}
+function describe(args: unknown[]): string {
+  const out: string[] = []
+  const walk = (k: string, v: unknown, depth: number) => {
+    if (v == null || depth > 2 || SECRET.test(k)) return
+    if (['string', 'number', 'boolean'].includes(typeof v)) { const s = String(v); if (s) out.push(`${k}: ${s.length > 80 ? s.slice(0, 80) + '…' : s}`) }
+    else if (Array.isArray(v)) { const s = v.filter((x) => typeof x !== 'object').slice(0, 6).join('، '); if (s) out.push(`${k}: ${s}`) }
+    else if (typeof v === 'object') for (const [kk, vv] of Object.entries(v as Record<string, unknown>)) walk(kk, vv, depth + 1)
+  }
+  args.forEach((a, i) => walk(['أ', 'ب', 'ج', 'د'][i] ?? String(i), a, 0))
+  return out.join(' · ').slice(0, 480)
+}
+function logActivity(method: string, args: unknown[], ok: boolean, error?: string, result?: unknown, before?: string | null) {
+  const meta = ACT[method]
+  if (!meta) return
+  try {
+    const db = load()
+    const act = readActing()
+    let actor = db.users.find((u) => u.id === (before ?? getSession()))
+    if (result && typeof result === 'object' && 'role' in (result as object) && (method === 'completeSignIn' || method === 'signUp' || method === 'actAs' || method === 'stopActing')) actor = db.users.find((u) => u.id === (result as User).id) ?? actor
+    let onBehalf: DemoUser | undefined
+    if (act && method !== 'actAs' && method !== 'stopActing') { onBehalf = actor; actor = db.users.find((u) => u.id === act.actorId) }
+    if (method === 'actAs' && actor) { const real = db.users.find((u) => u.id === readActing()?.actorId); if (real) { onBehalf = actor; actor = real } }
+    const ua = navigator.userAgent
+    const device = `${ua.includes('Edg/') ? 'Edge' : ua.includes('Chrome/') ? 'Chrome' : ua.includes('Firefox/') ? 'Firefox' : ua.includes('Safari/') ? 'Safari' : ''} ${/iPhone/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac OS/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : ''}`.trim()
+    const login = method === 'startSignIn' && typeof args[0] === 'string' ? `${String(args[0]).slice(0, 3)}•••` : ''
+    const list = readActivity()
+    list.unshift({
+      id: (list[0]?.id ?? 0) + 1, at: iso(now()), actorId: actor?.id, actorName: actor?.fullName ?? login, actorRole: onBehalf ? 'delegate' : actor?.role ?? '',
+      onBehalfOfId: onBehalf?.id, onBehalfOfName: onBehalf?.fullName, action: meta[0], category: meta[1], categoryLabel: ACT_CATEGORIES[meta[1]] ?? meta[1],
+      details: describe(/signin|otp|verify|password|session|code|challenge/i.test(method) ? [] : args) || undefined, success: ok, error, ip: 'نسخة تجريبية', device,
+    })
+    localStorage.setItem(ACT_KEY, JSON.stringify(list.slice(0, 1500)))
+  } catch { /* the log never breaks the action */ }
+}
+
+/** every write is logged; in a delegated session only the granted scopes go through */
+export const demoApi: SammhaApi = new Proxy(rawApi, {
+  get(target, prop: string) {
+    const fn = (target as unknown as Record<string, unknown>)[prop]
+    if (typeof fn !== 'function') return fn
+    return (...args: unknown[]) => {
+      const act = readActing()
+      if (act) {
+        const db = load()
+        const d = db.delegations?.find((x) => x.id === act.delegationId)
+        if (!d || delegationStatus(d) !== 'active') {
+          writeActing(null); setSession(null)
+          const err = new ApiError('انتهى التفويض أو أُلغي، سجّل الدخول بحسابك')
+          logActivity(prop, args, false, err.message)
+          return Promise.reject(err)
+        }
+        let deny: string | null = null
+        if (HIDDEN.has(prop)) deny = 'هذه البيانات لصاحب الحساب فقط'
+        else if (ACT[prop] && !ALWAYS.has(prop)) {
+          const scope = SCOPE_OF[prop]
+          if (!scope) deny = 'هذا الإجراء لصاحب الحساب فقط'
+          else if (!d.scopes.includes(scope)) deny = `التفويض لا يشمل «${SCOPE_LABEL[scope]}»`
+        }
+        if (deny) { logActivity(prop, args, false, deny); return Promise.reject(new ApiError(deny)) }
+      }
+      const who = getSession()
+      const out = (fn as (...a: unknown[]) => unknown).apply(target, args)
+      if (!ACT[prop] || !(out instanceof Promise)) return out
+      return out.then((r) => { logActivity(prop, args, true, undefined, r, prop === 'signOut' ? who : null); return r }, (e: Error) => { logActivity(prop, args, false, e.message); throw e })
+    }
+  },
+}) as SammhaApi

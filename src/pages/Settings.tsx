@@ -2,6 +2,8 @@ import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { CardStylePicker } from '../components/AuctionCard'
+const ActivityPanel = lazy(() => import('./admin/Activity').then((m) => ({ default: m.ActivityPanel })))
+const DelegationPanel = lazy(() => import('./owner/Delegation').then((m) => ({ default: m.DelegationPanel })))
 const BankAccountCard = lazy(() => import('./owner/Bank').then((m) => ({ default: m.BankAccountCard })))
 import { Icon } from '../components/dash'
 import type { IconName } from '../components/dash'
@@ -178,18 +180,23 @@ const OWNER_TABS: Tab[] = [
   { id: 'notifications', label: 'الإشعارات', icon: 'bell' },
   { id: 'security', label: 'الأمان والدخول', icon: 'shield' },
   { id: 'bank', label: 'الحساب البنكي', icon: 'wallet' },
+  { id: 'delegation', label: 'تفويض إدارة الحساب', icon: 'users' },
   { id: 'display', label: 'العرض', icon: 'list' },
 ]
 
 export function OwnerSettings() {
-  const [tab, setTab] = useTab(OWNER_TABS)
+  const { user } = useApp()
+  // a delegate never sees the owner's credentials, bank account or delegation settings
+  const tabs = user?.acting ? OWNER_TABS.filter((t) => t.id === 'notifications' || t.id === 'display') : OWNER_TABS
+  const [tab, setTab] = useTab(tabs)
   return (
     <>
       <PageHead title="الإعدادات" sub="تنبيهات الرسائل، وكلمة المرور والأجهزة المسجّل دخولها، وطريقة العرض. بياناتك الشخصية وصورتك في «حسابي»." />
-      <Tabs tabs={OWNER_TABS} value={tab} onChange={setTab} />
+      <Tabs tabs={tabs} value={tab} onChange={setTab} />
       {tab === 'notifications' && <NotificationSettings />}
       {tab === 'security' && <SecuritySettings />}
       {tab === 'bank' && <div className="max-w-2xl space-y-3"><Suspense fallback={<Loading />}><BankAccountCard /></Suspense><p className="text-[13.5px] text-muted">يُستخدم لاسترداد رصيد محفظتك إلى حسابك. بعد اعتماده تطلب الاسترداد من صفحة «المحفظة».</p></div>}
+      {tab === 'delegation' && <Suspense fallback={<Loading />}><DelegationPanel /></Suspense>}
       {tab === 'display' && <DisplaySettings />}
     </>
   )
@@ -531,6 +538,7 @@ const STAFF_TABS: (Tab & { perms?: Permission[] })[] = [
   { id: 'tickets', label: 'الشكاوى والبلاغات', icon: 'alert', perms: ['settings.manage'] },
   { id: 'general', label: 'الإعدادات العامة', icon: 'settings', perms: ['settings.manage'] },
   { id: 'policy', label: 'سياسة الأمان', icon: 'lock', perms: ['security.manage'] },
+  { id: 'activity', label: 'سجل النشاط', icon: 'history', perms: ['logs.view'] },
   { id: 'history', label: 'سجل التغييرات', icon: 'history', perms: ['audit.view'] },
   { id: 'status', label: 'حالة الخدمات', icon: 'file' },
   { id: 'account', label: 'حسابي والأمان', icon: 'shield' },
@@ -589,6 +597,7 @@ function AdminSettingsPage({ tabs }: { tabs: Tab[] }) {
         </div>
       ))}
       {tab === 'history' && <HistoryPanel key={data?.updatedAt} />}
+      {tab === 'activity' && <Suspense fallback={<Loading />}><ActivityPanel /></Suspense>}
       {tab === 'auctions' && <AuctionsPanel />}
       {tab === 'tickets' && <TicketsPanel />}
       {tab === 'status' && <IntakeStatus />}

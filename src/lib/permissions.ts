@@ -32,6 +32,7 @@ export const PERMISSIONS = [
   { key: 'roles.manage', group: 'المستخدمون', label: 'الأدوار والصلاحيات', description: 'إنشاء الأدوار وتحديد صلاحيات كل دور' },
   { key: 'settings.manage', group: 'الإعدادات', label: 'إعدادات المنصة', description: 'استقبال الطلبات، الإعلان، الصيانة، بيانات التواصل' },
   { key: 'security.manage', group: 'الإعدادات', label: 'سياسة الأمان', description: 'كلمات المرور وقفل الدخول ومهلة الخمول وتسجيل خروج الجميع' },
+  { key: 'logs.view', group: 'الإعدادات', label: 'سجل النشاط (Logs)', description: 'كل ما يجري على المنصة بالتاريخ والوقت: الدخول والطلبات والمزايدات والمدفوعات وإجراءات الموظفين والمفوضين' },
   { key: 'audit.view', group: 'الإعدادات', label: 'سجل التغييرات', description: 'سجل تعديلات الإعدادات والإجراءات الإدارية' },
 ] as const
 

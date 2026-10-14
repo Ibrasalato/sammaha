@@ -332,4 +332,12 @@ export const httpApi: SammhaApi = {
   rejectWithdrawal: (id, reason) => post(`/api/admin/withdrawals/${id}/reject`, { reason }),
   deposits: (state) => get(`/api/admin/deposits${qs({ state })}`),
   refundDeposit: (input) => post('/api/admin/deposits/refund', input),
+
+  activity: (f = {}) => get(`/api/admin/activity${qs({ from: f.from, to: f.to, category: f.category, role: f.role, q: f.q, failed: f.failed ? 'true' : undefined, page: f.page ? String(f.page) : undefined, size: f.size ? String(f.size) : undefined })}`),
+  myDelegations: () => get('/api/me/delegations'),
+  saveDelegation: (id, input) => (id ? put(`/api/me/delegations/${id}`, input) : post('/api/me/delegations', input)),
+  revokeDelegation: (id) => post(`/api/me/delegations/${id}/revoke`),
+  delegatedToMe: () => get('/api/me/delegated'),
+  async actAs(delegationId) { const r = await post<AuthResult>('/api/auth/act-as', { delegationId }); saveSession(r); resetHub(); return r.user },
+  async stopActing() { const r = await post<AuthResult>('/api/auth/act-as/stop'); saveSession(r); resetHub(); return r.user },
 }

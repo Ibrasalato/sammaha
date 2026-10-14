@@ -1,6 +1,6 @@
 import type {
   AppNotification, CamelEvent, AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
-  AuditRow, BankAccount, BankAccountInput, BankStatus, DepositRow, DocumentFile, IbanCheck, MarkRow, OwnerCrm, StaffBankAccount, WalletDetail, WalletRow, Withdrawal, WithdrawalStatus,
+  ActivityFilter, ActivityPage, Delegation, DelegationInput, AuditRow, BankAccount, BankAccountInput, BankStatus, DepositRow, DocumentFile, IbanCheck, MarkRow, OwnerCrm, StaffBankAccount, WalletDetail, WalletRow, Withdrawal, WithdrawalStatus,
   AddressInput, AdminSettings, AuctionActionResult, AuctionScope, AuctionView, PersonalInput, StaffRole, TicketRouting, InvestmentItem, ListingMode, NameListing, Preferences, PublicSettings, PublicStats, SecuritySummary, SessionInfo, SettingsChange, SettingsPatch, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
 } from './types'
 
@@ -212,6 +212,18 @@ export interface SammhaApi {
   rejectWithdrawal(id: string, reason: string): Promise<Withdrawal>
   deposits(state?: 'held' | 'all' | 'refunded' | 'applied'): Promise<DepositRow[]>
   refundDeposit(input: { kind: 'request' | 'bid'; requestId?: string; auctionId?: string; userId?: string; reason: string }): Promise<DepositRow>
+
+  // activity log (logs.view)
+  activity(f?: ActivityFilter): Promise<ActivityPage>
+  // account delegation
+  myDelegations(): Promise<Delegation[]>
+  saveDelegation(id: string | null, input: DelegationInput): Promise<Delegation>
+  revokeDelegation(id: string): Promise<Delegation>
+  delegatedToMe(): Promise<Delegation[]>
+  /** switch into the owner's account as their delegate */
+  actAs(delegationId: string): Promise<User>
+  /** back to the delegate's own account */
+  stopActing(): Promise<User>
 }
 
 export class ApiError extends Error {}

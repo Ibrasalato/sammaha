@@ -146,7 +146,7 @@ export function DashHome() {
 const TX_LABEL = { topup: 'شحن', deposit: 'ضمان مزاد', refund: 'استرداد', invoice_payment: 'سداد فاتورة', service_fee: 'رسوم استثمار الاسم', investment_payout: 'عائد استثمار الاسم', bid_deposit: 'ضمان دخول مزاد', sale_payout: 'ثمن بيع اسم', purchase: 'شراء اسم', withdrawal: 'استرداد إلى البنك', adjustment: 'تسوية' }
 
 export function WalletPage() {
-  const { toast } = useApp()
+  const { toast, user } = useApp()
   const { data, loading, reload } = useLoad(() => api.myWallet(), [])
   const [open, setOpen] = useState(false)
   const [amount, setAmount] = useState('100')
@@ -193,7 +193,7 @@ export function WalletPage() {
           try { await api.topUp(Number(amount)); toast(`تم شحن ${sar(Number(amount))}`); setOpen(false); reload() } catch (e) { toast((e as Error).message, 'bad') }
         }}>ادفع {sar(Number(amount) || 0)} بالبطاقة</button>
       </Modal>
-      <BankAndRefunds balance={data?.balance ?? 0} onChange={reload} />
+      {user?.acting ? <p className="mt-8 rounded-lg bg-stone-deep/60 p-4 text-[14px] text-muted">الحساب البنكي والاسترداد لصاحب الحساب فقط.</p> : <BankAndRefunds balance={data?.balance ?? 0} onChange={reload} />}
     </>
   )
 }

@@ -22,6 +22,8 @@ export interface User {
   staffRoleName?: string
   /** owners: personal details, address and how complete the profile is */
   profile?: OwnerProfile
+  /** a delegated session: who is acting on this owner's account and what they may do */
+  acting?: Acting
 }
 
 export interface OwnerProfile {
@@ -134,6 +136,25 @@ export interface DepositRow {
   kind: 'request' | 'bid'; requestId?: string; auctionId?: string; userId: string; ownerName: string; reference: string; auctionNumber?: string
   names: string; type: NameType; amount: number; state: 'held' | 'applied' | 'refunded' | 'fee'; context: string; at: string
 }
+
+export type DelegationScope = 'requests' | 'invest' | 'bids' | 'payments' | 'sales' | 'tickets'
+export type DelegationCapacity = 'agent' | 'family' | 'employee' | 'partner' | 'other'
+export type DelegationStatus = 'active' | 'scheduled' | 'expired' | 'revoked' | 'awaiting_account'
+export interface Acting { delegationId: string; actorId: string; actorName: string; capacity: DelegationCapacity; scopes: DelegationScope[]; endsAt?: string }
+export interface Delegation {
+  id: string; ownerId: string; ownerName: string; fullName: string; nationalId: string; phone: string; email: string; capacity: DelegationCapacity; capacityLabel: string
+  capacityNote?: string; scopes: DelegationScope[]; permanent: boolean; startsAt: string; endsAt?: string; status: DelegationStatus; createdAt: string; lastUsedAt?: string; linked: boolean
+}
+export interface DelegationInput {
+  fullName: string; nationalId: string; phoneCountry: string; phone: string; email: string; capacity: DelegationCapacity | ''; capacityNote?: string
+  scopes: DelegationScope[]; permanent: boolean; startsAt?: string; endsAt?: string
+}
+export interface ActivityEntry {
+  id: number; at: string; actorId?: string; actorName: string; actorRole: string; onBehalfOfId?: string; onBehalfOfName?: string
+  action: string; category: string; categoryLabel: string; details?: string; success: boolean; error?: string; ip?: string; device?: string
+}
+export interface ActivityPage { items: ActivityEntry[]; total: number; categories: { key: string; value: string }[] }
+export interface ActivityFilter { from?: string; to?: string; category?: string; role?: string; q?: string; failed?: boolean; page?: number; size?: number }
 
 export interface StaffInput {
   fullName: string
@@ -435,7 +456,7 @@ export interface CamelEvent {
 export interface AppNotification {
   id: string
   userId: string
-  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'auction_update' | 'refund' | 'ticket' | 'reminder'
+  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'auction_update' | 'refund' | 'ticket' | 'reminder' | 'delegation'
   title: string
   body: string
   link?: string
