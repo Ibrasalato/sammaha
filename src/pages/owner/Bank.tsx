@@ -13,7 +13,7 @@ const statusMap = (): Record<BankAccount['status'], [string, string, string]> =>
   verified: [tr('معتمد', 'Approved'), 'bg-[#E2F0E8] text-ok', tr('يمكنك طلب استرداد رصيد محفظتك إلى هذا الحساب.', 'You can request a refund of your wallet balance to this account.')],
   rejected: [tr('مرفوض', 'Rejected'), 'bg-bad/10 text-bad', tr('حدّث البيانات أو ارفع شهادة صحيحة.', 'Update the details or upload a valid certificate.')],
 })
-const wdMap = () => ({ pending: [tr('قيد التنفيذ', 'In progress'), 'text-gold-deep'], completed: [tr('حُوّل', 'Transferred'), 'text-ok'], rejected: [tr('مرفوض، أُعيد المبلغ', 'Rejected, amount returned'), 'text-bad'] }) as const
+const wdMap = () => ({ pending: [tr('قيد التنفيذ', 'In progress'), 'text-gold-deep'], processing: [tr('قيد التحويل البنكي', 'Bank transfer in progress'), 'text-info'], completed: [tr('حُوّل', 'Transferred'), 'text-ok'], rejected: [tr('مرفوض، أُعيد المبلغ', 'Rejected, amount returned'), 'text-bad'] }) as const
 
 const toBase64 = (f: File) => new Promise<string>((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => bad(r.error); r.readAsDataURL(f) })
 

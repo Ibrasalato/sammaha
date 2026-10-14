@@ -5,7 +5,7 @@
  */
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'
-import type { ActivityEntry, ActivityFilter, Certificate, CertificateItem, CertificateScope, CertificateStatus, Delegation, DelegationScope, AuctionActionResult, AuctionScope, AuctionView, AuditRow, BankAccount, DepositRow, IbanCheck, MarkRow, NameListing, OwnerCrm, OwnerProfile, Preferences, SimilarHit, StaffBankAccount, StaffRole, TicketRouting, WalletRow, Withdrawal } from './types'
+import type { ActivityEntry, ActivityFilter, Certificate, CertificateItem, CertificateScope, CertificateStatus, Delegation, DelegationScope, AuctionActionResult, AuctionScope, AuctionView, AuditRow, BankAccount, DepositRow, IbanCheck, MarkRow, NameListing, OwnerCrm, OwnerProfile, Preferences, SimilarHit, StaffBankAccount, StaffRole, TicketRouting, WalletRow, Withdrawal, NameTransfer, LogoRow } from './types'
 import { ALL_PERMISSIONS, COMMITTEE_DEFAULT, COMMITTEE_ROLE_ID, permissionLabel } from './permissions'
 import type { Permission } from './permissions'
 import { demoRules, ensureOpen, ensureWritable, logAction, publicOf, readLog, readRouting, readSettings, writeRouting, writeSettings } from './demoSettings'
@@ -67,6 +67,9 @@ interface DB {
   withdrawals?: Withdrawal[]
   banks?: (Omit<BankAccount, 'ibanMasked'> & { userId: string; docBase64: string })[]
   delegations?: (Omit<Delegation, 'ownerName' | 'status' | 'capacityLabel' | 'linked'> & { delegateUserId?: string; revokedAt?: string })[]
+  transfers?: NameTransfer[]
+  logos?: (LogoRow & { dataUrl: string })[]
+  transferSeq?: number
 }
 interface BidDeposit { auctionId: string; userId: string; amount: number; state: 'held' | 'refunded' | 'applied' | 'forfeited'; createdAt: string }
 
@@ -473,6 +476,9 @@ function checkNamesIn(db: DB, names: string[], excludeRequestId?: string): NameC
     return { name, normalized, verdict: 'available', message: 'متاح', hits: [] }
   })
 }
+
+/** invoices, purchases and fees go through the payment channels; the wallet pays guarantees only */
+const CARD_ONLY = 'تُسدَّد هذه العملية من قنوات الدفع (البطاقة) فقط، ورصيد المحفظة مخصص لسداد الضمانات'
 
 function balanceOf(db: DB, userId: string) {
   return round2(db.txs.filter((t) => t.userId === userId).reduce((s, t) => s + t.amount, 0))
@@ -917,7 +923,7 @@ function walletRow(db: DB, u: DemoUser, full: boolean): WalletRow {
   return {
     userId: u.id, ownerName: u.fullName, phone: full ? u.phone : maskMid(u.phone), balance: balanceOf(db, u.id),
     totalIn: round2(t.filter((x) => x.amount > 0).reduce((s, x) => s + x.amount, 0)), totalOut: round2(-t.filter((x) => x.amount < 0).reduce((s, x) => s + x.amount, 0)),
-    pendingWithdrawals: round2((db.withdrawals ?? []).filter((w) => w.userId === u.id && w.status === 'pending').reduce((s, w) => s + w.amount, 0)),
+    pendingWithdrawals: round2((db.withdrawals ?? []).filter((w) => w.userId === u.id && (w.status === 'pending' || w.status === 'processing')).reduce((s, w) => s + w.amount, 0)),
     txCount: t.length, lastTxAt: t.map((x) => x.createdAt).sort().at(-1), bankStatus: b?.status, bankName: b?.bankName,
   }
 }
@@ -992,6 +998,42 @@ function followers(db: DB, a: Auction, title: string, body: string) {
   for (const u of users) notify(db, u, 'auction_update', title, body, `/auctions/${a.id}`)
 }
 /** owner write actions: closed during maintenance */
+/** moving or decorating a name is the account holder's decision: delegates cannot */
+function transferOwner(db: DB, msg = 'نقل الملكية لصاحب الحساب فقط'): DemoUser {
+  const u = me(db)
+  if (readActing()) throw new ApiError(msg)
+  if (u.role !== 'owner') throw new ApiError('نقل الملكية لحسابات ملاك الإبل')
+  return u
+}
+function recipientOf(db: DB, phone: string, me_: string): DemoUser {
+  const p = normalizePhone(phone)
+  if (!/^05\d{8}$/.test(p) && !/^\+\d{8,15}$/.test(p)) throw new ApiError('رقم الجوال غير صحيح')
+  const u = db.users.find((x) => x.phone === p && x.role === 'owner')
+  if (!u || u.active === false) throw new ApiError('لا يوجد مالك مسجل بهذا الرقم')
+  if (u.id === me_) throw new ApiError('لا يمكن نقل الاسم إلى حسابك نفسه')
+  return u
+}
+/** a name on sale, being auctioned or not yet paid for cannot change hands */
+function nameFree(db: DB, r: ReservedName, ownerId: string) {
+  if (db.listings?.some((l) => l.reservedId === r.id && (l.status === 'live' || l.status === 'scheduled'))) throw new ApiError('الاسم معروض للبيع حاليًا، ألغِ العرض أولًا')
+  if (db.auctions.some((a) => !a.settled && !a.cancelled && a.name === r.name)) throw new ApiError('للاسم مزاد قائم حاليًا')
+  if (db.invoices.some((i) => i.status === 'unpaid' && i.userId === ownerId && i.name === r.name)) throw new ApiError('سدّد فاتورة الاسم أولًا')
+}
+function sendTransfer(db: DB, t: NameTransfer) {
+  t.status = 'awaiting_recipient'
+  notify(db, t.toId, 'transfer', `طلب نقل ملكية «${t.name}» إليك`, `يرغب ${t.fromName} في نقل ملكية الاسم إلى حسابك. وافق على الطلب أو ارفضه من صفحة نقل الملكية.`, '/dashboard/transfers')
+}
+function refundTransferFee(db: DB, t: NameTransfer, why: string) {
+  if (t.fee > 0 && t.feePaidAt) db.txs.push({ id: uid(db, 't'), userId: t.fromId, amount: t.fee, kind: 'refund', note: `استرداد رسوم نقل ملكية «${t.name}» (${t.number}) — ${why}`, createdAt: iso(now()) })
+}
+/** PNG, JPEG or WebP from base64 (no SVG) */
+function sniffImage(b64: string): string | null {
+  if (b64.startsWith('iVBORw0KGgo')) return 'image/png'
+  if (b64.startsWith('/9j/')) return 'image/jpeg'
+  try { const h = atob(b64.slice(0, 24)); if (h.startsWith('RIFF') && h.slice(8, 12) === 'WEBP') return 'image/webp' } catch { /* not base64 */ }
+  return null
+}
+
 function writer(db: DB): DemoUser {
   const u = me(db)
   ensureWritable(u.role)
@@ -1488,6 +1530,7 @@ const rawApi: SammhaApi = {
     const checks = checkNamesIn(db, r.candidates.map((c) => c.name), r.id)
     const taken = checks.filter((c) => c.verdict === 'exact')
     if (taken.length) throw new ApiError(`أصبح الاسم «${taken[0].name}» محجوزًا، ألغِ الطلب وأنشئ طلبًا جديدًا`)
+    if (method === 'wallet' && r.kind === 'investment') throw new ApiError(CARD_ONLY)
     if (method === 'wallet') {
       if (balanceOf(db, u.id) < r.depositAmount) throw new ApiError('رصيد المحفظة لا يكفي، اشحن المحفظة أو ادفع بالبطاقة')
     } else {
@@ -1563,8 +1606,8 @@ const rawApi: SammhaApi = {
     if (!inv) throw new ApiError('الفاتورة غير موجودة')
     if (inv.status === 'paid') return inv
     if (inv.status === 'cancelled') throw new ApiError('أُلغيت هذه الفاتورة لانتهاء مهلة السداد')
-    if (method === 'wallet' && balanceOf(db, inv.userId) < inv.amountDue) throw new ApiError('رصيد المحفظة لا يكفي')
-    if (method === 'card') db.txs.push({ id: uid(db, 't'), userId: inv.userId, amount: inv.amountDue, kind: 'topup', note: `دفع بالبطاقة للفاتورة ${inv.number}`, createdAt: iso(now()) })
+    if (method === 'wallet') throw new ApiError(CARD_ONLY)
+    db.txs.push({ id: uid(db, 't'), userId: inv.userId, amount: inv.amountDue, kind: 'topup', note: `دفع بالبطاقة للفاتورة ${inv.number}`, createdAt: iso(now()) })
     db.txs.push({ id: uid(db, 't'), userId: inv.userId, amount: -inv.amountDue, kind: 'invoice_payment', note: `سداد الفاتورة ${inv.number} — ${inv.name}`, createdAt: iso(now()) })
     inv.status = 'paid'
     inv.paidAt = iso(now())
@@ -1587,6 +1630,157 @@ const rawApi: SammhaApi = {
   myNames: () => tx((db) => {
     const u = me(db)
     return db.reserved.filter((r) => r.ownerId === u.id).sort((a, b) => Date.parse(b.acquiredAt) - Date.parse(a.acquiredAt))
+      .map((r) => ({ ...r, logoStatus: db.logos?.find((l) => l.reservedId === r.id)?.status }))
+  }),
+
+  // ───── «نقل ملكية اسم» ─────
+  myTransfers: () => tx((db) => {
+    const u = me(db)
+    const all = (db.transfers ?? []).slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    return { outgoing: all.filter((t) => t.fromId === u.id), incoming: all.filter((t) => t.toId === u.id && t.status !== 'pending_payment'), fee: readSettings().transferFee ?? 0 }
+  }),
+  findRecipient: (phone) => tx((db) => {
+    const u = transferOwner(db)
+    return { maskedName: maskName(recipientOf(db, phone, u.id).fullName) }
+  }),
+  createTransfer: ({ reservedId, phone, reason, note }) => tx((db) => {
+    const u = transferOwner(db)
+    ensureWritable(u.role)
+    if (!['sale', 'gift', 'inheritance', 'other'].includes(reason)) throw new ApiError('اختر سبب النقل')
+    const n = (note ?? '').trim()
+    if (n.length > 500) throw new ApiError('الملاحظة طويلة (500 حرف كحد أقصى)')
+    if (reason === 'other' && !n) throw new ApiError('اكتب سبب النقل')
+    const to = recipientOf(db, phone, u.id)
+    const r = db.reserved.find((x) => x.id === reservedId && x.ownerId === u.id)
+    if (!r) throw new ApiError('الاسم غير مسجل باسمك')
+    nameFree(db, r, u.id)
+    if ((db.transfers ?? []).some((t) => t.reservedId === r.id && ['pending_payment', 'awaiting_recipient', 'under_review'].includes(t.status))) throw new ApiError('للاسم طلب نقل ملكية قائم')
+    const fee = readSettings().transferFee ?? 0
+    db.transferSeq = (db.transferSeq ?? 1000) + 1
+    const t: NameTransfer = {
+      id: uid(db, 'nt'), number: `NT-${db.transferSeq}`, reservedId: r.id, name: r.name, type: r.type, fromId: u.id, fromName: u.fullName, toId: to.id, toName: to.fullName,
+      reason, note: n || undefined, fee, status: 'pending_payment', createdAt: iso(now()),
+    }
+    ;(db.transfers ??= []).push(t)
+    if (fee <= 0) sendTransfer(db, t)
+    return t
+  }),
+  payTransferFee: (id) => tx((db) => {
+    const u = transferOwner(db)
+    const t = db.transfers?.find((x) => x.id === id && x.fromId === u.id)
+    if (!t) throw new ApiError('طلب النقل غير موجود')
+    if (t.status !== 'pending_payment') return t
+    // the demo simulates the card: in through the wallet and straight out
+    db.txs.push({ id: uid(db, 't'), userId: u.id, amount: t.fee, kind: 'topup', note: `دفع بالبطاقة لرسوم ${t.number}`, createdAt: iso(now()) })
+    db.txs.push({ id: uid(db, 't'), userId: u.id, amount: -t.fee, kind: 'service_fee', note: `رسوم نقل ملكية «${t.name}» (${t.number})`, createdAt: iso(now()) })
+    t.feePaidAt = iso(now())
+    sendTransfer(db, t)
+    return t
+  }),
+  cancelTransfer: (id) => tx((db) => {
+    const u = transferOwner(db)
+    const t = db.transfers?.find((x) => x.id === id && x.fromId === u.id)
+    if (!t) throw new ApiError('طلب النقل غير موجود')
+    if (!['pending_payment', 'awaiting_recipient', 'under_review'].includes(t.status)) throw new ApiError('لا يمكن إلغاء هذا الطلب')
+    const told = !!t.feePaidAt || t.fee <= 0
+    Object.assign(t, { status: 'cancelled', cancelledAt: iso(now()) })
+    refundTransferFee(db, t, 'ألغاه المالك')
+    if (told) notify(db, t.toId, 'transfer', `أُلغي طلب نقل ملكية «${t.name}»`, `ألغى ${t.fromName} طلب نقل الاسم إليك.`, '/dashboard/transfers')
+    return t
+  }),
+  respondTransfer: (id, accept) => tx((db) => {
+    const u = transferOwner(db)
+    const t = db.transfers?.find((x) => x.id === id && x.toId === u.id)
+    if (!t) throw new ApiError('طلب النقل غير موجود')
+    if (t.status !== 'awaiting_recipient') throw new ApiError('تم الرد على هذا الطلب')
+    t.respondedAt = iso(now())
+    if (accept) {
+      t.status = 'under_review'
+      notify(db, t.fromId, 'transfer', `وافق ${t.toName} على نقل «${t.name}»`, 'الطلب الآن لدى لجنة الاعتماد للمراجعة.', '/dashboard/transfers')
+    } else {
+      t.status = 'declined'
+      refundTransferFee(db, t, 'رفضه المستلم')
+      notify(db, t.fromId, 'transfer', `رفض ${t.toName} نقل «${t.name}»`, t.fee > 0 ? 'أُعيدت رسوم النقل إلى محفظتك، ويمكنك استردادها إلى حسابك البنكي.' : 'بقي الاسم مسجلًا باسمك.', '/dashboard/transfers')
+    }
+    return t
+  }),
+  adminTransfers: (status = 'all') => tx((db) => {
+    need(db, 'names.transfer')
+    const phone = (id: string) => db.users.find((x) => x.id === id)?.phone
+    return (db.transfers ?? []).filter((t) => status === 'all' || t.status === status).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((t) => ({ ...t, fromPhone: phone(t.fromId), toPhone: phone(t.toId) }))
+  }),
+  reviewTransfer: (id, approve, note) => tx((db) => {
+    const s = need(db, 'names.transfer')
+    const n = (note ?? '').trim()
+    if (!approve && !n) throw new ApiError('اكتب سبب الرفض')
+    const t = db.transfers?.find((x) => x.id === id)
+    if (!t) throw new ApiError('طلب النقل غير موجود')
+    if (t.status !== 'under_review') throw new ApiError(t.status === 'awaiting_recipient' ? 'الطلب بانتظار موافقة المستلم' : 'تمت مراجعة هذا الطلب')
+    Object.assign(t, { reviewedAt: iso(now()), reviewerName: s.fullName, reviewNote: n || undefined })
+    if (approve) {
+      const r = db.reserved.find((x) => x.id === t.reservedId)
+      if (!r || r.ownerId !== t.fromId) throw new ApiError('الاسم لم يعد مسجلًا باسم المالك')
+      nameFree(db, r, t.fromId)
+      const to = db.users.find((x) => x.id === t.toId)
+      if (!to || to.active === false) throw new ApiError('حساب المستلم غير مفعّل')
+      Object.assign(r, { ownerId: to.id, ownerName: to.fullName, source: 'transfer', acquiredAt: iso(now()), logo: undefined, listingId: undefined })
+      db.logos = (db.logos ?? []).filter((l) => l.reservedId !== r.id)
+      Object.assign(t, { status: 'completed', completedAt: iso(now()) })
+      notify(db, t.toId, 'transfer', `أصبح «${t.name}» مسجلًا باسمك`, 'اعتمدت لجنة الاعتماد نقل الملكية، ويمكنك إصدار شهادة تسجيل الاسم الآن.', '/dashboard/names')
+      notify(db, t.fromId, 'transfer', `تم نقل ملكية «${t.name}»`, `أصبح الاسم مسجلًا باسم ${t.toName}، وأي شهادة سابقة تشمله لم تعد سارية له.`, '/dashboard/transfers')
+    } else {
+      t.status = 'rejected'
+      refundTransferFee(db, t, 'رفضته لجنة الاعتماد')
+      notify(db, t.fromId, 'transfer', `رُفض طلب نقل ملكية «${t.name}»`, `السبب: ${n}` + (t.fee > 0 && t.feePaidAt ? ' — أُعيدت رسوم النقل إلى محفظتك.' : ''), '/dashboard/transfers')
+      notify(db, t.toId, 'transfer', `رُفض طلب نقل ملكية «${t.name}»`, `السبب: ${n}`, '/dashboard/transfers')
+    }
+    return t
+  }),
+
+  // ───── mark logos ─────
+  uploadLogo: (reservedId, fileName, base64) => tx((db) => {
+    const u = transferOwner(db, 'لوجو الشعار لصاحب الحساب فقط')
+    ensureWritable(u.role)
+    const type = sniffImage(base64)
+    if (!base64) throw new ApiError('اختر صورة اللوجو')
+    if (base64.length * 0.75 > 2 * 1024 * 1024) throw new ApiError('حجم الصورة أكبر من 2 ميجابايت')
+    if (!type) throw new ApiError('اللوجو بصيغة PNG أو JPG أو WebP')
+    const r = db.reserved.find((x) => x.id === reservedId && x.ownerId === u.id)
+    if (!r) throw new ApiError('الاسم غير مسجل باسمك')
+    db.logos = (db.logos ?? []).filter((l) => l.reservedId !== r.id)
+    db.logos.push({ id: uid(db, 'lg'), reservedId: r.id, name: r.name, type: r.type, ownerId: u.id, ownerName: u.fullName, fileName: fileName.slice(0, 120), status: 'pending', uploadedAt: iso(now()), dataUrl: `data:${type};base64,${base64}` })
+    r.logo = undefined
+    return { ...r, logoStatus: 'pending' as const }
+  }),
+  deleteLogo: (reservedId) => tx((db) => {
+    const u = transferOwner(db, 'لوجو الشعار لصاحب الحساب فقط')
+    const r = db.reserved.find((x) => x.id === reservedId && x.ownerId === u.id)
+    if (!r) throw new ApiError('الاسم غير مسجل باسمك')
+    db.logos = (db.logos ?? []).filter((l) => l.reservedId !== r.id)
+    r.logo = undefined
+    return r
+  }),
+  logoSrc: (r) => r.logo,
+  myLogo: (reservedId) => tx((db) => { const u = me(db); return db.logos?.find((l) => l.reservedId === reservedId && l.ownerId === u.id)?.dataUrl ?? null }),
+  adminLogos: (status = 'all') => tx((db) => {
+    need(db, 'names.logos')
+    return (db.logos ?? []).filter((l) => status === 'all' || l.status === status).sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt)).map(({ dataUrl: _d, ...l }) => l)
+  }),
+  adminLogoImage: (id) => tx((db) => { need(db, 'names.logos'); return db.logos?.find((l) => l.id === id)?.dataUrl ?? null }),
+  reviewLogo: (id, approve, reason) => tx((db) => {
+    const s = need(db, 'names.logos')
+    const why = (reason ?? '').trim().slice(0, 300)
+    if (!approve && !why) throw new ApiError('اكتب سبب الرفض، يصل للمالك')
+    const l = db.logos?.find((x) => x.id === id)
+    if (!l) throw new ApiError('اللوجو غير موجود')
+    const r = db.reserved.find((x) => x.id === l.reservedId)
+    if (!r || r.ownerId !== l.ownerId) throw new ApiError('لم يعد الاسم مملوكًا لصاحب اللوجو')
+    Object.assign(l, { status: approve ? 'approved' : 'rejected', rejectReason: approve ? undefined : why, reviewedAt: iso(now()), reviewedBy: s.fullName })
+    r.logo = approve ? l.dataUrl : undefined
+    notify(db, l.ownerId, 'reviewed', approve ? `اعتُمد لوجو «${l.name}»` : `لم يُعتمد لوجو «${l.name}»`, approve ? 'يظهر اللوجو الآن مع الاسم في سجل الأسماء.' : `السبب: ${why}. يمكنك رفع لوجو آخر.`, '/dashboard/names')
+    const { dataUrl: _d, ...row } = l
+    return row
   }),
 
   createListing: (reservedId, mode, price) => tx((db) => {
@@ -1659,8 +1853,8 @@ const rawApi: SammhaApi = {
     if (!l || l.mode !== 'instant') throw new ApiError('العرض غير موجود')
     if (l.status !== 'live' || now() >= Date.parse(l.endsAt)) throw new ApiError('انتهى عرض هذا الاسم')
     if (l.sellerId === u.id) throw new ApiError('لا يمكنك شراء اسم تبيعه')
-    if (method === 'wallet' && balanceOf(db, u.id) < l.price) throw new ApiError('رصيد المحفظة لا يكفي، اشحن المحفظة أو ادفع بالبطاقة')
-    if (method === 'card') db.txs.push({ id: uid(db, 't'), userId: u.id, amount: l.price, kind: 'topup', note: `دفع بالبطاقة لشراء «${l.name}»`, createdAt: iso(now()) })
+    if (method === 'wallet') throw new ApiError(CARD_ONLY)
+    db.txs.push({ id: uid(db, 't'), userId: u.id, amount: l.price, kind: 'topup', note: `دفع بالبطاقة لشراء «${l.name}»`, createdAt: iso(now()) })
     db.txs.push({ id: uid(db, 't'), userId: u.id, amount: -l.price, kind: 'purchase', note: `شراء فوري للاسم «${l.name}» (${l.number})`, createdAt: iso(now()) })
     const inv = sellerInvoice(db, l, u, l.price, 0)
     inv.status = 'paid'; inv.paidAt = iso(now())
@@ -2314,7 +2508,7 @@ const rawApi: SammhaApi = {
     const b = db.banks?.find((x) => x.userId === u.id)
     if (!b) throw new ApiError('أضف حسابك البنكي وشهادة الآيبان أولًا')
     if (b.status !== 'verified') throw new ApiError('حسابك البنكي بانتظار اعتماد الإدارة المالية')
-    if ((db.withdrawals ?? []).filter((w) => w.userId === u.id && w.status === 'pending').length >= 3) throw new ApiError('لديك 3 طلبات استرداد قيد التنفيذ')
+    if ((db.withdrawals ?? []).filter((w) => w.userId === u.id && (w.status === 'pending' || w.status === 'processing')).length >= 3) throw new ApiError('لديك 3 طلبات استرداد قيد التنفيذ')
     if (balanceOf(db, u.id) < a) throw new ApiError('المبلغ أكبر من رصيد المحفظة')
     const w: Withdrawal = { id: uid(db, 'wd'), number: wNumber(db), userId: u.id, ownerName: u.fullName, amount: a, iban: b.iban, bankName: b.bankName, accountName: b.accountName, status: 'pending', byStaff: false, createdAt: iso(now()) }
     ;(db.withdrawals ??= []).push(w)
@@ -2404,6 +2598,21 @@ const rawApi: SammhaApi = {
     Object.assign(w, { status: 'completed', transferRef: ref, processedAt: iso(now()), processedBy: u.fullName })
     logAction('WithdrawalCompleted', u.fullName, `${w.ownerName} · ${w.number} · ${sarText(w.amount)} · حوالة ${ref}`)
     notify(db, w.userId, 'refund', 'حُوّل مبلغ الاسترداد إلى حسابك', `${sarText(w.amount)} إلى ${w.bankName} ${maskIban(w.iban)}، رقم الحوالة ${ref}.`, '/dashboard/wallet')
+    return w
+  }),
+  payoutStatus: () => tx((db) => { need(db, 'wallets.view'); return { enabled: true, provider: 'simulated' } }),
+  payoutWithdrawal: (id) => tx((db) => {
+    const u = need(db, 'wallets.refund')
+    const w = db.withdrawals?.find((x) => x.id === id)
+    if (!w) throw new ApiError('طلب الاسترداد غير موجود')
+    if (w.status !== 'pending') throw new ApiError('تمت معالجة هذا الطلب')
+    const bank = db.banks?.find((b) => b.userId === w.userId)
+    if (!bank || bank.status !== 'verified' || bank.iban !== w.iban) throw new ApiError('الحساب البنكي للمالك غير معتمد أو تغيّر بعد الطلب')
+    // the demo simulates the gateway: the transfer succeeds at once
+    const ref = `SIM-${w.number}`
+    Object.assign(w, { status: 'completed', transferRef: ref, processedAt: iso(now()), processedBy: u.fullName, payoutProvider: 'simulated', payoutSentAt: iso(now()), payoutError: undefined })
+    logAction('WithdrawalPaidOut', u.fullName, `${w.ownerName} · ${w.number} · ${sarText(w.amount)} · ${ref}`)
+    notify(db, w.userId, 'refund', 'حُوّل مبلغ الاسترداد إلى حسابك', `${sarText(w.amount)} إلى ${w.bankName} ${maskIban(w.iban)}، رقم العملية ${ref}.`, '/dashboard/wallet')
     return w
   }),
   rejectWithdrawal: (id, reason) => tx((db) => {

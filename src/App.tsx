@@ -49,6 +49,10 @@ const certMod = () => import('./pages/owner/Certificates')
 const CertificatesPage = pick(certMod, 'CertificatesPage'), CertificateView = pick(certMod, 'CertificateView'), StaffCertificateView = pick(certMod, 'StaffCertificateView')
 const AdminCertificates = pick(() => import('./pages/admin/Certificates'), 'AdminCertificates')
 const AdminIcoNames = pick(() => import('./pages/admin/IcoNames'), 'AdminIcoNames')
+const AdminTransfers = pick(() => import('./pages/admin/Transfers'), 'AdminTransfers')
+const AdminLogos = pick(() => import('./pages/admin/Logos'), 'AdminLogos')
+const TransfersPage = pick(() => import('./pages/owner/Transfers'), 'TransfersPage')
+const ServicesPage = pick(() => import('./pages/owner/Services'), 'ServicesPage')
 const AdminTickets = pick(() => import('./pages/admin/Tickets'), 'AdminTickets'), AdminTicket = pick(() => import('./pages/admin/Tickets'), 'AdminTicket')
 const AdminRoles = pick(() => import('./pages/admin/Roles'), 'AdminRoles')
 const AdminCustomers = pick(() => import('./pages/admin/Customers'), 'AdminCustomers')
@@ -84,12 +88,14 @@ function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
 
 const OWNER_NAV: NavItem[] = [
   { to: '/dashboard', get label() { return tr('الرئيسية', 'Home') }, icon: 'home', end: true },
+  { to: '/dashboard/services', get label() { return tr('الخدمات الإلكترونية', 'E-services') }, get short() { return tr('الخدمات', 'Services') }, icon: 'list' },
   { to: '/dashboard/requests', get label() { return tr('طلبات الشعارات', 'Mark requests') }, get short() { return tr('طلباتي', 'My requests') }, icon: 'file' },
   { to: '/dashboard/invest', get label() { return tr('استثمار الاسم', 'Name investment') }, get short() { return tr('استثمار', 'Invest') }, icon: 'coins' },
   { to: '/dashboard/sell', get label() { return tr('بيع اسم', 'Sell a name') }, icon: 'tag' },
   { to: '/dashboard/bids', get label() { return tr('مزايداتي', 'My bids') }, icon: 'gavel' },
   { to: '/dashboard/watchlist', get label() { return tr('قائمة المتابعة', 'Watchlist') }, get short() { return tr('المتابعة', 'Watchlist') }, icon: 'clock' },
   { to: '/dashboard/names', get label() { return tr('أسمائي', 'My names') }, icon: 'tag' },
+  { to: '/dashboard/transfers', get label() { return tr('نقل الملكية', 'Ownership transfer') }, icon: 'users' },
   { to: '/dashboard/certificates', get label() { return tr('شهاداتي', 'My certificates') }, icon: 'file' },
   { to: '/dashboard/wallet', get label() { return tr('المحفظة', 'Wallet') }, icon: 'wallet' },
   { to: '/dashboard/invoices', get label() { return tr('الفواتير', 'Invoices') }, icon: 'receipt' },
@@ -107,6 +113,8 @@ const ADMIN_NAV: (NavItem & { perms?: Permission[] })[] = [
   { to: '/admin/reports/marks', get label() { return tr('تقرير الشعارات', 'Marks report') }, get short() { return tr('التقرير', 'Report') }, icon: 'list', perms: ['reports.marks'] },
   { to: '/admin/certificates', get label() { return tr('الشهادات والسجل', 'Certificates & registry') }, get short() { return tr('الشهادات', 'Certificates') }, icon: 'file', perms: ['certificates.manage', 'names.latin'] },
   { to: '/admin/ico-names', get label() { return tr('أسماء المنظمة الدولية', 'Organization names') }, get short() { return tr('أسماء المنظمة', 'ICO names') }, icon: 'tag', perms: ['names.ico'] },
+  { to: '/admin/transfers', get label() { return tr('طلبات نقل الملكية', 'Ownership transfers') }, get short() { return tr('نقل الملكية', 'Transfers') }, icon: 'users', perms: ['names.transfer'] },
+  { to: '/admin/logos', get label() { return tr('لوجوهات الشعارات', 'Mark logos') }, get short() { return tr('اللوجوهات', 'Logos') }, icon: 'file', perms: ['names.logos'] },
   { to: '/admin/customers', get label() { return tr('بيانات العملاء', 'Customer data') }, get short() { return tr('العملاء', 'Customers') }, icon: 'users', perms: ['owners.view'] },
   { to: '/admin/invoices', get label() { return tr('الفواتير', 'Invoices') }, icon: 'receipt', perms: ['invoices.view'] },
   { to: '/admin/wallets', get label() { return tr('المحافظ والاسترداد', 'Wallets & refunds') }, get short() { return tr('المحافظ', 'Wallets') }, icon: 'wallet', perms: ['wallets.view', 'wallets.refund', 'banks.verify'] },
@@ -185,6 +193,8 @@ function AppRoutes() {
             <Route path="requests/:id" element={<RequestDetail />} />
             <Route path="bids" element={<MyBids />} />
             <Route path="names" element={<MyNames />} />
+            <Route path="services" element={<ServicesPage />} />
+            <Route path="transfers" element={<TransfersPage />} />
             <Route path="names/:id/certificate" element={<CertificatePage />} />
             <Route path="certificates" element={<CertificatesPage />} />
             <Route path="certificates/:number" element={<CertificateView />} />
@@ -210,6 +220,8 @@ function AppRoutes() {
             <Route path="customers" element={<Can perms={['owners.view']}><AdminCustomers /></Can>} />
             <Route path="certificates" element={<Can perms={['certificates.manage', 'names.latin']}><AdminCertificates /></Can>} />
             <Route path="ico-names" element={<Can perms={['names.ico']}><AdminIcoNames /></Can>} />
+            <Route path="transfers" element={<Can perms={['names.transfer']}><AdminTransfers /></Can>} />
+            <Route path="logos" element={<Can perms={['names.logos']}><AdminLogos /></Can>} />
             <Route path="certificates/:number" element={<Can perms={['certificates.manage']}><StaffCertificateView /></Can>} />
             <Route path="wallets" element={<Can perms={['wallets.view', 'wallets.refund', 'banks.verify']}><AdminWallets /></Can>} />
             <Route path="deposits" element={<Can perms={['deposits.view']}><AdminDeposits /></Can>} />

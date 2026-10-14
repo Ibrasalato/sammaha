@@ -122,11 +122,14 @@ export interface BankAccount {
 export interface BankAccountInput { iban: string; accountName: string; bankName?: string; docName?: string; docType?: string; docBase64?: string }
 export interface StaffBankAccount { userId: string; ownerName: string; phone?: string; account: BankAccount }
 export interface DocumentFile { name: string; contentType: string; base64: string }
-export type WithdrawalStatus = 'pending' | 'completed' | 'rejected'
+export type WithdrawalStatus = 'pending' | 'processing' | 'completed' | 'rejected'
 export interface Withdrawal {
   id: string; number: string; userId: string; ownerName: string; amount: number; iban: string; bankName: string; accountName: string
   status: WithdrawalStatus; byStaff: boolean; createdAt: string; processedAt?: string; processedBy?: string; transferRef?: string; note?: string
+  /** direct transfer through the payout gateway */
+  payoutProvider?: string; payoutSentAt?: string; payoutError?: string
 }
+export interface PayoutStatus { enabled: boolean; provider: string }
 export interface WalletRow {
   userId: string; ownerName: string; phone?: string; balance: number; totalIn: number; totalOut: number; pendingWithdrawals: number
   txCount: number; lastTxAt?: string; bankStatus?: BankStatus; bankName?: string
@@ -306,7 +309,7 @@ export interface ReservedName {
   ownerName: string
   price: number
   acquiredAt: string
-  source: 'auction' | 'legacy' | 'compound' | 'investment' | 'resale' | 'exception'
+  source: 'auction' | 'legacy' | 'compound' | 'investment' | 'resale' | 'exception' | 'transfer'
   /** for a compound name: the owned name it was built on */
   baseName?: string
   /** owner's public photo, only when they chose to show it */
@@ -325,7 +328,30 @@ export interface ReservedName {
   forfeitedPrice?: number
   forfeitedDeposit?: number
   auctionId?: string
+  /** approved logo: API path (live) or data URL (demo) */
+  logo?: string
+  /** the owner's own view: status of the logo they uploaded */
+  logoStatus?: LogoStatus
 }
+
+export type LogoStatus = 'pending' | 'approved' | 'rejected'
+/** a logo waiting for (or after) the committee's review */
+export interface LogoRow {
+  id: string; reservedId: string; name: string; type: NameType; ownerId: string; ownerName: string; fileName: string; status: LogoStatus
+  rejectReason?: string; uploadedAt: string; reviewedAt?: string; reviewedBy?: string
+}
+
+export type TransferStatus = 'pending_payment' | 'awaiting_recipient' | 'under_review' | 'completed' | 'rejected' | 'declined' | 'cancelled'
+export type TransferReason = 'sale' | 'gift' | 'inheritance' | 'other'
+/** «نقل ملكية اسم»: owner → recipient accepts → committee approves */
+export interface NameTransfer {
+  id: string; number: string; reservedId: string; name: string; type: NameType; fromId: string; fromName: string; toId: string; toName: string
+  reason: TransferReason; note?: string; fee: number; status: TransferStatus; createdAt: string; respondedAt?: string; reviewedAt?: string
+  reviewerName?: string; reviewNote?: string; completedAt?: string; cancelledAt?: string; fromPhone?: string; toPhone?: string
+  /** demo store only */
+  feePaidAt?: string
+}
+export interface MyTransfers { outgoing: NameTransfer[]; incoming: NameTransfer[]; fee: number }
 
 export interface IcoName {
   id: string; name: string; latin: string; type: NameType; forfeitedFromName?: string; forfeitedFromId?: string; forfeitedAt?: string
@@ -494,7 +520,7 @@ export interface CamelEvent {
 export interface AppNotification {
   id: string
   userId: string
-  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'auction_update' | 'refund' | 'ticket' | 'reminder' | 'delegation' | 'certificate' | 'legacy'
+  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'auction_update' | 'refund' | 'ticket' | 'reminder' | 'delegation' | 'certificate' | 'legacy' | 'transfer'
   title: string
   body: string
   link?: string
@@ -568,6 +594,8 @@ export interface PublicSettings {
   depositAmount: number
   /** hours an auction winner has to pay */
   paymentDeadlineHours: number
+  /** fee for moving a name to another owner (VAT included), paid by card */
+  transferFee: number
 }
 
 /** fees and rules from the server configuration (read-only in the dashboard) */

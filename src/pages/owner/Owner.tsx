@@ -1,6 +1,6 @@
 import { AuctionGrid } from '../../components/AuctionCard'
 import { typeOptions } from '../../lib/config'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Avatar, resizeToSquare } from '../../components/Avatar'
 import { InvoiceDoc } from '../../components/InvoiceDoc'
@@ -23,7 +23,7 @@ import { Approx } from '../../components/Region'
 import { InvoiceStatus } from '../../components/InvoiceStatus'
 
 export function DashHome() {
-  const { user } = useApp()
+  const { user, settings } = useApp()
   const wallet = useLoad(() => api.myWallet(), [])
   const reqs = useLoad(() => api.myRequests(), [])
   const bids = useLoad(() => api.myBids(), [], 15000)
@@ -49,7 +49,8 @@ export function DashHome() {
             <h1 className="mt-1 text-[28px] font-extrabold text-paper sm:text-[32px]">{tr('مرحبًا', 'Welcome,')} {user?.fullName.split(' ')[0] ?? ''}</h1>
             <p className="mt-1 text-paper/75">{todo ? tr(`لديك ${todo === 1 ? 'إجراء واحد' : todo === 2 ? 'إجراءان' : `${todo} إجراءات`} بانتظارك.`, `You have ${todo} pending ${todo === 1 ? 'action' : 'actions'}.`) : tr('كل شيء على ما يرام، لا توجد إجراءات معلّقة.', 'All good, nothing pending.')}</p>
             <div className="mt-5 flex flex-wrap gap-2">
-              <Link to="/dashboard/requests/new" className="btn-gold"><Icon name="plus" className="h-4 w-4" />{tr('طلب شعار جديد', 'New name request')}</Link>
+              {settings.requestsOpen && <Link to="/dashboard/requests/new" className="btn-gold"><Icon name="plus" className="h-4 w-4" />{tr('طلب شعار جديد', 'New name request')}</Link>}
+              <Link to="/dashboard/services" className="btn-on-dark"><Icon name="list" className="h-4 w-4" />{tr('الخدمات الإلكترونية', 'E-services')}</Link>
               <Link to="/auctions" className="btn-on-dark">{tr('تصفّح المزادات', 'Browse auctions')}</Link>
             </div>
           </div>
@@ -163,7 +164,7 @@ export function WalletPage() {
   })
   return (
     <>
-      <PageHead title={tr('المحفظة', 'Wallet')} sub={tr('يُعاد إليها ضمان الطلبات المرفوضة أو الملغاة، ويمكنك الدفع منها أو استرداد رصيدها إلى حسابك البنكي.', 'Guarantees for rejected or cancelled requests are returned here. You can pay from it or refund the balance to your bank account.')} action={<button className="btn-gold" onClick={() => setOpen(true)}>{tr('شحن المحفظة', 'Top up wallet')}</button>} />
+      <PageHead title={tr('المحفظة', 'Wallet')} sub={tr('يُعاد إليها ضمان الطلبات المرفوضة أو الملغاة. رصيدها لسداد الضمانات فقط، ويمكنك طلب استرداده إلى حسابك البنكي.', 'Guarantees for rejected or cancelled requests are returned here. The balance pays guarantees only, and you can request a refund to your bank account.')} action={<button className="btn-gold" onClick={() => setOpen(true)}>{tr('شحن المحفظة', 'Top up wallet')}</button>} />
       <div className="panel mb-6 p-5">
         <p className="text-muted">{tr('الرصيد المتاح', 'Available balance')}</p>
         <p className="num font-extrabold text-4xl font-semibold">{data ? sar(data.balance) : '…'}</p>
@@ -260,7 +261,7 @@ export function InvoicePage() {
         <button className="btn-ghost" onClick={() => window.print()}>{tr('طباعة أو حفظ PDF', 'Print or save PDF')}</button>
       </div>
       <InvoiceDoc inv={data} />
-      {paying && <PayModal open title={tr(`سداد الفاتورة ${data.number}`, `Pay invoice ${data.number}`)} amount={data.amountDue} onClose={() => setPaying(false)}
+      {paying && <PayModal open cardOnly title={tr(`سداد الفاتورة ${data.number}`, `Pay invoice ${data.number}`)} amount={data.amountDue} onClose={() => setPaying(false)}
         onPay={async (m) => { try { await api.payInvoice(data.id, m); toast(tr('تم سداد الفاتورة', 'Invoice paid')); reload() } catch (e) { toast((e as Error).message, 'bad'); throw e } }} />}
     </>
   )
@@ -360,8 +361,53 @@ function CompoundName({ base, onClose }: { base: ReservedName; onClose: () => vo
   )
 }
 
+/** the mark's logo: the approved one, or the owner's upload waiting for the committee */
+function MarkLogo({ n, onChange }: { n: ReservedName; onChange: () => void }) {
+  const { toast } = useApp()
+  const [busy, setBusy] = useState(false)
+  const [preview, setPreview] = useState<string | null>(null)
+  const input = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    let on = true
+    if (n.logoStatus && n.logoStatus !== 'approved') void api.myLogo(n.id).then((u) => { if (on) setPreview(u) })
+    else setPreview(null)
+    return () => { on = false }
+  }, [n.id, n.logoStatus])
+  const src = n.logo ? api.logoSrc(n) : preview
+  async function pick(f: File | undefined) {
+    if (!f) return
+    if (f.size > 2 * 1024 * 1024) { toast(tr('حجم الصورة أكبر من 2 ميجابايت', 'The image is larger than 2 MB'), 'bad'); return }
+    setBusy(true)
+    try {
+      const b64 = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] ?? ''); r.onerror = rej; r.readAsDataURL(f) })
+      await api.uploadLogo(n.id, f.name, b64)
+      toast(tr('رُفع اللوجو، ويظهر بعد اعتماد اللجنة', 'Logo uploaded; it shows once the committee approves it'))
+      onChange()
+    } catch (e) { toast((e as Error).message, 'bad') } finally { setBusy(false); if (input.current) input.current.value = '' }
+  }
+  async function remove() {
+    if (!confirm(tr('حذف لوجو هذا الشعار؟', 'Delete this mark\'s logo?'))) return
+    try { await api.deleteLogo(n.id); onChange() } catch (e) { toast((e as Error).message, 'bad') }
+  }
+  const status = n.logo ? null : n.logoStatus === 'pending' ? [tr('اللوجو بانتظار الاعتماد', 'Logo awaiting approval'), 'bg-gold-soft text-gold-deep'] : n.logoStatus === 'rejected' ? [tr('لم يُعتمد اللوجو، ارفع غيره', 'Logo not approved, upload another'), 'bg-bad/10 text-bad'] : null
+  return (
+    <div className="flex w-full flex-col items-center gap-2 border-t border-line pt-3">
+      {src
+        ? <img src={src} alt={tr(`لوجو ${n.name}`, `${n.name} logo`)} className={`h-20 w-20 rounded-lg border border-line bg-paper object-contain p-1 ${n.logo ? '' : 'opacity-70'}`} />
+        : <span className="text-[13px] text-muted">{tr('لا يوجد لوجو للشعار', 'No logo yet')}</span>}
+      {status && <span className={`pill ${status[1]}`}>{status[0]}</span>}
+      <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void pick(e.target.files?.[0])} />
+      <div className="flex gap-2">
+        <button className="btn-ghost btn-sm" disabled={busy} onClick={() => input.current?.click()}>{busy ? tr('جارٍ الرفع…', 'Uploading…') : src ? tr('تغيير اللوجو', 'Change logo') : tr('رفع لوجو', 'Upload logo')}</button>
+        {(n.logo || n.logoStatus) && <button className="btn-ghost btn-sm text-bad" onClick={() => void remove()}>{tr('حذف', 'Delete')}</button>}
+      </div>
+      <span className="text-[12px] text-muted">{tr('PNG أو JPG أو WebP حتى 2 ميجابايت', 'PNG, JPG or WebP up to 2 MB')}</span>
+    </div>
+  )
+}
+
 export function MyNames() {
-  const { data, loading } = useLoad(() => api.myNames(), [])
+  const { data, loading, reload } = useLoad(() => api.myNames(), [])
   const [compoundFor, setCompoundFor] = useState<ReservedName | null>(null)
   const invoices = useLoad(() => api.myInvoices(), [])
   const unpaidFor = (name: string) => invoices.data?.find((i) => i.name === name && i.status === 'unpaid')
@@ -385,8 +431,12 @@ export function MyNames() {
                     {n.source !== 'compound' && <button className="btn-ghost btn-sm border-gold/60 text-gold-deep" onClick={() => setCompoundFor(n)}>{tr('طلب اسم مركب', 'Request a compound name')}</button>}
                     {n.listingId
                       ? <Link to="/dashboard/sell" className="pill bg-gold-soft text-gold-deep">{tr('معروض للبيع', 'Listed for sale')}</Link>
-                      : <Link to={`/dashboard/sell?name=${n.id}`} className="btn-ghost btn-sm border-pine/40 text-pine">{tr('بيع الاسم', 'Sell name')}</Link>}
+                      : <>
+                          <Link to={`/dashboard/sell?name=${n.id}`} className="btn-ghost btn-sm border-pine/40 text-pine">{tr('بيع الاسم', 'Sell name')}</Link>
+                          <Link to={`/dashboard/transfers?name=${n.id}`} className="btn-ghost btn-sm">{tr('نقل الملكية', 'Transfer ownership')}</Link>
+                        </>}
                   </div>}
+              <MarkLogo n={n} onChange={reload} />
             </li>
           ))}
         </ul>

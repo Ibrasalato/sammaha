@@ -1,6 +1,6 @@
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi } from './api'
-import type { AppNotification, Auction, AuctionView, BankAccount, Invoice, LogoRequest, NameListing, User, Wallet } from './types'
+import type { AppNotification, Auction, AuctionView, BankAccount, Invoice, LogoRequest, NameListing, User, Wallet, NameTransfer } from './types'
 
 /**
  * The production backend: Sammha API (ASP.NET Core + SQL Server, repo Ibrasalato/sammaha-api).
@@ -79,6 +79,14 @@ async function call<T>(method: string, path: string, body?: unknown, retried = f
 const get = <T,>(p: string) => call<T>('GET', p)
 const post = <T,>(p: string, b: unknown = {}) => call<T>('POST', p, b)
 const put = <T,>(p: string, b: unknown) => call<T>('PUT', p, b)
+const del = <T,>(p: string) => call<T>('DELETE', p)
+/** an authorised image as an object URL (null when there is none) */
+async function image(path: string): Promise<string | null> {
+  const token = await accessToken()
+  const res = await fetch(`${BASE}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }).catch(() => null)
+  if (!res || !res.ok) return null
+  return URL.createObjectURL(await res.blob())
+}
 const qs = (o: Record<string, string | undefined>) => {
   const s = new URLSearchParams(Object.entries(o).filter(([, v]) => v !== undefined && v !== '' && v !== 'all') as [string, string][]).toString()
   return s ? `?${s}` : ''
@@ -142,7 +150,7 @@ function resetHub() {
 }
 
 /** Card: Moyasar's hosted page (the webhook completes the action), or an immediate simulated charge in development. */
-async function card(purpose: 'topup' | 'deposit' | 'invoice' | 'bid_deposit' | 'listing', ref: string | null, amount = 0) {
+async function card(purpose: 'topup' | 'deposit' | 'invoice' | 'bid_deposit' | 'listing' | 'transfer', ref: string | null, amount = 0) {
   const r = await post<{ url?: string; simulated: boolean }>('/api/payments/card', { purpose, ref, amount, callback: location.href })
   if (r.url) { location.href = r.url; await new Promise(() => {}) }
 }
@@ -234,18 +242,39 @@ export const httpApi: SammhaApi = {
     return get<Wallet>('/api/me/wallet')
   },
   myInvoices: () => get('/api/me/invoices'),
-  async payInvoice(id, method) {
-    if (method === 'card') await card('invoice', id)
+  // invoices, purchases and fees: payment channels only (the wallet is for guarantees)
+  async payInvoice(id) {
+    await card('invoice', id)
     return post<Invoice>(`/api/me/invoices/${id}/pay`)
   },
   myBids: () => get('/api/me/bids'),
   myNames: () => get('/api/me/names'),
+  myTransfers: () => get('/api/me/transfers'),
+  findRecipient: (phone) => post('/api/me/transfers/recipient', { phone }),
+  createTransfer: (input) => post('/api/me/transfers', { ...input, note: input.note ?? null }),
+  async payTransferFee(id) {
+    await card('transfer', id)
+    return post<NameTransfer>(`/api/me/transfers/${id}/pay`)
+  },
+  cancelTransfer: (id) => post(`/api/me/transfers/${id}/cancel`),
+  respondTransfer: (id, accept) => post(`/api/me/transfers/${id}/respond`, { accept }),
+  adminTransfers: (status) => get(`/api/admin/transfers${qs({ status })}`),
+  reviewTransfer: (id, approve, note) => post(`/api/admin/transfers/${id}/review`, { approve, note: note ?? null }),
+  uploadLogo: (reservedId, fileName, base64) => put(`/api/me/names/${reservedId}/logo`, { fileName, base64 }),
+  deleteLogo: (reservedId) => del(`/api/me/names/${reservedId}/logo`),
+  logoSrc: (r) => (r.logo ? `${BASE}${r.logo}` : undefined),
+  myLogo: (reservedId) => image(`/api/me/names/${reservedId}/logo`),
+  adminLogos: (status) => get(`/api/admin/logos${qs({ status })}`),
+  adminLogoImage: (id) => image(`/api/admin/logos/${id}/image`),
+  reviewLogo: (id, approve, reason) => post(`/api/admin/logos/${id}/review`, { approve, reason: reason ?? null }),
+  payoutStatus: () => get('/api/admin/payouts'),
+  payoutWithdrawal: (id) => post(`/api/admin/withdrawals/${id}/payout`),
   createListing: (reservedId, mode, price) => post('/api/me/listings', { reservedId, mode, price }),
   cancelListing: (id) => post(`/api/me/listings/${id}/cancel`),
   myListings: () => get('/api/me/listings'),
   marketListings: () => get('/api/market'),
-  async buyListing(id, method) {
-    if (method === 'card') await card('listing', id)
+  async buyListing(id) {
+    await card('listing', id)
     return post<NameListing>(`/api/market/${id}/buy`)
   },
   async payBidDeposit(auctionId, method) {

@@ -112,7 +112,7 @@ export default function Market() {
       </section>
 
       {buying && (
-        <PayModal open title={tr(`شراء «${buying.name}»`, `Buy “${buying.name}”`)} amount={buying.price} onClose={() => setBuying(null)}
+        <PayModal open cardOnly title={tr(`شراء «${buying.name}»`, `Buy “${buying.name}”`)} amount={buying.price} onClose={() => setBuying(null)}
           onPay={async (m) => {
             try { await api.buyListing(buying.id, m); toast(tr(`مبارك، أصبح «${buying.name}» باسمك`, `“${buying.name}” is now yours`)); reload(); nav('/dashboard/names') } catch (e) { toast((e as Error).message, 'bad'); throw e }
           }} />

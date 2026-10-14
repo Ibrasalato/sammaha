@@ -26,7 +26,9 @@ export default function ReservedNames() {
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {data.map((r) => (
             <li key={r.id} className="panel flex items-center gap-4 p-3">
-              <NameSeal name={r.name} type={r.type} size="sm" />
+              {r.logo
+                ? <img src={api.logoSrc(r)} alt={tr(`لوجو ${r.name}`, `${r.name} logo`)} loading="lazy" className="h-14 w-14 shrink-0 rounded-lg border border-line bg-paper object-contain p-1" />
+                : <NameSeal name={r.name} type={r.type} size="sm" />}
               <div className="min-w-0">
                 <div className="flex items-center gap-2"><span className="font-extrabold text-lg">{r.name}</span>{r.latin && <span className="truncate text-[13px] font-semibold text-muted" dir="ltr">{r.latin}</span>}<TypeBadge type={r.type} /></div>
                 <p className="truncate text-sm text-muted">{r.ownerName}</p>

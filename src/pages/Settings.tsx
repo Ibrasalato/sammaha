@@ -292,7 +292,7 @@ function GeneralPanel({ d, set, rules }: { d: Draft; set: (p: SettingsPatch) => 
         </div>
       </Card>
 
-      <Card icon="lock" title={tr('الضمان ومهلة السداد', 'Guarantee and payment deadline')} sub={tr('يدفع مقدم الطلب الضمان مع طلبه، ويدفعه كل مزايد آخر لدخول المزاد. يُعاد لمن لم يرسُ عليه، ويُعاد للفائز بعد سداد قيمة الشعار كاملة. إن لم يسدّد الفائز في المهلة يُخصم ضمانه ويصبح الاسم ملكًا للمنظمة الدولية للإبل.', 'The requester pays the guarantee with the request, and every other bidder pays it to enter the auction. It returns to whoever does not win, and to the winner after paying the full price. If the winner does not pay in time, the guarantee is forfeited and the name passes to the International Camel Organization.')}>
+      <Card icon="lock" title={tr('الضمان والرسوم ومهلة السداد', 'Guarantee, fees and payment deadline')} sub={tr('يدفع مقدم الطلب الضمان مع طلبه، ويدفعه كل مزايد آخر لدخول المزاد. يُعاد لمن لم يرسُ عليه، ويُعاد للفائز بعد سداد قيمة الشعار كاملة. إن لم يسدّد الفائز في المهلة يُخصم ضمانه ويصبح الاسم ملكًا للمنظمة الدولية للإبل.', 'The requester pays the guarantee with the request, and every other bidder pays it to enter the auction. It returns to whoever does not win, and to the winner after paying the full price. If the winner does not pay in time, the guarantee is forfeited and the name passes to the International Camel Organization.')}>
         <div className="grid gap-4 p-5 sm:grid-cols-2">
           <div>
             <label className="label" htmlFor="g-dep">{tr('مبلغ الضمان (ريال)', 'Guarantee amount (SAR)')}</label>
@@ -303,6 +303,11 @@ function GeneralPanel({ d, set, rules }: { d: Draft; set: (p: SettingsPatch) => 
             <label className="label" htmlFor="g-due">{tr('مهلة سداد قيمة الشعار (ساعة)', 'Payment deadline for the winner (hours)')}</label>
             <input id="g-due" type="number" min={1} max={720} step="1" className="field num" dir="ltr" value={d.paymentDeadlineHours ?? ''} onChange={(e) => set({ paymentDeadlineHours: Number(e.target.value) })} />
             <p className="hint">{tr('تبدأ من لحظة انتهاء المزاد. مثال: 72 ساعة = 3 أيام.', 'Counted from the end of the auction. Example: 72 hours = 3 days.')}</p>
+          </div>
+          <div>
+            <label className="label" htmlFor="g-tf">{tr('رسوم نقل ملكية اسم (ريال، شاملة الضريبة)', 'Name transfer fee (SAR, VAT incl.)')}</label>
+            <input id="g-tf" type="number" min={0} step="1" className="field num" dir="ltr" value={d.transferFee ?? ''} onChange={(e) => set({ transferFee: Number(e.target.value) })} />
+            <p className="hint">{tr('يدفعها المالك بالبطاقة عند طلب النقل، وتُعاد إلى محفظته إن لم يكتمل. 0 = مجانًا.', 'Paid by the owner by card when requesting a transfer, returned to the wallet if it does not complete. 0 = free.')}</p>
           </div>
         </div>
       </Card>

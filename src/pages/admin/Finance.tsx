@@ -21,6 +21,7 @@ const BANK: Record<BankStatus, [string, string]> = {
 }
 const WD: Record<WithdrawalStatus, [string, string]> = {
   get pending(): [string, string] { return [tr('قيد التنفيذ', 'In progress'), 'bg-gold-soft text-gold-deep'] },
+  get processing(): [string, string] { return [tr('قيد التحويل البنكي', 'Bank transfer in progress'), 'bg-info/10 text-info'] },
   get completed(): [string, string] { return [tr('حُوّل', 'Transferred'), 'bg-[#E2F0E8] text-ok'] },
   get rejected(): [string, string] { return [tr('مرفوض', 'Rejected'), 'bg-bad/10 text-bad'] },
 }
@@ -79,6 +80,9 @@ function WithdrawalsTable({ list, onChange }: { list: Withdrawal[]; onChange: ()
   const { user, toast } = useApp()
   const [ask, setAsk] = useState<{ w: Withdrawal; kind: 'complete' | 'reject' } | null>(null)
   const canRefund = can(user, 'wallets.refund')
+  const payout = useLoad(() => api.payoutStatus().catch(() => ({ enabled: false, provider: 'manual' })), [])
+  const [paying, setPaying] = useState<Withdrawal | null>(null)
+  const [busy, setBusy] = useState(false)
   if (!list.length) return <Empty title={tr('لا توجد طلبات استرداد بهذه التصفية', 'No refund requests match this filter')} />
   return (
     <div className="panel overflow-x-auto">
@@ -91,16 +95,31 @@ function WithdrawalsTable({ list, onChange }: { list: Withdrawal[]; onChange: ()
               <td><OwnerCell id={w.userId} name={w.ownerName} /></td>
               <td className="num whitespace-nowrap font-bold">{sar(w.amount)}</td>
               <td className="text-[13px]"><span className="num" dir="ltr">{w.iban}</span><span className="block text-muted">{w.bankName} · {w.accountName}</span></td>
-              <td><span className={`pill ${WD[w.status][1]}`}>{WD[w.status][0]}</span>{w.transferRef && <span className="num block text-[12px] text-muted">{tr('حوالة', 'Transfer')} {w.transferRef}</span>}{w.note && <span className="block max-w-[14rem] text-[12px] text-muted">{L(w.note)}</span>}</td>
+              <td><span className={`pill ${WD[w.status][1]}`}>{WD[w.status][0]}</span>{w.transferRef && <span className="num block text-[12px] text-muted">{tr('حوالة', 'Transfer')} {w.transferRef}</span>}{w.note && <span className="block max-w-[14rem] text-[12px] text-muted">{L(w.note)}</span>}{w.payoutError && w.status === 'pending' && <span className="block max-w-[14rem] text-[12px] text-bad">{tr('تعذّر التحويل المباشر:', 'Direct transfer failed:')} {L(w.payoutError)}</span>}</td>
               <td className="whitespace-nowrap text-[13px] text-muted">{dateTime(w.createdAt)}</td>
               <td className="no-print whitespace-nowrap">{canRefund && w.status === 'pending' && <div className="flex gap-1">
-                <button className="btn-primary btn-sm" onClick={() => setAsk({ w, kind: 'complete' })}>{tr('تم التحويل', 'Transferred')}</button>
+                {payout.data?.enabled && <button className="btn-gold btn-sm" onClick={() => setPaying(w)}>{tr('موافقة وتحويل مباشر', 'Approve & transfer')}</button>}
+                <button className={`${payout.data?.enabled ? 'btn-ghost' : 'btn-primary'} btn-sm`} onClick={() => setAsk({ w, kind: 'complete' })}>{payout.data?.enabled ? tr('حوّلته يدويًا', 'Transferred manually') : tr('تم التحويل', 'Transferred')}</button>
                 <button className="btn-danger btn-sm" onClick={() => setAsk({ w, kind: 'reject' })}>{tr('رفض', 'Reject')}</button>
               </div>}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      {paying && <Modal open onClose={() => setPaying(null)} title={tr('تحويل مباشر إلى حساب المالك', 'Direct transfer to the owner’s account')}>
+        <div className="space-y-3">
+          <p>{tr(`سيُحوَّل ${sar(paying.amount)} الآن إلى ${paying.bankName} (${paying.accountName}) عبر بوابة الدفع، ويصل المالك إشعار عند اكتمال التحويل.`, `${sar(paying.amount)} will be sent now to ${paying.bankName} (${paying.accountName}) through the payment gateway; the owner is notified when it completes.`)}</p>
+          <p className="num text-sm text-muted" dir="ltr">{paying.iban}</p>
+          <button className="btn-gold w-full" disabled={busy} onClick={async () => {
+            setBusy(true)
+            try {
+              const r = await api.payoutWithdrawal(paying.id)
+              toast(r.status === 'completed' ? tr('تم التحويل إلى حساب المالك', 'Transferred to the owner’s account') : r.status === 'processing' ? tr('أُرسل التحويل، وهو قيد المعالجة لدى البنك', 'Transfer sent; the bank is processing it') : tr('تعذّر التحويل المباشر، راجع السبب في الجدول', 'The direct transfer failed; see the reason in the table'), r.status === 'pending' ? 'bad' : undefined)
+              setPaying(null); onChange()
+            } catch (e) { toast((e as Error).message, 'bad') } finally { setBusy(false) }
+          }}>{busy ? tr('جارٍ التحويل…', 'Transferring…') : tr('تأكيد التحويل', 'Confirm transfer')}</button>
+        </div>
+      </Modal>}
       {ask && <Ask title={ask.kind === 'complete' ? tr('تأكيد التحويل', 'Confirm transfer') : tr('رفض طلب الاسترداد', 'Reject refund request')} label={ask.kind === 'complete' ? tr('رقم الحوالة البنكية', 'Bank transfer reference') : tr('سبب الرفض (يصل للمالك)', 'Rejection reason (sent to the owner)')} danger={ask.kind === 'reject'}
         hint={ask.kind === 'complete' ? tr(`حوّل ${sar(ask.w.amount)} إلى ${ask.w.bankName} ثم اكتب رقم الحوالة.`, `Transfer ${sar(ask.w.amount)} to ${ask.w.bankName}, then enter the transfer reference.`) : tr(`يُعاد ${sar(ask.w.amount)} إلى محفظة المالك.`, `${sar(ask.w.amount)} will be returned to the owner’s wallet.`)}
         onClose={() => setAsk(null)} onSubmit={async (v) => { await (ask.kind === 'complete' ? api.completeWithdrawal(ask.w.id, v) : api.rejectWithdrawal(ask.w.id, v)); toast(ask.kind === 'complete' ? tr('سُجّل التحويل', 'Transfer recorded') : tr('رُفض الطلب وأُعيد المبلغ', 'Request rejected and amount returned')); onChange() }} />}

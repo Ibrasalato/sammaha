@@ -161,7 +161,7 @@ export function InvestPage() {
       )}
 
       {paying && (
-        <PayModal open title={tr(`رسوم دراسة الطلب ${paying.number}`, `Review fee for request ${paying.number}`)} amount={paying.depositAmount}
+        <PayModal open cardOnly title={tr(`رسوم دراسة الطلب ${paying.number}`, `Review fee for request ${paying.number}`)} amount={paying.depositAmount}
           onClose={() => { setPaying(null); reload() }}
           onPay={async (m) => {
             try { await api.payDeposit(paying.id, m); toast(tr('وصل طلبك إلى اللجنة المختصة لدراسته', 'Your request has reached the specialist committee for review')); setNames(Array(RULES.investMaxNames).fill('')); setType(null); setAgree(false); reload() } catch (e) { toast((e as Error).message, 'bad'); throw e }

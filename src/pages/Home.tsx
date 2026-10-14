@@ -5,6 +5,7 @@ import { AuctionGrid, CardStylePicker } from '../components/AuctionCard'
 import { useCardStyle } from '../lib/cardStyle'
 import { Avatar } from '../components/Avatar'
 import { HeroSlides } from '../components/HeroSlides'
+import { ServicesGrid } from '../components/Services'
 import { CalendarRow, useCalendar } from './Events'
 import { Countdown, Loading, NameSeal, Segmented } from '../components/ui'
 import { NAME_TYPES, RULES, TYPE_GROUPS, TYPE_LABEL, typeOptions, TYPE_CLS, SLOGAN } from '../lib/config'
@@ -110,6 +111,17 @@ export default function Home() {
         ) : (
           <p className="panel px-5 py-10 text-center text-muted">{tr('لا توجد مزادات جارية الآن', 'No live auctions right now')}{type !== 'all' ? ` (${TYPE_LABEL[type]})` : ''}.</p>
         )}
+      </section>
+
+      {/* ─── E-services ─── */}
+      <section className="border-t border-line bg-stone">
+        <div className="wrap py-16">
+          <div className="mb-8">
+            <h2 className="sec-title">{tr('الخدمات الإلكترونية', 'E-services')}</h2>
+            <p className="mt-2 ps-4 text-[15px] text-muted">{tr('كل خدمات سمّها في مكان واحد، مع رسوم كل خدمة قبل التقديم.', 'Every Sammha service in one place, with each fee shown before you apply.')}</p>
+          </div>
+          <ServicesGrid audience="public" />
+        </div>
       </section>
 
       {/* ─── Upcoming dates ─── */}

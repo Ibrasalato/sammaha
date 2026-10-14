@@ -1,8 +1,7 @@
 import type {
   AppNotification, CamelEvent, AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
   ActivityFilter, ActivityPage, IcoName, Certificate, CertificatePage, CertificateScope, CertificateVerify, Delegation, DelegationInput, AuditRow, BankAccount, BankAccountInput, BankStatus, DepositRow, DocumentFile, IbanCheck, MarkRow, OwnerCrm, StaffBankAccount, WalletDetail, WalletRow, Withdrawal, WithdrawalStatus,
-  AddressInput, AdminSettings, AuctionActionResult, AuctionScope, AuctionView, PersonalInput, StaffRole, TicketRouting, InvestmentItem, ListingMode, NameListing, Preferences, PublicSettings, PublicStats, SecuritySummary, SessionInfo, SettingsChange, SettingsPatch, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet,
-} from './types'
+  AddressInput, AdminSettings, AuctionActionResult, AuctionScope, AuctionView, PersonalInput, StaffRole, TicketRouting, InvestmentItem, ListingMode, NameListing, Preferences, PublicSettings, PublicStats, SecuritySummary, SessionInfo, SettingsChange, SettingsPatch, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet, MyTransfers, NameTransfer, TransferReason, TransferStatus, LogoRow, LogoStatus, PayoutStatus } from './types'
 
 /** owner sign-up (the address is completed later in the dashboard) */
 export interface SignUpInput {
@@ -225,6 +224,31 @@ export interface SammhaApi {
   rejectWithdrawal(id: string, reason: string): Promise<Withdrawal>
   deposits(state?: 'held' | 'all' | 'refunded' | 'applied'): Promise<DepositRow[]>
   refundDeposit(input: { kind: 'request' | 'bid'; requestId?: string; auctionId?: string; userId?: string; reason: string }): Promise<DepositRow>
+
+  // «نقل ملكية اسم»
+  myTransfers(): Promise<MyTransfers>
+  /** the recipient's masked name for a mobile number */
+  findRecipient(phone: string): Promise<{ maskedName: string }>
+  createTransfer(input: { reservedId: string; phone: string; reason: TransferReason; note?: string }): Promise<NameTransfer>
+  /** the transfer fee: payment channels only (card) */
+  payTransferFee(id: string): Promise<NameTransfer>
+  cancelTransfer(id: string): Promise<NameTransfer>
+  respondTransfer(id: string, accept: boolean): Promise<NameTransfer>
+  adminTransfers(status?: TransferStatus | 'all'): Promise<NameTransfer[]>
+  reviewTransfer(id: string, approve: boolean, note?: string): Promise<NameTransfer>
+  // mark logos
+  uploadLogo(reservedId: string, fileName: string, base64: string): Promise<ReservedName>
+  deleteLogo(reservedId: string): Promise<ReservedName>
+  /** an image address for <img>: the approved logo of a name */
+  logoSrc(r: Pick<ReservedName, 'logo'>): string | undefined
+  /** the owner's own logo (any status) as a data/object URL */
+  myLogo(reservedId: string): Promise<string | null>
+  adminLogos(status?: LogoStatus | 'all'): Promise<LogoRow[]>
+  adminLogoImage(id: string): Promise<string | null>
+  reviewLogo(id: string, approve: boolean, reason?: string): Promise<LogoRow>
+  // direct payouts of refund requests
+  payoutStatus(): Promise<PayoutStatus>
+  payoutWithdrawal(id: string): Promise<Withdrawal>
 
   // activity log (logs.view)
   activity(f?: ActivityFilter): Promise<ActivityPage>

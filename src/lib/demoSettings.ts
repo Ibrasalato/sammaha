@@ -12,7 +12,7 @@ export const DEFAULT_SETTINGS: Omit<AdminSettings, 'rules'> = {
   signupOpen: true, supportEmail: '', supportPhone: '', whatsApp: '',
   announcementOn: false, announcement: '', announcementTone: 'info', maintenance: false, maintenanceNote: '',
   passwordMinLength: 8, maxLoginAttempts: 5, lockoutMinutes: 15, staffIdleMinutes: 30,
-  depositAmount: RULES.depositAmount, paymentDeadlineHours: 72,
+  depositAmount: RULES.depositAmount, paymentDeadlineHours: 72, transferFee: 0,
 }
 
 export function demoRules(): AdminSettings['rules'] {
@@ -47,6 +47,7 @@ export function writeSettings(patch: SettingsPatch, by: string): Omit<AdminSetti
   range(patch.staffIdleMinutes, 0, 480, tr('مهلة الخمول بالدقائق', 'Idle timeout (minutes)'))
   range(patch.paymentDeadlineHours, 1, 720, tr('مهلة سداد قيمة الشعار بالساعات', 'Payment deadline (hours)'))
   if (patch.depositAmount != null && !(patch.depositAmount >= 0 && patch.depositAmount <= 1_000_000)) throw new ApiError(tr('مبلغ الضمان بين 0 و1,000,000 ريال', 'The guarantee must be between 0 and 1,000,000 riyals'))
+  if (patch.transferFee != null && !(patch.transferFee >= 0 && patch.transferFee <= 100_000)) throw new ApiError(tr('رسوم نقل الملكية بين 0 و100,000 ريال', 'The transfer fee must be between 0 and 100,000 riyals'))
   if (patch.supportEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patch.supportEmail.trim())) throw new ApiError(tr('بريد الدعم غير صحيح', 'The support email is not valid'))
   const cur = readSettings()
   const log = readLog()

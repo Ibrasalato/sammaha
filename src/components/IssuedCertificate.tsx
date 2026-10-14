@@ -15,7 +15,7 @@ const dAr = (s: string) => new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',
 const dEn = (s: string) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Riyadh', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(s))
 const SOURCE: Record<string, [string, string]> = {
   auction: ['مزاد علني', 'Public auction'], legacy: ['قيد سابق', 'Prior record'], compound: ['اسم مركب', 'Compound name'], exception: ['أسماء المنظمة الدولية', 'Organization name'],
-  investment: ['استثمار الاسم', 'Name investment'], resale: ['إعادة بيع', 'Resale'],
+  investment: ['استثمار الاسم', 'Name investment'], resale: ['إعادة بيع', 'Resale'], transfer: ['نقل ملكية', 'Ownership transfer'],
 }
 const TYPE: Record<string, [string, string]> = { qaadan: ['القعدان', "Qa'dan"], bakkar: ['البكار', 'Bakkar'], manqiya: ['المنقية', 'Manqiya'] }
 const nat = (code?: string) => { const c = COUNTRIES.find((x) => x.code === code); return c ? [c.name, c.en] as const : null }
