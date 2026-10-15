@@ -5,7 +5,7 @@
  */
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'
-import type { Festival, OwnedCamel, Violation, ViolationStatus, ViolationType, Exemption, ExemptionStatus } from './types'
+import type { Festival, OwnedCamel, Violation, ViolationStatus, ViolationType, Exemption, ExemptionStatus, Ban, BanStatus } from './types'
 import type { ActivityEntry, ActivityFilter, Certificate, CertificateItem, CertificateScope, CertificateStatus, Delegation, DelegationScope, AuctionActionResult, AuctionScope, AuctionView, AuditRow, BankAccount, DepositRow, IbanCheck, MarkRow, NameListing, OwnerCrm, OwnerProfile, Preferences, SimilarHit, StaffBankAccount, StaffRole, TicketRouting, WalletRow, Withdrawal, NameTransfer, LogoRow } from './types'
 import { ALL_PERMISSIONS, COMMITTEE_DEFAULT, COMMITTEE_ROLE_ID, permissionLabel } from './permissions'
 import type { Permission } from './permissions'
@@ -85,7 +85,10 @@ interface DB {
   /** «طلب استثناء المشاركة بدون اسم» */
   exemptions?: DemoExemption[]
   exemptionSeq?: number
+  /** «الحظر» */
+  bans?: DemoBan[]
 }
+type DemoBan = Omit<Ban, 'status' | 'phone'>
 type DemoExemption = Omit<Exemption, 'ownerName' | 'ownerPhone' | 'nationalId' | 'paymentMethod'> & { nationalIdFull?: string }
 type DemoCamel = OwnedCamel & { userId: string }
 type DemoViolation = Omit<Violation, 'ownerName' | 'ownerPhone' | 'typeNameEn' | 'allowsNameResolution'> & { attachmentBase64?: string }
@@ -1310,6 +1313,50 @@ function exemptionDto(db: DB, e: DemoExemption, staffView: boolean, full = false
 }
 const isOpenExemption = (s: ExemptionStatus) => s === 'pending' || s === 'priced'
 
+// ───── «الحظر» ─────
+/** today in Riyadh, yyyy-mm-dd */
+const riyadhToday = () => new Date(now() + 3 * H).toISOString().slice(0, 10)
+const banStatus = (b: DemoBan, today = riyadhToday()): BanStatus => (b.liftedAt ? 'lifted' : b.startsOn > today ? 'scheduled' : b.endsOn && b.endsOn < today ? 'ended' : 'active')
+/** samples on first use: one owner barred for a month, and someone not registered barred for good (as imported from the old platform) */
+function demoBans(db: DB): DemoBan[] {
+  if (!db.bans) {
+    const t = now(), d = (n: number) => new Date(t + 3 * H + n * D).toISOString().slice(0, 10)
+    const b3 = db.users.find((u) => u.id === 'u-b3')
+    db.bans = [
+      ...(b3 ? [{ id: 'bn-demo-1', ownerId: b3.id, name: b3.fullName, nationalId: b3.nationalId, reason: 'تكرار الانسحاب بعد الفوز بالمزاد دون سداد', startsOn: d(-5), endsOn: d(25), source: 'manual', createdAt: iso(t - 5 * D), createdByName: 'لجنة الاعتماد' }] : []),
+      { id: 'bn-demo-2', name: 'شخص مستبعد (من المنصة السابقة)', nationalId: '2888888888', reason: 'المنصة السابقة', startsOn: d(-400), source: 'legacy_excluded', createdAt: iso(t - 2 * D), createdByName: 'المنصة السابقة' },
+    ]
+  }
+  return db.bans
+}
+function banOf(db: DB, u: DemoUser): DemoBan | undefined {
+  const today = riyadhToday()
+  return demoBans(db).filter((b) => banStatus(b, today) === 'active' && (b.ownerId === u.id || (!!b.nationalId && b.nationalId === u.nationalId)))
+    .sort((a, b) => Number(!b.endsOn) - Number(!a.endsOn) || (b.endsOn ?? '').localeCompare(a.endsOn ?? ''))[0]
+}
+const banMessage = (b: DemoBan) => b.endsOn
+  ? `حسابك محظور من المزايدة والشراء والبيع وتقديم الطلبات حتى ${b.endsOn.replace(/-/g, '/')}. السبب: ${b.reason}`
+  : `حسابك محظور من المزايدة والشراء والبيع وتقديم الطلبات. السبب: ${b.reason}`
+/** the participation commands call this first */
+function notBanned(db: DB) {
+  const u = db.users.find((x) => x.id === getSession())
+  if (u?.role === 'owner') { const b = banOf(db, u); if (b) throw new ApiError(banMessage(b)) }
+}
+function banDto(db: DB, b: DemoBan, full: boolean): Ban {
+  const u = b.ownerId ? db.users.find((x) => x.id === b.ownerId) : undefined
+  const nid = b.nationalId ?? u?.nationalId
+  return { ...b, status: banStatus(b), nationalId: full ? nid : maskId(nid), phone: u ? (full ? u.phone : maskId(u.phone)) : undefined }
+}
+const banPeriod = (b: DemoBan) => `من ${b.startsOn.replace(/-/g, '/')} ${b.endsOn ? `حتى ${b.endsOn.replace(/-/g, '/')}` : 'حتى إشعار آخر'}`
+function banCheck(reason: string, startsOn: string, endsOn?: string) {
+  const r = reason.trim()
+  if (r.length < 3) throw new ApiError('اكتب سبب الحظر')
+  if (r.length > 500) throw new ApiError('سبب الحظر طويل (500 حرف كحد أقصى)')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startsOn)) throw new ApiError('تاريخ بداية الحظر غير صحيح')
+  if (endsOn && endsOn < startsOn) throw new ApiError('تاريخ نهاية الحظر قبل بدايته')
+  return r
+}
+
 const sniffAttachment = (b64: string) => (b64.startsWith('JVBER') ? 'application/pdf' : sniffImage(b64))
 
 // ───────────────────────── API ─────────────────────────
@@ -1642,6 +1689,7 @@ const rawApi: SammhaApi = {
   }),
 
   createRequest: (type, names) => tx((db) => {
+    notBanned(db)
     const u = writer(db)
     ensureOpen('requests')
     if (names.length !== RULES.namesPerRequest) throw new ApiError(`أدخل ${RULES.namesPerRequest} أسماء`)
@@ -1658,6 +1706,7 @@ const rawApi: SammhaApi = {
   }),
 
   createCompoundRequest: (reservedId, fullName) => tx((db) => {
+    notBanned(db)
     const u = writer(db)
     ensureOpen('compound')
     const base = db.reserved.find((x) => x.id === reservedId && x.ownerId === u.id)
@@ -1687,6 +1736,7 @@ const rawApi: SammhaApi = {
   }),
 
   createInvestmentRequest: (type, names) => tx((db) => {
+    notBanned(db)
     const u = writer(db)
     ensureOpen('investment')
     if (!NAME_TYPES.includes(type)) throw new ApiError('اختر النوع')
@@ -2092,6 +2142,77 @@ const rawApi: SammhaApi = {
     return violationDto(db, v, false)
   }),
 
+  // ───── «الحظر» ─────
+  adminBans: (f = {}) => tx((db) => {
+    const u = needAny(db, ['bans.view', 'bans.manage'])
+    const full = permsOf(db, u).includes('owners.full')
+    let list = demoBans(db).slice()
+    const q = f.q?.trim()
+    if (q) {
+      const p = normalizePhone(q), nid = q.replace(/\s/g, '').toUpperCase()
+      const who = new Set(db.users.filter((x) => x.fullName.includes(q) || x.phone === p || x.nationalId === nid).map((x) => x.id))
+      list = list.filter((b) => b.name.includes(q) || b.nationalId === nid || (b.ownerId && who.has(b.ownerId)))
+    }
+    const today = riyadhToday()
+    const n = (s: BanStatus) => list.filter((b) => banStatus(b, today) === s).length
+    const counts = { all: list.length, active: n('active'), scheduled: n('scheduled'), ended: n('ended'), lifted: n('lifted') }
+    if (f.status && f.status !== 'all') list = list.filter((b) => banStatus(b, today) === f.status)
+    list.sort((a, b) => Number(banStatus(b, today) === 'active') - Number(banStatus(a, today) === 'active') || b.createdAt.localeCompare(a.createdAt))
+    const page = Math.max(1, f.page ?? 1)
+    return { items: list.slice((page - 1) * 50, page * 50).map((b) => banDto(db, b, full)), total: list.length, page, size: 50, counts }
+  }),
+  createBan: (i) => tx((db) => {
+    const s = need(db, 'bans.manage')
+    const reason = banCheck(i.reason, i.startsOn, i.endsOn)
+    let owner: DemoUser | undefined
+    let nid: string | undefined
+    if (i.owner?.trim()) {
+      const p = normalizePhone(i.owner), id = i.owner.replace(/\s/g, '').toUpperCase()
+      owner = db.users.find((x) => x.role === 'owner' && (x.phone === p || (!!x.nationalId && x.nationalId === id)))
+      if (!owner) throw new ApiError('لا يوجد مالك مسجل بهذا الجوال أو رقم الهوية. لحظر شخص غير مسجل اكتب رقم هويته واسمه')
+      nid = owner.nationalId
+    } else {
+      nid = (i.nationalId ?? '').replace(/\s/g, '').toUpperCase()
+      if (!nid) throw new ApiError('اختر المالك، أو اكتب رقم هوية شخص غير مسجل')
+      if (nid.length < 5 || nid.length > 20) throw new ApiError('رقم الهوية غير صحيح')
+      owner = db.users.find((x) => x.role === 'owner' && x.nationalId === nid)
+    }
+    const name = owner?.fullName ?? (i.name ?? '').trim()
+    if (name.length < 3) throw new ApiError('اكتب اسم الشخص المحظور')
+    const b: DemoBan = { id: uid(db, 'bn'), ownerId: owner?.id, name, nationalId: nid, reason, startsOn: i.startsOn, endsOn: i.endsOn || undefined, source: 'manual', createdAt: iso(now()), createdByName: s.fullName }
+    demoBans(db).push(b)
+    if (owner) notify(db, owner.id, 'ban', 'حُظر حسابك من المشاركة في المنصة', `لا يمكنك المزايدة أو الشراء أو البيع أو تقديم طلبات جديدة ${banPeriod(b)}. السبب: ${reason}. يمكنك الدخول وسداد مستحقاتك.`, '/dashboard')
+    return banDto(db, b, permsOf(db, s).includes('owners.full'))
+  }),
+  updateBan: (id, i) => tx((db) => {
+    const s = need(db, 'bans.manage')
+    const reason = banCheck(i.reason, i.startsOn, i.endsOn)
+    const b = demoBans(db).find((x) => x.id === id)
+    if (!b) throw new ApiError('الحظر غير موجود')
+    if (b.liftedAt) throw new ApiError('رُفع هذا الحظر، أنشئ حظرًا جديدًا')
+    Object.assign(b, { reason, startsOn: i.startsOn, endsOn: i.endsOn || undefined })
+    if (b.ownerId) notify(db, b.ownerId, 'ban', 'عُدّلت مدة حظر حسابك', `الحظر ${banPeriod(b)}. السبب: ${reason}`, '/dashboard')
+    return banDto(db, b, permsOf(db, s).includes('owners.full'))
+  }),
+  liftBan: (id, reason) => tx((db) => {
+    const s = need(db, 'bans.manage')
+    const r = reason.trim()
+    if (r.length < 3) throw new ApiError('اكتب سبب رفع الحظر')
+    const b = demoBans(db).find((x) => x.id === id)
+    if (!b) throw new ApiError('الحظر غير موجود')
+    if (b.liftedAt) throw new ApiError('رُفع هذا الحظر مسبقًا')
+    const was = banStatus(b) === 'active'
+    Object.assign(b, { liftedAt: iso(now()), liftedByName: s.fullName, liftReason: r })
+    if (b.ownerId && was) notify(db, b.ownerId, 'ban', 'رُفع الحظر عن حسابك', 'يمكنك المزايدة والشراء والبيع وتقديم الطلبات من جديد.', '/dashboard')
+    return banDto(db, b, permsOf(db, s).includes('owners.full'))
+  }),
+  myBan: () => tx((db) => {
+    const u = me(db)
+    if (u.role !== 'owner') return null
+    const b = banOf(db, u)
+    return b ? { reason: b.reason, startsOn: b.startsOn, endsOn: b.endsOn } : null
+  }),
+
   // ───── «طلب استثناء المشاركة بدون اسم» ─────
   exemptionFestivals: () => tx((db) => {
     me(db)
@@ -2113,6 +2234,7 @@ const rawApi: SammhaApi = {
     return exemptionDto(db, e, true, permsOf(db, s).includes('owners.full'))
   }),
   requestExemption: (input) => tx((db) => {
+    notBanned(db)
     const u = writer(db)
     if (u.role !== 'owner') throw new ApiError('طلبات الاستثناء للملاك')
     const list = demoExemptions(db)
@@ -2241,6 +2363,7 @@ const rawApi: SammhaApi = {
     return { maskedName: maskName(recipientOf(db, phone, u.id).fullName) }
   }),
   createTransfer: ({ reservedId, phone, reason, note }) => tx((db) => {
+    notBanned(db)
     const u = transferOwner(db)
     ensureWritable(u.role)
     ensureOpen('transfer')
@@ -2382,6 +2505,7 @@ const rawApi: SammhaApi = {
   }),
 
   createListing: (reservedId, mode, price) => tx((db) => {
+    notBanned(db)
     const u = writer(db)
     ensureOpen(mode === 'auction' ? 'resale' : 'instant')
     const r = db.reserved.find((x) => x.id === reservedId && x.ownerId === u.id)
@@ -2447,6 +2571,7 @@ const rawApi: SammhaApi = {
   }),
 
   buyListing: (id, method) => tx((db) => {
+    notBanned(db)
     const u = writer(db)
     const l = db.listings?.find((x) => x.id === id)
     if (!l || l.mode !== 'instant') throw new ApiError('العرض غير موجود')
@@ -2466,6 +2591,7 @@ const rawApi: SammhaApi = {
   }),
 
   payBidDeposit: (auctionId, method) => tx((db) => {
+    notBanned(db)
     const u = writer(db)
     const a = db.auctions.find((x) => x.id === auctionId)
     if (!a) throw new ApiError('المزاد غير موجود')
@@ -2483,6 +2609,7 @@ const rawApi: SammhaApi = {
   }),
 
   placeBid: (auctionId, amount) => tx((db) => {
+    notBanned(db)
     const u = writer(db)
     const a = db.auctions.find((x) => x.id === auctionId)
     if (!a) throw new ApiError('المزاد غير موجود')
@@ -2502,6 +2629,7 @@ const rawApi: SammhaApi = {
   }),
 
   setAutoBid: (auctionId, max) => tx((db) => {
+    notBanned(db)
     const u = writer(db)
     const a = db.auctions.find((x) => x.id === auctionId)
     if (!a) throw new ApiError('المزاد غير موجود')

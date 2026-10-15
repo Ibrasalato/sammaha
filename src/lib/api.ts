@@ -3,7 +3,8 @@ import type {
   ActivityFilter, ActivityPage, IcoName, Certificate, CertificatePage, CertificateScope, CertificateVerify, Delegation, DelegationInput, AuditRow, BankAccount, BankAccountInput, BankStatus, DepositRow, DocumentFile, IbanCheck, MarkRow, OwnerCrm, StaffBankAccount, WalletDetail, WalletRow, Withdrawal, WithdrawalStatus,
   AddressInput, AdminSettings, AuctionActionResult, AuctionScope, AuctionView, PersonalInput, StaffRole, TicketRouting, InvestmentItem, ListingMode, NameListing, Preferences, PublicSettings, PublicStats, SecuritySummary, SessionInfo, SettingsChange, SettingsPatch, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet, MyTransfers, NameTransfer, TransferReason, TransferStatus, LogoRow, LogoStatus, PayoutStatus, MyCamels, OwnedCamel,
   Festival, Violation, ViolationInput, ViolationOwner, ViolationPage, ViolationStatus, ViolationType,
-  Exemption, ExemptionInput, ExemptionPage, ExemptionStatus, ExemptionVerify, FestivalOption } from './types'
+  Exemption, ExemptionInput, ExemptionPage, ExemptionStatus, ExemptionVerify, FestivalOption,
+  Ban, BanInput, BanPage, BanStatus, MyBan } from './types'
 
 /** owner sign-up (the address is completed later in the dashboard) */
 export interface SignUpInput {
@@ -290,6 +291,12 @@ export interface SammhaApi {
   rejectExemption(id: string, reason: string): Promise<Exemption>
   revokeExemption(id: string, reason: string): Promise<Exemption>
   verifyExemption(number: string, sig?: string): Promise<ExemptionVerify | null>
+  // «الحظر»: bans.view / bans.manage; a ban in force stops bidding, buying, selling and new requests
+  adminBans(f?: { q?: string; status?: BanStatus | 'all'; page?: number }): Promise<BanPage>
+  createBan(input: BanInput): Promise<Ban>
+  updateBan(id: string, input: { reason: string; startsOn: string; endsOn?: string }): Promise<Ban>
+  liftBan(id: string, reason: string): Promise<Ban>
+  myBan(): Promise<MyBan | null>
   // direct payouts of refund requests
   payoutStatus(): Promise<PayoutStatus>
   payoutWithdrawal(id: string): Promise<Withdrawal>

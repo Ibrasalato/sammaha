@@ -36,6 +36,7 @@ export function DashHome() {
   const invoices = useLoad(() => api.myInvoices(), [])
   const names = useLoad(() => api.myNames(), [])
   const fines = useFines()
+  const ban = useLoad(() => api.myBan(), [])
   const finesDue = fines.list?.filter((f) => f.state === 'due') ?? []
 
   const unpaid = invoices.data?.filter((i) => i.status === 'unpaid') ?? []
@@ -69,6 +70,16 @@ export function DashHome() {
           </Link>
         </div>
       </section>
+
+      {ban.data && (
+        <div role="alert" className="flex items-start gap-3 rounded-xl border-2 border-bad/40 bg-bad/5 px-5 py-4">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-bad/10 text-bad"><Icon name="lock" /></span>
+          <div className="text-[15px] leading-7">
+            <b className="block text-bad">{ban.data.endsOn ? tr(`حسابك محظور من المشاركة حتى ${date(ban.data.endsOn)}`, `Your account is barred from taking part until ${date(ban.data.endsOn)}`) : tr('حسابك محظور من المشاركة حتى إشعار آخر', 'Your account is barred from taking part until further notice')}</b>
+            {tr('لا يمكنك المزايدة أو الشراء أو البيع أو تقديم طلبات جديدة، ويمكنك سداد مستحقاتك ومتابعة حسابك. السبب:', 'You cannot bid, buy, sell or send new requests; you can still pay what you owe and follow your account. Reason:')} {ban.data.reason}
+          </div>
+        </div>
+      )}
 
       <ProfileCompletion />
 

@@ -5,6 +5,7 @@ import { CardStylePicker } from '../components/AuctionCard'
 const ActivityPanel = lazy(() => import('./admin/Activity').then((m) => ({ default: m.ActivityPanel })))
 const DelegationPanel = lazy(() => import('./owner/Delegation').then((m) => ({ default: m.DelegationPanel })))
 const BankAccountCard = lazy(() => import('./owner/Bank').then((m) => ({ default: m.BankAccountCard })))
+const BansPanel = lazy(() => import('./admin/Bans').then((m) => ({ default: m.BansPanel })))
 const ViolationSettingsPanel = lazy(() => import('./admin/Violations').then((m) => ({ default: m.ViolationSettingsPanel })))
 import { Icon } from '../components/dash'
 import type { IconName } from '../components/dash'
@@ -705,6 +706,7 @@ const STAFF_TABS: (Tab & { perms?: Permission[] })[] = [
   { id: 'auctionRules', get label() { return tr('إعدادات المزادات', 'Auction settings') }, icon: 'coins', perms: ['settings.manage'] },
   { id: 'tickets', get label() { return tr('الشكاوى والبلاغات', 'Complaints & reports') }, icon: 'alert', perms: ['settings.manage'] },
   { id: 'violations', get label() { return tr('المخالفات', 'Violations') }, icon: 'receipt', perms: ['settings.manage'] },
+  { id: 'bans', get label() { return tr('الحظر', 'Bans') }, icon: 'lock', perms: ['bans.view', 'bans.manage'] },
   { id: 'general', get label() { return tr('الإعدادات العامة', 'General settings') }, icon: 'settings', perms: ['settings.manage'] },
   { id: 'policy', get label() { return tr('سياسة الأمان', 'Security policy') }, icon: 'lock', perms: ['security.manage'] },
   { id: 'activity', get label() { return tr('سجل النشاط', 'Activity log') }, icon: 'history', perms: ['logs.view'] },
@@ -771,6 +773,7 @@ function AdminSettingsPage({ tabs }: { tabs: Tab[] }) {
       {tab === 'auctions' && <AuctionsPanel />}
       {tab === 'tickets' && <TicketsPanel />}
       {tab === 'violations' && <Suspense fallback={<Loading />}><ViolationSettingsPanel /></Suspense>}
+      {tab === 'bans' && <Suspense fallback={<Loading />}><BansPanel /></Suspense>}
       {tab === 'status' && <IntakeStatus />}
       {tab === 'account' && <SecuritySettings />}
 

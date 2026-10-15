@@ -537,7 +537,7 @@ export interface CamelEvent {
 export interface AppNotification {
   id: string
   userId: string
-  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'auction_update' | 'refund' | 'ticket' | 'reminder' | 'delegation' | 'certificate' | 'legacy' | 'transfer' | 'violation' | 'exemption'
+  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'auction_update' | 'refund' | 'ticket' | 'reminder' | 'delegation' | 'certificate' | 'legacy' | 'transfer' | 'violation' | 'exemption' | 'ban'
   title: string
   body: string
   link?: string
@@ -902,3 +902,36 @@ export interface ExemptionVerify {
   revokedAt?: string
   revokeReason?: string
 }
+
+/** «الحظر»: computed for today (Riyadh) */
+export type BanStatus = 'active' | 'scheduled' | 'ended' | 'lifted'
+
+export interface Ban {
+  id: string
+  /** the account, when the person is registered */
+  ownerId?: string
+  name: string
+  /** masked unless owners.full */
+  nationalId?: string
+  phone?: string
+  reason: string
+  /** yyyy-mm-dd, inclusive; no end = until lifted */
+  startsOn: string
+  endsOn?: string
+  status: BanStatus
+  /** manual | legacy_blacklist | legacy_excluded */
+  source: string
+  createdAt: string
+  createdByName: string
+  liftedAt?: string
+  liftedByName?: string
+  liftReason?: string
+}
+
+export interface BanPage { items: Ban[]; total: number; page: number; size: number; counts: { all: number; active: number; scheduled: number; ended: number; lifted: number } }
+
+/** a registered owner (owner: mobile or ID), or a national ID and a name for someone not registered */
+export interface BanInput { owner?: string; nationalId?: string; name?: string; reason: string; startsOn: string; endsOn?: string }
+
+/** the ban in force on the signed-in owner */
+export interface MyBan { reason: string; startsOn: string; endsOn?: string }
