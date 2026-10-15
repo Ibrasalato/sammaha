@@ -9,14 +9,16 @@ import { api, useApp, useLoad } from '../../lib/store'
 import { AdminRequestsBoard } from './RequestsBoard'
 import { AdminTransfers } from './Transfers'
 import { AdminLogos } from './Logos'
+import { AdminExemptions } from './Exemptions'
 
-type Tab = 'mark' | 'transfer' | 'compound' | 'investment' | 'logo'
+type Tab = 'mark' | 'transfer' | 'compound' | 'investment' | 'logo' | 'exemption'
 const TABS: { id: Tab; label: () => string; icon: IconName; perms: Permission[] }[] = [
   { id: 'mark', label: () => tr('التقديم على شعار', 'Mark requests'), icon: 'file', perms: ['requests.view'] },
   { id: 'transfer', label: () => tr('نقل ملكية', 'Ownership transfers'), icon: 'users', perms: ['names.transfer'] },
   { id: 'compound', label: () => tr('إضافة اسم مركب', 'Compound names'), icon: 'plus', perms: ['requests.view'] },
   { id: 'investment', label: () => tr('شعارات الاستثمار', 'Name investment'), icon: 'coins', perms: ['requests.view'] },
   { id: 'logo', label: () => tr('لوجوهات الشعارات', 'Mark logos'), icon: 'tag', perms: ['names.logos'] },
+  { id: 'exemption', label: () => tr('الاستثناءات', 'Exemptions'), icon: 'trophy', perms: ['exemptions.view', 'exemptions.manage'] },
 ]
 
 /** every request owners send, one tab per kind (each tab keeps its own search and filters) */
@@ -30,12 +32,14 @@ export function AdminOwnerRequests() {
   const reqs = useLoad(() => (can('requests.view') ? api.listRequests('under_review') : Promise.resolve([])), [])
   const transfers = useLoad(() => (can('names.transfer') ? api.adminTransfers('under_review') : Promise.resolve([])), [])
   const logos = useLoad(() => (can('names.logos') ? api.adminLogos('pending') : Promise.resolve([])), [])
+  const exemptions = useLoad(() => (canAny(user, ['exemptions.view', 'exemptions.manage']) ? api.adminExemptions({ status: 'pending', size: 10 }).then((p) => p.counts.pending) : Promise.resolve(0)), [])
   const count: Record<Tab, number> = {
     mark: (reqs.data ?? []).filter((r) => (r.kind ?? 'standard') === 'standard').length,
     compound: (reqs.data ?? []).filter((r) => r.kind === 'compound').length,
     investment: (reqs.data ?? []).filter((r) => r.kind === 'investment').length,
     transfer: transfers.data?.length ?? 0,
     logo: logos.data?.length ?? 0,
+    exemption: exemptions.data ?? 0,
   }
   return (
     <>
@@ -54,6 +58,7 @@ export function AdminOwnerRequests() {
       {tab === 'investment' && <AdminRequestsBoard kind="investment" embedded />}
       {tab === 'transfer' && <AdminTransfers embedded />}
       {tab === 'logo' && <AdminLogos embedded />}
+      {tab === 'exemption' && <AdminExemptions embedded />}
     </>
   )
 }

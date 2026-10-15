@@ -223,7 +223,7 @@ export function ExemptionView({ staff = false }: { staff?: boolean }) {
   if (loading && !data) return <Loading />
   if (error || !data) return <ErrorBox text={error ?? tr('طلب الاستثناء غير موجود', 'Exemption request not found')} />
   const e = data
-  const back = staff ? '/admin/exemptions' : '/dashboard/exemptions'
+  const back = staff ? '/admin/requests?tab=exemption' : '/dashboard/exemptions'
   if (e.status !== 'paid' || !e.signature) {
     return (
       <div className="panel mx-auto max-w-xl p-6 text-center">

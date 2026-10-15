@@ -56,7 +56,6 @@ const MyViolationsPage = pick(() => import('./pages/owner/Violations'), 'MyViola
 const AdminViolations = pick(() => import('./pages/admin/Violations'), 'AdminViolations')
 const exMod = () => import('./pages/owner/Exemptions')
 const MyExemptionsPage = pick(exMod, 'MyExemptionsPage'), ExemptionView = pick(exMod, 'ExemptionView'), StaffExemptionView = pick(exMod, 'StaffExemptionView')
-const AdminExemptions = pick(() => import('./pages/admin/Exemptions'), 'AdminExemptions')
 const ServicesPage = pick(() => import('./pages/owner/Services'), 'ServicesPage')
 const PublicServices = pick(() => import('./pages/owner/Services'), 'PublicServices')
 const AdminTickets = pick(() => import('./pages/admin/Tickets'), 'AdminTickets'), AdminTicket = pick(() => import('./pages/admin/Tickets'), 'AdminTicket')
@@ -122,7 +121,7 @@ const OWNER_NAV: NavItem[] = [
 /** each staff page and what opens it: a role sees only the pages its permissions allow */
 const ADMIN_NAV: (NavItem & { perms?: Permission[] })[] = [
   { to: '/admin', get label() { return tr('نظرة عامة', 'Overview') }, icon: 'home', end: true },
-  { to: '/admin/requests', get label() { return tr('الطلبات', 'Requests') }, icon: 'shield', perms: ['requests.view', 'names.transfer', 'names.logos'] },
+  { to: '/admin/requests', get label() { return tr('الطلبات', 'Requests') }, icon: 'shield', perms: ['requests.view', 'names.transfer', 'names.logos', 'exemptions.view', 'exemptions.manage'] },
   { to: '/admin/schedule', get label() { return tr('فتح المزادات', 'Open auctions') }, get short() { return tr('فتح مزاد', 'Open auction') }, icon: 'calendar', perms: ['auctions.schedule'] },
   { to: '/admin/auctions', get label() { return tr('التحكم في المزادات', 'Auction control') }, get short() { return tr('المزادات', 'Auctions') }, icon: 'gavel', perms: ['auctions.manage', 'auctions.cancel', 'auctions.schedule'] },
   { to: '/admin/reports/marks', get label() { return tr('تقرير الشعارات', 'Marks report') }, get short() { return tr('التقرير', 'Report') }, icon: 'list', perms: ['reports.marks'] },
@@ -134,7 +133,6 @@ const ADMIN_NAV: (NavItem & { perms?: Permission[] })[] = [
   { to: '/admin/deposits', get label() { return tr('الضمانات', 'Guarantees') }, icon: 'lock', perms: ['deposits.view'] },
   { to: '/admin/tickets', get label() { return tr('الشكاوى والبلاغات', 'Complaints & reports') }, icon: 'alert', perms: ['tickets.view'] },
   { to: '/admin/violations', get label() { return tr('المخالفات', 'Violations') }, icon: 'alert', perms: ['violations.view', 'violations.manage'] },
-  { to: '/admin/exemptions', get label() { return tr('طلبات الاستثناء', 'Exemption requests') }, get short() { return tr('الاستثناءات', 'Exemptions') }, icon: 'trophy', perms: ['exemptions.view', 'exemptions.manage'] },
   { to: '/admin/events', get label() { return tr('المواعيد والفعاليات', 'Dates & events') }, icon: 'list', perms: ['events.manage'] },
   { to: '/admin/users', get label() { return tr('المستخدمون', 'Users') }, icon: 'users', perms: ['users.view'] },
   { to: '/admin/roles', get label() { return tr('الأدوار والصلاحيات', 'Roles & permissions') }, get short() { return tr('الأدوار', 'Roles') }, icon: 'shield', perms: ['roles.manage'] },
@@ -231,7 +229,7 @@ function AppRoutes() {
           <Route path={STAFF_LOGIN_PATH.slice(1)} element={<StaffLogin />} />
           <Route path="admin" element={<Guard roles={['committee', 'admin']}><AdminShell /></Guard>}>
             <Route index element={<AdminHome />} />
-            <Route path="requests" element={<Can perms={['requests.view', 'names.transfer', 'names.logos']}><AdminOwnerRequests /></Can>} />
+            <Route path="requests" element={<Can perms={['requests.view', 'names.transfer', 'names.logos', 'exemptions.view', 'exemptions.manage']}><AdminOwnerRequests /></Can>} />
             <Route path="requests/:id" element={<Can perms={['requests.view']}><AdminReview /></Can>} />
             <Route path="schedule" element={<Can perms={['auctions.schedule']}><AdminSchedule /></Can>} />
             <Route path="auctions" element={<Can perms={['auctions.manage', 'auctions.cancel', 'auctions.schedule']}><AdminAuctions /></Can>} />
@@ -253,8 +251,8 @@ function AppRoutes() {
             <Route path="tickets" element={<Can perms={['tickets.view']}><AdminTickets /></Can>} />
             <Route path="tickets/:id" element={<Can perms={['tickets.view']}><AdminTicket /></Can>} />
             <Route path="violations" element={<Can perms={['violations.view', 'violations.manage']}><AdminViolations /></Can>} />
-            <Route path="exemptions" element={<Can perms={['exemptions.view', 'exemptions.manage']}><AdminExemptions /></Can>} />
-            <Route path="exemptions/:number" element={<Can perms={['exemptions.view', 'exemptions.manage']}><StaffExemptionView /></Can>} />
+            <Route path="exemptions" element={<Navigate to="/admin/requests?tab=exemption" replace />} />
+            <Route path="requests/exemptions/:number" element={<Can perms={['exemptions.view', 'exemptions.manage']}><StaffExemptionView /></Can>} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

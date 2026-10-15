@@ -1,3 +1,4 @@
+import { DueFines, useFines } from '../../components/Fines'
 import { AuctionGrid } from '../../components/AuctionCard'
 import { TYPE_CLS, TYPE_LABEL, typeOptions } from '../../lib/config'
 import { ActionMenu } from '../../components/ActionMenu'
@@ -34,13 +35,15 @@ export function DashHome() {
   const bids = useLoad(() => api.myBids(), [], 15000)
   const invoices = useLoad(() => api.myInvoices(), [])
   const names = useLoad(() => api.myNames(), [])
+  const fines = useFines()
+  const finesDue = fines.list?.filter((f) => f.state === 'due') ?? []
 
   const unpaid = invoices.data?.filter((i) => i.status === 'unpaid') ?? []
   const liveBids = bids.data?.filter((b) => phaseOf(b.auction) === 'live') ?? []
   const pendingPay = reqs.data?.filter((r) => r.status === 'pending_payment') ?? []
   const underReview = reqs.data?.filter((r) => r.status === 'under_review').length ?? 0
   const outbid = liveBids.filter((b) => !b.auction.isLeader).length
-  const todo = unpaid.length + pendingPay.length + outbid
+  const todo = unpaid.length + pendingPay.length + outbid + finesDue.length
 
   return (
     <div className="space-y-6">
@@ -86,6 +89,8 @@ export function DashHome() {
           ))}
         </div>
       )}
+
+      {fines.list && <DueFines fines={fines.list} onPaid={fines.reload} />}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile icon="file" tone="blue" label={tr('تحت المراجعة', 'Under review')} value={num(underReview)} hint={tr('طلبات لدى اللجنة', 'Requests with the committee')} to="/dashboard/requests" />

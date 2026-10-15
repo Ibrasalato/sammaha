@@ -1,28 +1,42 @@
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '../../components/dash'
-import { PayModal } from '../../components/PayModal'
-import { AttachmentViewer, ViolationStatusPill, payMethodLabel } from '../../components/ViolationUi'
+import { camelTypeLabel } from '../../components/ExemptionUi'
+import { FinePay, FineStatusPill, useFines } from '../../components/Fines'
+import type { Fine } from '../../components/Fines'
+import { AttachmentViewer, payMethodLabel } from '../../components/ViolationUi'
 import { Empty, ErrorBox, Loading, Modal, PageHead } from '../../components/ui'
-import { dateTime, num, sar } from '../../lib/format'
+import { date, dateTime, num, sar } from '../../lib/format'
 import { tr } from '../../lib/i18n'
 import { api, useApp, useLoad } from '../../lib/store'
 import type { DocumentFile, ReservedName, Violation } from '../../lib/types'
 
-/** «المخالفات»: fines and penalties issued to the owner; a fine is paid by card only, and its receipt shows here (fines carry no VAT, so no tax invoice). */
+type Filter = 'all' | 'due' | 'done' | 'closed'
+
+/**
+ * «المخالفات»: one list of everything issued against the owner — violations from the administration, and the fine for not naming a camel
+ * that the committee set on an exemption request. Each line pays by card from the list; the details open a voucher, the attachment,
+ * and (for violations that allow it) settling by linking a name to the camel's chip.
+ */
 export function MyViolationsPage() {
   const { toast } = useApp()
-  const { data, loading, error, reload } = useLoad(() => api.myViolations(), [])
-  const [paying, setPaying] = useState<Violation | null>(null)
+  const { list, loading, error, reload } = useFines()
+  const [filter, setFilter] = useState<Filter>('all')
+  const [paying, setPaying] = useState<Fine | null>(null)
+  const [open, setOpen] = useState<Fine | null>(null)
   const [doc, setDoc] = useState<DocumentFile | null>(null)
   const [linking, setLinking] = useState<Violation | null>(null)
   // قعدان and بكار names the owner holds that are not on a chip yet (منقية has no chip)
   const names = useLoad(() => Promise.all([api.myNames(), api.myInvoices()]), [])
   const unpaidNames = new Set((names.data?.[1] ?? []).filter((i) => i.status === 'unpaid').map((i) => i.name))
   const free = (names.data?.[0] ?? []).filter((n) => (n.type === 'qaadan' || n.type === 'bakkar') && !n.camelId && !unpaidNames.has(n.name))
-  const list = data ?? []
-  const unpaid = list.filter((v) => v.status === 'unpaid')
-  const due = unpaid.reduce((s, v) => s + v.amount, 0)
+  const all = list ?? []
+  const due = all.filter((f) => f.state === 'due')
+  const total = due.reduce((s, f) => s + f.amount, 0)
+  const shown = filter === 'all' ? all : all.filter((f) => f.state === filter)
+  const count = (f: Filter) => (f === 'all' ? all.length : all.filter((x) => x.state === f).length)
+  const FILTERS: [Filter, string][] = [['all', tr('الكل', 'All')], ['due', tr('غير مسددة', 'Unpaid')], ['done', tr('مسددة أو مسوّاة', 'Paid or settled')], ['closed', tr('ملغاة أو منع', 'Cancelled or barred')]]
 
   async function openAttachment(v: Violation) {
     try { setDoc(await api.myViolationAttachment(v.id)) } catch (e) { toast((e as Error).message, 'bad') }
@@ -30,119 +44,127 @@ export function MyViolationsPage() {
 
   return (
     <>
-      <PageHead title={tr('المخالفات', 'Violations')} sub={tr('المخالفات والغرامات الصادرة بحقك من إدارة المنصة. تُسدَّد الغرامات بالبطاقة أو Apple Pay، ويظهر سند السداد مع كل مخالفة مسددة.', 'Violations and fines issued to you by the platform administration. Fines are paid by card or Apple Pay, and a payment voucher appears with each paid violation.')} />
-      {error ? <ErrorBox text={error} /> : loading && !data ? <Loading /> : list.length ? (
+      <PageHead title={tr('المخالفات', 'Violations')} sub={tr('كل المخالفات والغرامات الصادرة بحقك: مخالفات الإدارة، وغرامات عدم التسمية في طلبات الاستثناء. تُسدَّد بالبطاقة أو Apple Pay من القائمة مباشرة.', 'Every violation and fine issued against you: administration violations and the fines for not naming a camel on exemption requests. Pay them by card or Apple Pay straight from the list.')} />
+      {error ? <ErrorBox text={error} /> : loading && !list ? <Loading /> : all.length ? (
         <>
-          {unpaid.length > 0 && (
-            <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-bad/30 bg-bad/5 px-5 py-4">
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-bad/10 text-bad"><Icon name="alert" /></span>
-              <p className="flex-1 text-[15px]">{tr(`عليك ${num(unpaid.length)} ${unpaid.length === 1 ? 'مخالفة غير مسددة' : 'مخالفات غير مسددة'} بإجمالي`, `You have ${num(unpaid.length)} unpaid ${unpaid.length === 1 ? 'violation' : 'violations'} totalling`)} <b className="num">{sar(due)}</b></p>
+          <div className="mb-5 grid gap-3 sm:grid-cols-3">
+            <div className={`panel flex items-center gap-3 p-4 ${due.length ? 'border-bad/40 bg-bad/5' : ''}`}>
+              <span className={`grid h-10 w-10 place-items-center rounded-full ${due.length ? 'bg-bad/10 text-bad' : 'bg-[#E2F0E8] text-ok'}`}><Icon name={due.length ? 'alert' : 'check'} /></span>
+              <div><span className="block text-[13px] text-muted">{tr('المستحق للسداد', 'Due for payment')}</span><b className={`num text-[20px] ${due.length ? 'text-bad' : 'text-ok'}`}>{due.length ? sar(total) : tr('لا شيء', 'Nothing')}</b></div>
             </div>
-          )}
-          <ul className="space-y-3">
-            {list.map((v) => (
-              <li key={v.id} className={`panel p-5 ${v.status === 'cancelled' ? 'opacity-75' : ''}`}>
-                <div className="flex flex-wrap items-start gap-3">
-                  <div className="min-w-[14rem] flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="num text-[13px] text-muted" dir="ltr">{v.number}</span>
-                      <b className="text-[16.5px]">{tr(v.typeName, v.typeNameEn || v.typeName)}</b>
-                      <ViolationStatusPill s={v.status} />
-                    </div>
-                    <p className="mt-1 text-[13.5px] text-muted">{tr('صدرت', 'Issued')} {dateTime(v.issuedAt)}</p>
-                    {(v.festivalName || v.camelChip) && (
-                      <p className="mt-2 flex flex-wrap items-center gap-2 text-[14px]">
-                        {v.festivalName && <span className="pill bg-gold-soft text-gold-deep"><Icon name="trophy" className="h-3.5 w-3.5" />{v.festivalName}</span>}
-                        {v.camelChip && <span className="pill bg-stone text-ink/80">{tr('الشريحة', 'Chip')} <span className="num" dir="ltr">{v.camelChip}</span></span>}
-                      </p>
-                    )}
-                    <p className="mt-2 whitespace-pre-line text-[15px] leading-7">{v.description}</p>
-                    {v.attachmentName && (
-                      <button className="mt-2 inline-flex items-center gap-1.5 text-[14px] font-bold text-pine underline" onClick={() => openAttachment(v)}>
-                        <Icon name="file" className="h-4 w-4" />{tr('المرفق', 'Attachment')}: <span dir="ltr">{v.attachmentName}</span>
-                      </button>
-                    )}
-                    {v.status === 'resolved_name' && <p className="mt-2 rounded-lg bg-pine-soft/60 px-3 py-2 text-[13.5px]">{tr('سُوّيت المخالفة بربط اسم بشريحة الجمل دون سداد، ويمكنك مواصلة المشاركة.', 'Settled by linking a name to the camel chip, with no payment; you can keep taking part.')} {dateTime(v.resolvedAt)}{v.resolutionNote && <> — {v.resolutionNote}</>}</p>}
-                    {v.status === 'banned' && <p className="mt-2 rounded-lg bg-bad/10 px-3 py-2 text-[13.5px] text-bad"><b>{tr('مُنع الجمل من المشاركة في المهرجان', 'The camel is barred from the festival')}</b> {dateTime(v.resolvedAt)}{v.resolutionNote && <> — {tr('السبب', 'Reason')}: {v.resolutionNote}</>}</p>}
-                    {v.status === 'cancelled' && <p className="mt-2 rounded-lg bg-stone px-3 py-2 text-[13.5px]">{tr('أُلغيت', 'Cancelled')} {dateTime(v.cancelledAt)}{v.cancelReason && <> — {tr('السبب', 'Reason')}: {v.cancelReason}</>}</p>}
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <span className="num text-xl font-extrabold">{v.amount > 0 ? sar(v.amount) : tr('بلا غرامة', 'No fine')}</span>
-                  </div>
-                </div>
-                {v.status === 'unpaid' && (
-                  <div className="mt-4 border-t border-line pt-4">
-                    <p className="mb-3 font-extrabold">{tr('كيف تسوّي هذه المخالفة؟', 'How do you want to settle this violation?')}</p>
-                    <div className={`grid gap-3 ${v.allowsNameResolution ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
-                      <div className="flex flex-col gap-2 rounded-xl border-2 border-gold/60 bg-gold-soft/30 p-4">
-                        <b className="text-[15px]">{tr('سداد الغرامة ومواصلة المشاركة', 'Pay the fine and keep taking part')}</b>
-                        <p className="flex-1 text-[13.5px] leading-6 text-muted">{tr('تسدّد الغرامة بالبطاقة أو Apple Pay فتُغلق المخالفة، ويواصل الجمل المشاركة في المهرجان.', 'Pay the fine by card or Apple Pay; the violation closes and the camel keeps taking part in the festival.')}</p>
-                        <button className="btn-gold btn-sm" onClick={() => setPaying(v)}>{tr('سداد', 'Pay')} {sar(v.amount)}</button>
-                      </div>
-                      {v.allowsNameResolution && (
-                        <div className="flex flex-col gap-2 rounded-xl border-2 border-pine/30 bg-pine-soft/30 p-4">
-                          <b className="text-[15px]">{tr('ربط اسم تملكه بشريحة الجمل', 'Link a name you own to the camel chip')}</b>
-                          {!v.camelChip ? (
-                            <p className="flex-1 text-[13.5px] leading-6 text-muted">{tr('لم تُسجَّل شريحة الجمل في هذه المخالفة، تواصل مع الإدارة لإضافتها.', 'No camel chip was recorded on this violation; contact the administration to add it.')}</p>
-                          ) : free.length ? (
-                            <>
-                              <p className="flex-1 text-[13.5px] leading-6 text-muted">{tr(`اربط اسم قعود أو بكار تملكه بالشريحة ${v.camelChip} فتُغلق المخالفة دون سداد.`, `Link a qaadan or bakkar name you own to chip ${v.camelChip}; the violation closes with no payment.`)}</p>
-                              <button className="btn-primary btn-sm" onClick={() => setLinking(v)}>{tr('ربط اسم بالشريحة', 'Link a name')}</button>
-                            </>
-                          ) : (
-                            <>
-                              <p className="flex-1 text-[13.5px] leading-6 text-muted">{tr('ليس لديك اسم قعود أو بكار غير مربوط بشريحة. يمكنك شراء اسم من المزادات المفتوحة، ثم ربطه بالشريحة من هنا.', 'You have no qaadan or bakkar name that is not on a chip. You can buy a name in the open auctions, then link it here.')}</p>
-                              <Link to="/auctions" className="btn-primary btn-sm">{tr('المزادات المفتوحة', 'Open auctions')}</Link>
-                            </>
-                          )}
-                        </div>
-                      )}
-                      <div className="flex flex-col gap-2 rounded-xl border border-bad/30 bg-bad/5 p-4">
-                        <b className="text-[15px] text-bad">{tr('المنع من المشاركة في المهرجان', 'Barred from the festival')}</b>
-                        <p className="flex-1 text-[13.5px] leading-6 text-muted">{v.allowsNameResolution
-                          ? tr('إن لم تُسدَّد الغرامة ولم يُربط اسم بشريحة الجمل، يحق للجنة منع الجمل من المشاركة في المهرجان.', 'Without payment or a name linked to the chip, the committee may bar the camel from the festival.')
-                          : tr('إن لم تُسدَّد الغرامة، يحق للجنة منع الجمل من المشاركة في المهرجان.', 'Without payment, the committee may bar the camel from the festival.')}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {v.status === 'paid' && (
-                  <div className="mt-4 rounded-lg border border-ok/30 bg-[#E2F0E8]/50 p-4">
-                    <p className="mb-2 flex items-center gap-1.5 font-extrabold text-ok"><Icon name="receipt" className="h-4 w-4" />{tr('سند سداد', 'Payment voucher')}</p>
-                    <dl className="grid gap-x-6 gap-y-1.5 text-[14px] sm:grid-cols-2">
-                      <div className="flex justify-between gap-3"><dt className="text-muted">{tr('رقم السند', 'Voucher no.')}</dt><dd className="num font-bold" dir="ltr">{v.number}</dd></div>
-                      <div className="flex justify-between gap-3"><dt className="text-muted">{tr('المبلغ المسدد', 'Amount paid')}</dt><dd className="num font-bold">{sar(v.amount)}</dd></div>
-                      <div className="flex justify-between gap-3"><dt className="text-muted">{tr('تاريخ السداد', 'Paid on')}</dt><dd className="num">{dateTime(v.paidAt)}</dd></div>
-                      <div className="flex justify-between gap-3"><dt className="text-muted">{tr('وسيلة الدفع', 'Payment method')}</dt><dd>{payMethodLabel(v.paymentMethod)}</dd></div>
-                      {v.paymentId && <div className="flex justify-between gap-3 sm:col-span-2"><dt className="text-muted">{tr('مرجع العملية', 'Payment reference')}</dt><dd className="num truncate text-[12.5px]" dir="ltr">{v.paymentId}</dd></div>}
-                    </dl>
-                    <p className="mt-2 text-[12.5px] text-muted">{tr('سند سداد غرامة بدون ضريبة القيمة المضافة؛ الغرامات غير خاضعة للضريبة ولا تصدر لها فاتورة ضريبية.', 'A fine payment voucher without VAT; fines are not subject to VAT and no tax invoice is issued.')}</p>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
+            <div className="panel p-4"><span className="block text-[13px] text-muted">{tr('غير مسددة', 'Unpaid')}</span><b className="num text-[20px]">{num(due.length)}</b></div>
+            <div className="panel p-4"><span className="block text-[13px] text-muted">{tr('إجمالي المخالفات والغرامات', 'All violations and fines')}</span><b className="num text-[20px]">{num(all.length)}</b></div>
+          </div>
+          <section className="panel overflow-hidden">
+            <div className="flex flex-wrap gap-1.5 border-b border-line bg-stone/40 px-5 py-3" role="tablist" aria-label={tr('الحالة', 'Status')}>
+              {FILTERS.map(([f, l]) => (
+                <button key={f} type="button" role="tab" aria-selected={filter === f} onClick={() => setFilter(f)}
+                  className={`rounded-full border px-3 py-1.5 text-[13.5px] font-bold transition ${filter === f ? 'border-pine bg-pine text-paper' : 'border-line bg-paper text-ink hover:border-pine/40'}`}>
+                  {l}<span className={`num ms-1.5 ${filter === f ? 'text-paper/75' : f === 'due' && count(f) ? 'text-bad' : 'text-muted'}`}>{num(count(f))}</span>
+                </button>
+              ))}
+            </div>
+            {shown.length ? (
+              <div className="overflow-x-auto">
+                <table className="tbl">
+                  <thead><tr>
+                    <th>{tr('الرقم', 'Number')}</th><th>{tr('المخالفة', 'Violation')}</th><th>{tr('المهرجان والشريحة', 'Festival & chip')}</th>
+                    <th>{tr('القيمة', 'Amount')}</th><th>{tr('الحالة', 'Status')}</th><th>{tr('التاريخ', 'Date')}</th><th>{tr('الإجراء', 'Action')}</th>
+                  </tr></thead>
+                  <tbody>
+                    {shown.map((f) => (
+                      <tr key={f.key} className={f.state === 'closed' ? 'text-muted' : ''}>
+                        <td className="num whitespace-nowrap font-bold" dir="ltr" style={{ textAlign: 'start' }}>{f.number}</td>
+                        <td><b className="block text-[14.5px]">{f.title}</b>{f.kind === 'exemption' && <span className="text-[12.5px] text-muted">{tr('لمشاركة جمل بدون اسم', 'To race a camel without a name')}</span>}</td>
+                        <td className="text-[13.5px]">{f.festival ?? <span className="text-muted">—</span>}{f.chip && <span className="num block text-[12px] text-muted" dir="ltr" style={{ textAlign: 'start' }}>{f.chip}</span>}</td>
+                        <td className="num whitespace-nowrap font-extrabold">{f.amount > 0 ? sar(f.amount) : <span className="font-normal text-muted">{tr('بلا غرامة', 'No fine')}</span>}</td>
+                        <td><FineStatusPill f={f} /></td>
+                        <td className="whitespace-nowrap text-[13px] text-muted">{date(f.at)}</td>
+                        <td>
+                          <div className="flex flex-nowrap gap-1.5">
+                            {f.state === 'due' && <button className="btn-gold btn-sm" onClick={() => setPaying(f)}>{tr('سداد', 'Pay')}</button>}
+                            {f.exemption?.status === 'paid' && <Link to={`/dashboard/exemptions/${f.number}`} className="btn-primary btn-sm">{tr('الوثيقة', 'Document')}</Link>}
+                            <button className="btn-ghost btn-sm" onClick={() => setOpen(f)}>{tr('التفاصيل', 'Details')}</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : <p className="px-5 py-10 text-center text-muted">{tr('لا توجد مخالفات بهذه الحالة.', 'No violations with this status.')}</p>}
+          </section>
         </>
       ) : (
         <Empty title={tr('لا توجد مخالفات', 'No violations')}>
-          <p className="text-muted">{tr('لم تصدر بحقك أي مخالفة. تظهر هنا المخالفات والغرامات إن صدرت، ويصلك إشعار بها.', 'No violation has been issued to you. Violations and fines appear here if issued, and you are notified.')}</p>
+          <p className="text-muted">{tr('لم تصدر بحقك أي مخالفة أو غرامة. تظهر هنا إن صدرت، ويصلك إشعار بها.', 'No violation or fine has been issued against you. They appear here if issued, and you are notified.')}</p>
         </Empty>
       )}
 
-      <PayModal open={!!paying} onClose={() => setPaying(null)} cardOnly
-        title={paying ? tr(`سداد المخالفة ${paying.number}`, `Pay violation ${paying.number}`) : ''}
-        amount={paying?.amount ?? 0}
-        onPay={async () => {
-          if (!paying) return
-          try {
-            await api.payViolation(paying.id)
-            toast(tr('سُددت المخالفة، وسند السداد في صفحة المخالفات', 'Violation paid; the payment voucher is on this page'))
-            reload()
-          } catch (e) { toast((e as Error).message, 'bad'); throw e }
-        }} />
+      <FinePay fine={paying} onClose={() => setPaying(null)} onDone={() => { setPaying(null); setOpen(null); reload() }} />
+      {open && <FineDetails f={open} canLink={free.length > 0} onClose={() => setOpen(null)} onPay={() => setPaying(open)}
+        onAttachment={openAttachment} onLink={(v) => { setOpen(null); setLinking(v) }} />}
       <AttachmentViewer doc={doc} onClose={() => setDoc(null)} />
       {linking && <LinkNameModal v={linking} names={free} onClose={() => setLinking(null)} onDone={() => { setLinking(null); reload(); names.reload() }} />}
     </>
+  )
+}
+
+/** one violation or fine in full: description, attachment, payment voucher, and the ways to settle it while it is unpaid */
+function FineDetails({ f, canLink, onClose, onPay, onAttachment, onLink }: {
+  f: Fine; canLink: boolean; onClose: () => void; onPay: () => void; onAttachment: (v: Violation) => void; onLink: (v: Violation) => void
+}) {
+  const v = f.violation, e = f.exemption
+  const row = (l: string, x: ReactNode) => <div className="flex justify-between gap-3 border-b border-line/60 py-1.5 text-[14.5px]"><dt className="text-muted">{l}</dt><dd className="text-end font-bold">{x}</dd></div>
+  const paidAt = v?.paidAt ?? e?.paidAt
+  return (
+    <Modal open onClose={onClose} title={`${f.title} — ${f.number}`} wide>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2"><FineStatusPill f={f} /><span className="text-[13.5px] text-muted">{dateTime(f.at)}</span></div>
+        <dl className="grid gap-x-8 sm:grid-cols-2">
+          {row(tr('القيمة', 'Amount'), f.amount > 0 ? <span className="num">{sar(f.amount)}</span> : tr('بلا غرامة', 'No fine'))}
+          {f.festival && row(tr('المهرجان', 'Festival'), f.festival)}
+          {f.chip && row(tr('الشريحة', 'Chip'), <span className="num" dir="ltr">{f.chip}</span>)}
+          {e && row(tr('نوع الجمل', 'Camel'), camelTypeLabel(e.camelType))}
+          {e?.race && row(tr('الشوط', 'Race'), e.race)}
+        </dl>
+        {v && <p className="whitespace-pre-line text-[15px] leading-7">{v.description}</p>}
+        {e && <p className="text-[14.5px] leading-7 text-muted">{tr('غرامة حددتها اللجنة لعدم تسمية الجمل، ضمن طلب الاستثناء للمشاركة في المهرجان بدون اسم. تصدر وثيقة الاستثناء فور السداد.', 'A fine the committee set for not naming the camel, on the exemption request to race without a name. The exemption document is issued as soon as it is paid.')}{e.staffNote && <> {tr('ملاحظة اللجنة', 'Committee note')}: {e.staffNote}</>}</p>}
+        {v?.attachmentName && (
+          <button className="inline-flex items-center gap-1.5 text-[14px] font-bold text-pine underline" onClick={() => onAttachment(v)}>
+            <Icon name="file" className="h-4 w-4" />{tr('المرفق', 'Attachment')}: <span dir="ltr">{v.attachmentName}</span>
+          </button>
+        )}
+        {v?.status === 'resolved_name' && <p className="rounded-lg bg-pine-soft/60 px-3 py-2 text-[13.5px]">{tr('سُوّيت المخالفة بربط اسم بشريحة الجمل دون سداد.', 'Settled by linking a name to the camel chip, with no payment.')} {dateTime(v.resolvedAt)}{v.resolutionNote && <> — {v.resolutionNote}</>}</p>}
+        {v?.status === 'banned' && <p className="rounded-lg bg-bad/10 px-3 py-2 text-[13.5px] text-bad"><b>{tr('مُنع الجمل من المشاركة في المهرجان', 'The camel is barred from the festival')}</b> {dateTime(v.resolvedAt)}{v.resolutionNote && <> — {tr('السبب', 'Reason')}: {v.resolutionNote}</>}</p>}
+        {v?.status === 'cancelled' && <p className="rounded-lg bg-stone px-3 py-2 text-[13.5px]">{tr('أُلغيت', 'Cancelled')} {dateTime(v.cancelledAt)}{v.cancelReason && <> — {tr('السبب', 'Reason')}: {v.cancelReason}</>}</p>}
+        {paidAt && (
+          <div className="rounded-lg border border-ok/30 bg-[#E2F0E8]/50 p-4">
+            <p className="mb-2 flex items-center gap-1.5 font-extrabold text-ok"><Icon name="receipt" className="h-4 w-4" />{tr('سند سداد', 'Payment voucher')}</p>
+            <dl className="grid gap-x-6 gap-y-1.5 text-[14px] sm:grid-cols-2">
+              <div className="flex justify-between gap-3"><dt className="text-muted">{tr('رقم السند', 'Voucher no.')}</dt><dd className="num font-bold" dir="ltr">{f.number}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-muted">{tr('المبلغ المسدد', 'Amount paid')}</dt><dd className="num font-bold">{sar(f.amount)}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-muted">{tr('تاريخ السداد', 'Paid on')}</dt><dd className="num">{dateTime(paidAt)}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-muted">{tr('وسيلة الدفع', 'Payment method')}</dt><dd>{payMethodLabel(v?.paymentMethod ?? e?.paymentMethod)}</dd></div>
+            </dl>
+            <p className="mt-2 text-[12.5px] text-muted">{tr('غرامة بدون ضريبة القيمة المضافة؛ الغرامات غير خاضعة للضريبة ولا تصدر لها فاتورة ضريبية.', 'A fine without VAT; fines are not subject to VAT and no tax invoice is issued.')}</p>
+          </div>
+        )}
+        {f.state === 'due' && (
+          <div className="space-y-2 border-t border-line pt-4">
+            <div className="flex flex-wrap gap-2">
+              <button className="btn-gold" onClick={onPay}>{tr('سداد', 'Pay')} {sar(f.amount)}</button>
+              {v?.allowsNameResolution && v.camelChip && (canLink
+                ? <button className="btn-primary" onClick={() => onLink(v)}>{tr('ربط اسم أملكه بالشريحة بدل السداد', 'Link a name I own instead of paying')}</button>
+                : <Link to="/auctions" className="btn-ghost">{tr('شراء اسم من المزادات ثم ربطه', 'Buy a name in the auctions, then link it')}</Link>)}
+            </div>
+            <p className="text-[13px] text-muted">{e
+              ? tr('إن لم تُسدَّد الغرامة لا تصدر وثيقة الاستثناء، ولا يحق للجمل المشاركة بدون اسم.', 'Without payment, no exemption document is issued and the camel may not race without a name.')
+              : tr('إن لم تُسوَّ المخالفة، يحق للجنة منع الجمل من المشاركة في المهرجان.', 'If the violation is not settled, the committee may bar the camel from the festival.')}</p>
+          </div>
+        )}
+      </div>
+    </Modal>
   )
 }
 

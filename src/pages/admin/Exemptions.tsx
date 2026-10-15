@@ -70,7 +70,7 @@ function DetailDialog({ e, onClose, onChanged }: { e: Exemption; onClose: () => 
             {open && <button className={action === 'price' ? 'btn-primary btn-sm' : 'btn-ghost btn-sm'} onClick={() => { setAction('price'); setErr('') }}>{e.status === 'priced' ? tr('تعديل الغرامة', 'Change the fine') : tr('تحديد الغرامة', 'Set the fine')}</button>}
             {open && <button className={`btn-ghost btn-sm ${action === 'reject' ? 'border-bad text-bad' : 'text-bad'}`} onClick={() => { setAction('reject'); setText(''); setErr('') }}>{tr('رفض الطلب', 'Reject')}</button>}
             {e.status === 'paid' && !e.revokedAt && <button className="btn-ghost btn-sm text-bad" onClick={() => { setAction('revoke'); setText(''); setErr('') }}>{tr('إلغاء الوثيقة', 'Revoke the document')}</button>}
-            {e.status === 'paid' && <Link to={`/admin/exemptions/${e.number}`} className="btn-ghost btn-sm ms-auto"><Icon name="file" className="h-4 w-4" />{tr('عرض الوثيقة', 'View document')}</Link>}
+            {e.status === 'paid' && <Link to={`/admin/requests/exemptions/${e.number}`} className="btn-ghost btn-sm ms-auto"><Icon name="file" className="h-4 w-4" />{tr('عرض الوثيقة', 'View document')}</Link>}
           </div>
         )}
         {action && (
@@ -101,7 +101,7 @@ function DetailDialog({ e, onClose, onChanged }: { e: Exemption; onClose: () => 
 }
 
 /** «طلبات الاستثناء»: owners asking to take part in a festival without a name; staff set the fine or reject (exemptions.manage) */
-export function AdminExemptions() {
+export function AdminExemptions({ embedded = false }: { embedded?: boolean }) {
   const { user } = useApp()
   const [status, setStatus] = useState<ExemptionStatus | 'all'>('pending')
   const [q, setQ] = useState('')
@@ -117,7 +117,7 @@ export function AdminExemptions() {
 
   return (
     <>
-      <PageHead title={tr('طلبات الاستثناء', 'Exemption requests')} sub={tr('طلبات الملاك للمشاركة في المهرجانات بجمل بدون اسم مسجل. تحدد اللجنة غرامة عدم التسمية، وبعد سداد المالك تصدر وثيقة الاستثناء تلقائيًا برمز تحقق.', 'Owners asking to take part in festivals with a camel that has no registered name. The committee sets the fine for not naming it; once the owner pays, the exemption document is issued automatically with a verification code.')} />
+      {!embedded && <PageHead title={tr('طلبات الاستثناء', 'Exemption requests')} sub={tr('طلبات الملاك للمشاركة في المهرجانات بجمل بدون اسم مسجل. تحدد اللجنة غرامة عدم التسمية، وبعد سداد المالك تصدر وثيقة الاستثناء تلقائيًا برمز تحقق.', 'Owners asking to take part in festivals with a camel that has no registered name. The committee sets the fine for not naming it; once the owner pays, the exemption document is issued automatically with a verification code.')} />}
       <section className="panel overflow-hidden">
         <div className="flex flex-wrap items-center gap-2 border-b border-line bg-stone/40 px-5 py-3">
           <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={tr('الحالة', 'Status')}>
