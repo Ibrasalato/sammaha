@@ -1,6 +1,6 @@
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi } from './api'
-import type { AppNotification, Auction, AuctionView, BankAccount, Invoice, LogoRequest, NameListing, User, Wallet, NameTransfer, Violation } from './types'
+import type { AppNotification, Auction, AuctionView, BankAccount, Invoice, LogoRequest, NameListing, User, Wallet, NameTransfer, Violation, Exemption } from './types'
 
 /**
  * The production backend: Sammha API (ASP.NET Core + SQL Server, repo Ibrasalato/sammaha-api).
@@ -150,7 +150,7 @@ function resetHub() {
 }
 
 /** Card: Moyasar's hosted page (the webhook completes the action), or an immediate simulated charge in development. */
-async function card(purpose: 'topup' | 'deposit' | 'invoice' | 'bid_deposit' | 'listing' | 'transfer' | 'violation', ref: string | null, amount = 0, method?: PayMethod) {
+async function card(purpose: 'topup' | 'deposit' | 'invoice' | 'bid_deposit' | 'listing' | 'transfer' | 'violation' | 'exemption', ref: string | null, amount = 0, method?: PayMethod) {
   const r = await post<{ url?: string; simulated: boolean }>('/api/payments/card', { purpose, ref, amount, callback: location.href.replace(/[?&]payment=[a-z]+/, ''), method: method && method !== 'wallet' ? method : null })
   if (r.url) { location.href = r.url; await new Promise(() => {}) }
 }
@@ -294,6 +294,20 @@ export const httpApi: SammhaApi = {
     await card('violation', id)
     return post<Violation>(`/api/me/violations/${id}/pay`)
   },
+  exemptionFestivals: () => get('/api/me/exemptions/festivals'),
+  myExemptions: () => get('/api/me/exemptions'),
+  exemption: (number) => get(`/api/me/exemptions/${encodeURIComponent(number.trim())}`),
+  requestExemption: (input) => post('/api/me/exemptions', { ...input, race: input.race || null, note: input.note || null }),
+  cancelMyExemption: (id) => post(`/api/me/exemptions/${id}/cancel`),
+  async payExemption(id) {
+    await card('exemption', id)
+    return post<Exemption>(`/api/me/exemptions/${id}/pay`)
+  },
+  adminExemptions: (f = {}) => get(`/api/admin/exemptions${qs({ q: f.q, status: f.status, festivalId: f.festivalId, page: f.page ? String(f.page) : undefined, size: f.size ? String(f.size) : undefined })}`),
+  priceExemption: (id, amount, note) => post(`/api/admin/exemptions/${id}/price`, { amount, note: note || null }),
+  rejectExemption: (id, reason) => post(`/api/admin/exemptions/${id}/reject`, { reason }),
+  revokeExemption: (id, reason) => post(`/api/admin/exemptions/${id}/revoke`, { reason }),
+  verifyExemption: (number, sig) => get(`/api/exemptions/issued/${encodeURIComponent(number.trim())}${sig ? `?s=${encodeURIComponent(sig)}` : ''}`),
   payoutStatus: () => get('/api/admin/payouts'),
   payoutWithdrawal: (id) => post(`/api/admin/withdrawals/${id}/payout`),
   createListing: (reservedId, mode, price) => post('/api/me/listings', { reservedId, mode, price }),

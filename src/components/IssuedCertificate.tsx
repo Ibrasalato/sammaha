@@ -11,8 +11,8 @@ export function issuedVerifyUrl(c: Pick<Certificate, 'number' | 'signature'>) {
 }
 
 // certificates are official documents: Gregorian dates in Riyadh time, in both languages
-const dAr = (s: string) => new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { timeZone: 'Asia/Riyadh', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(s))
-const dEn = (s: string) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Riyadh', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(s))
+export const dAr = (s: string) => new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { timeZone: 'Asia/Riyadh', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(s))
+export const dEn = (s: string) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Riyadh', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(s))
 const SOURCE: Record<string, [string, string]> = {
   auction: ['مزاد علني', 'Public auction'], legacy: ['قيد سابق', 'Prior record'], compound: ['اسم مركب', 'Compound name'], exception: ['أسماء المنظمة الدولية', 'Organization name'],
   investment: ['استثمار الاسم', 'Name investment'], resale: ['إعادة بيع', 'Resale'], transfer: ['نقل ملكية', 'Ownership transfer'],
@@ -21,7 +21,7 @@ const TYPE: Record<string, [string, string]> = { qaadan: ['القعدان', "Qa'
 const nat = (code?: string) => { const c = COUNTRIES.find((x) => x.code === code); return c ? [c.name, c.en] as const : null }
 
 /** the circular attestation seal of the International Camel Organization's names registry (drawn, not an image) */
-function Seal({ year, className = '' }: { year: number; className?: string }) {
+export function Seal({ year, className = '' }: { year: number; className?: string }) {
   return (
     <svg viewBox="0 0 200 200" className={className} aria-label="ختم التوثيق · Attestation seal" role="img">
       <defs>
@@ -52,7 +52,7 @@ function Corner({ className }: { className: string }) {
 }
 
 /** bilingual label: Arabic over English */
-function L({ ar, en }: { ar: string; en: string }) {
+export function L({ ar, en }: { ar: string; en: string }) {
   return <dt className="leading-tight"><span className="block text-[11.5px] font-bold text-muted">{ar}</span><span className="block text-[10px] font-medium uppercase tracking-[.08em] text-muted/80" dir="ltr">{en}</span></dt>
 }
 
@@ -62,7 +62,7 @@ function useQr(c: Certificate) {
   return qr
 }
 
-function Frame({ children, revoked, portrait }: { children: React.ReactNode; revoked?: boolean; portrait?: boolean }) {
+export function Frame({ children, revoked, portrait }: { children: React.ReactNode; revoked?: boolean; portrait?: boolean }) {
   return (
     <article className={`certificate-issued relative mx-auto w-full overflow-hidden bg-[#FBF8F0] text-ink shadow-card print:shadow-none ${portrait ? 'cert-portrait max-w-[52rem]' : 'cert-landscape aspect-[1.414] max-w-5xl'}`}>
       {/* watermark: the Sammha mark, very faint */}

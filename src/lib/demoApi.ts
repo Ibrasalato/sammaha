@@ -5,7 +5,7 @@
  */
 import { ApiError } from './api'
 import type { OtpChallenge, PayMethod, SammhaApi, SignUpInput } from './api'
-import type { Festival, OwnedCamel, Violation, ViolationStatus, ViolationType } from './types'
+import type { Festival, OwnedCamel, Violation, ViolationStatus, ViolationType, Exemption, ExemptionStatus } from './types'
 import type { ActivityEntry, ActivityFilter, Certificate, CertificateItem, CertificateScope, CertificateStatus, Delegation, DelegationScope, AuctionActionResult, AuctionScope, AuctionView, AuditRow, BankAccount, DepositRow, IbanCheck, MarkRow, NameListing, OwnerCrm, OwnerProfile, Preferences, SimilarHit, StaffBankAccount, StaffRole, TicketRouting, WalletRow, Withdrawal, NameTransfer, LogoRow } from './types'
 import { ALL_PERMISSIONS, COMMITTEE_DEFAULT, COMMITTEE_ROLE_ID, permissionLabel } from './permissions'
 import type { Permission } from './permissions'
@@ -82,7 +82,11 @@ interface DB {
   violations?: DemoViolation[]
   violationSeq?: number
   festivals?: Omit<Festival, 'used'>[]
+  /** «طلب استثناء المشاركة بدون اسم» */
+  exemptions?: DemoExemption[]
+  exemptionSeq?: number
 }
+type DemoExemption = Omit<Exemption, 'ownerName' | 'ownerPhone' | 'nationalId' | 'paymentMethod'> & { nationalIdFull?: string }
 type DemoCamel = OwnedCamel & { userId: string }
 type DemoViolation = Omit<Violation, 'ownerName' | 'ownerPhone' | 'typeNameEn' | 'allowsNameResolution'> & { attachmentBase64?: string }
 interface BidDeposit { auctionId: string; userId: string; amount: number; state: 'held' | 'refunded' | 'applied' | 'forfeited'; createdAt: string }
@@ -1272,6 +1276,40 @@ function violationOwner(db: DB, q: string): DemoUser | undefined {
   const p = normalizePhone(t)
   return db.users.find((u) => u.role === 'owner' && (u.phone === p || (!!u.nationalId && u.nationalId === t.replace(/\s/g, '').toUpperCase())))
 }
+// ───── «طلب استثناء المشاركة بدون اسم» ─────
+/** the requests, with one sample waiting for payment for the sample owner on first use (festivals come with the violations' samples) */
+function demoExemptions(db: DB): DemoExemption[] {
+  demoViolations(db)
+  if (!db.exemptions) {
+    const t = now(), y = new Date().getFullYear()
+    const f = db.festivals?.[1] ?? db.festivals?.[0]
+    db.exemptionSeq = 1
+    db.exemptions = f ? [{
+      id: 'ex-demo-1', number: `EX-${y}-00001`, ownerId: 'u-owner', camelChip: '9821000000007', camelType: 'bakkar', festivalId: f.id, festivalName: f.name,
+      race: 'شوط الحقايق', status: 'priced', createdAt: iso(t - 2 * D), amount: 5000, staffNote: 'غرامة عدم تسمية فردي بكار (مثال تجريبي)', pricedAt: iso(t - D), pricedByName: 'لجنة الاعتماد',
+    }] : []
+    for (const e of db.exemptions) notify(db, e.ownerId, 'exemption', `حُدّدت غرامة طلب الاستثناء ${e.number}`, `غرامة عدم تسمية الشريحة ${e.camelChip} في «${e.festivalName}»: ${e.amount} ريال. سدّدها لتصدر لك وثيقة الاستثناء.`, '/dashboard/exemptions')
+  }
+  return db.exemptions
+}
+/** demo signature of an exemption document (the API uses HMAC-SHA256 with a server secret) */
+const exemptionSign = (e: DemoExemption) => certSign({ number: e.number, ownerId: e.ownerId, ownerNameAr: e.ownerNameEn ?? '', ownerNameEn: e.camelChip, nationalId: e.festivalName, issuedAt: e.issuedAt ?? '', items: [] } as unknown as DemoCert)
+const EXEMPTION_CLOSED: Partial<Record<ExemptionStatus, string>> = { paid: 'سُدّدت الغرامة وصدرت وثيقة الاستثناء', rejected: 'رُفض هذا الطلب', cancelled: 'سُحب هذا الطلب' }
+const closedWhyExemption = (e: DemoExemption) => EXEMPTION_CLOSED[e.status] ?? 'لا يمكن تغيير حالة هذا الطلب'
+const exemptionTypeLabel = (t: string) => (t === 'bakkar' ? 'بكرة' : 'قعود')
+function exemptionDto(db: DB, e: DemoExemption, staffView: boolean, full = false): Exemption {
+  const { nationalIdFull, pricedByName, rejectedByName, revokedByName, ...rest } = e
+  const o = db.users.find((u) => u.id === e.ownerId)
+  const issued = e.status === 'paid'
+  return {
+    ...rest, ownerName: o?.fullName ?? '', paymentMethod: e.paymentId ? 'card' : undefined,
+    nationalId: staffView && full ? o?.nationalId : maskId(nationalIdFull ?? o?.nationalId),
+    issuedAt: issued ? e.issuedAt : undefined, signature: issued ? e.signature : undefined, ownerNameEn: issued ? e.ownerNameEn : undefined,
+    ...(staffView ? { ownerPhone: full ? o?.phone : maskId(o?.phone), pricedByName, rejectedByName, revokedByName } : {}),
+  }
+}
+const isOpenExemption = (s: ExemptionStatus) => s === 'pending' || s === 'priced'
+
 const sniffAttachment = (b64: string) => (b64.startsWith('JVBER') ? 'application/pdf' : sniffImage(b64))
 
 // ───────────────────────── API ─────────────────────────
@@ -1858,7 +1896,7 @@ const rawApi: SammhaApi = {
     return { ...t, used: list.filter((v) => v.typeId === t!.id).length }
   }),
   festivals: (activeOnly) => tx((db) => {
-    needAny(db, ['settings.manage', 'violations.manage', 'violations.view'])
+    needAny(db, ['settings.manage', 'violations.manage', 'violations.view', 'exemptions.view', 'exemptions.manage'])
     const list = demoViolations(db)
     return (db.festivals ?? []).filter((f) => !activeOnly || f.active).sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || a.name.localeCompare(b.name, 'ar'))
       .map((f) => ({ ...f, used: list.filter((v) => v.festivalId === f.id).length }))
@@ -1884,6 +1922,7 @@ const rawApi: SammhaApi = {
     need(db, 'settings.manage')
     if (!db.festivals?.some((f) => f.id === id)) throw new ApiError('المهرجان غير موجود')
     if (demoViolations(db).some((v) => v.festivalId === id)) throw new ApiError('صدرت مخالفات في هذا المهرجان، أوقفه بدل حذفه')
+    if (demoExemptions(db).some((e) => e.festivalId === id)) throw new ApiError('قُدّمت طلبات استثناء في هذا المهرجان، أوقفه بدل حذفه')
     db.festivals = db.festivals.filter((f) => f.id !== id)
   }),
   deleteViolationType: (id) => tx((db) => {
@@ -2051,6 +2090,144 @@ const rawApi: SammhaApi = {
     Object.assign(v, { status: 'paid', paidAt: iso(now()), paymentId: uid(db, 'p'), paymentMethod: 'card', resolution: 'paid_continue', resolvedAt: iso(now()) })
     notify(db, u.id, 'violation', `تم سداد المخالفة ${v.number}`, `سُدّد ${v.amount} ريال، ويظهر سند السداد في صفحة المخالفات.`, '/dashboard/violations')
     return violationDto(db, v, false)
+  }),
+
+  // ───── «طلب استثناء المشاركة بدون اسم» ─────
+  exemptionFestivals: () => tx((db) => {
+    me(db)
+    demoExemptions(db)
+    const today = new Date().toISOString().slice(0, 10)
+    return (db.festivals ?? []).filter((f) => f.active && (!f.endsOn || f.endsOn >= today))
+      .map(({ id, name, nameEn, year, startsOn, endsOn }) => ({ id, name, nameEn, year, startsOn, endsOn }))
+  }),
+  myExemptions: () => tx((db) => {
+    const u = me(db)
+    return demoExemptions(db).filter((e) => e.ownerId === u.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((e) => exemptionDto(db, e, false))
+  }),
+  exemption: (number) => tx((db) => {
+    const u = me(db)
+    const e = demoExemptions(db).find((x) => x.number === number.trim().toUpperCase())
+    if (!e) throw new ApiError('طلب الاستثناء غير موجود')
+    if (e.ownerId === u.id) return exemptionDto(db, e, false)
+    const s = needAny(db, ['exemptions.view', 'exemptions.manage'])
+    return exemptionDto(db, e, true, permsOf(db, s).includes('owners.full'))
+  }),
+  requestExemption: (input) => tx((db) => {
+    const u = writer(db)
+    if (u.role !== 'owner') throw new ApiError('طلبات الاستثناء للملاك')
+    const list = demoExemptions(db)
+    const chip = (input.camelChip ?? '').trim().toUpperCase()
+    if (chip.length < 5) throw new ApiError('اكتب رقم شريحة الجمل')
+    if (chip.length > 40 || !/^[A-Z0-9]+$/.test(chip)) throw new ApiError('رقم الشريحة أرقام وحروف إنجليزية فقط (40 خانة كحد أقصى)')
+    if (input.camelType !== 'qaadan' && input.camelType !== 'bakkar') throw new ApiError('اختر نوع الجمل: قعود أو بكرة')
+    const f = db.festivals?.find((x) => x.id === input.festivalId)
+    if (!f) throw new ApiError('اختر المهرجان')
+    if (!f.active) throw new ApiError('هذا المهرجان غير متاح لطلبات الاستثناء')
+    if (f.endsOn && f.endsOn < new Date().toISOString().slice(0, 10)) throw new ApiError('انتهى هذا المهرجان')
+    const race = (input.race ?? '').trim(), note = (input.note ?? '').trim()
+    if (race.length > 150) throw new ApiError('اسم الشوط طويل (150 حرفًا كحد أقصى)')
+    if (note.length > 500) throw new ApiError('الملاحظة طويلة (500 حرف كحد أقصى)')
+    if (demoCamels(db).some((c) => c.reservedId && c.chipNumbers.some((x) => x.toUpperCase() === chip))) throw new ApiError('هذه الشريحة مربوطة باسم مسجل، فلا تحتاج استثناء')
+    const dup = list.find((x) => x.camelChip === chip && x.festivalId === f.id && (isOpenExemption(x.status) || (x.status === 'paid' && !x.revokedAt)))
+    if (dup) throw new ApiError(dup.status === 'paid' ? `صدرت لهذه الشريحة وثيقة استثناء في هذا المهرجان (${dup.number})` : `لهذه الشريحة طلب استثناء قائم في هذا المهرجان (${dup.number})`)
+    db.exemptionSeq = Math.max(db.exemptionSeq ?? 0, list.length) + 1
+    const e: DemoExemption = {
+      id: uid(db, 'ex'), number: `EX-${new Date().getFullYear()}-${String(db.exemptionSeq).padStart(5, '0')}`, ownerId: u.id, camelChip: chip, camelType: input.camelType,
+      festivalId: f.id, festivalName: f.name, race: race || undefined, ownerNote: note || undefined, status: 'pending', createdAt: iso(now()),
+    }
+    list.push(e)
+    notify(db, u.id, 'exemption', `استلمنا طلب الاستثناء ${e.number}`, `طلب مشاركة ${exemptionTypeLabel(e.camelType)} بالشريحة ${chip} في «${f.name}» بدون اسم. ستصلك قيمة غرامة عدم التسمية بعد دراسة الطلب.`, '/dashboard/exemptions')
+    return exemptionDto(db, e, false)
+  }),
+  cancelMyExemption: (id) => tx((db) => {
+    const u = writer(db)
+    const e = demoExemptions(db).find((x) => x.id === id && x.ownerId === u.id)
+    if (!e) throw new ApiError('طلب الاستثناء غير موجود')
+    if (!isOpenExemption(e.status)) throw new ApiError(closedWhyExemption(e))
+    Object.assign(e, { status: 'cancelled', cancelledAt: iso(now()) })
+    return exemptionDto(db, e, false)
+  }),
+  payExemption: (id) => tx((db) => {
+    const u = writer(db)
+    const e = demoExemptions(db).find((x) => x.id === id && x.ownerId === u.id)
+    if (!e) throw new ApiError('طلب الاستثناء غير موجود')
+    if (e.status === 'paid') return exemptionDto(db, e, false)
+    if (e.status === 'pending') throw new ApiError('الطلب قيد الدراسة، ستصلك قيمة الغرامة لسدادها')
+    if (e.status !== 'priced' || !e.amount) throw new ApiError(closedWhyExemption(e))
+    // the demo simulates the card: in through the wallet and straight out; the fine carries no VAT, so no tax invoice
+    db.txs.push({ id: uid(db, 't'), userId: u.id, amount: e.amount, kind: 'topup', note: `دفع بالبطاقة لغرامة الاستثناء ${e.number}`, createdAt: iso(now()) })
+    db.txs.push({ id: uid(db, 't'), userId: u.id, amount: -e.amount, kind: 'fine', note: `غرامة عدم تسمية — استثناء ${e.number} للشريحة ${e.camelChip}`, createdAt: iso(now()) })
+    const issued = Math.floor(now() / 1000) * 1000
+    Object.assign(e, { status: 'paid', paidAt: iso(now()), paymentId: uid(db, 'p'), issuedAt: iso(issued), ownerNameEn: u.fullNameEn ?? toLatin(u.fullName), nationalIdFull: u.nationalId })
+    e.signature = exemptionSign(e)
+    notify(db, u.id, 'exemption', `صدرت وثيقة الاستثناء ${e.number}`, `سُدّدت الغرامة (${e.amount} ريال)، ويحق للشريحة ${e.camelChip} المشاركة في «${e.festivalName}» بدون اسم. اطبع الوثيقة من صفحة الاستثناءات.`, `/dashboard/exemptions/${e.number}`)
+    return exemptionDto(db, e, false)
+  }),
+  adminExemptions: (f = {}) => tx((db) => {
+    const u = needAny(db, ['exemptions.view', 'exemptions.manage'])
+    const full = permsOf(db, u).includes('owners.full')
+    let list = demoExemptions(db).slice()
+    const q = f.q?.trim()
+    if (q) {
+      const p = normalizePhone(q), up = q.toUpperCase()
+      const who = new Set(db.users.filter((x) => x.role === 'owner' && (x.fullName.includes(q) || x.phone === p || x.nationalId === q)).map((x) => x.id))
+      list = list.filter((e) => e.number.includes(up) || e.camelChip.includes(up) || e.festivalName.includes(q) || who.has(e.ownerId))
+    }
+    if (f.festivalId) list = list.filter((e) => e.festivalId === f.festivalId)
+    const n = (st: ExemptionStatus) => list.filter((e) => e.status === st).length
+    const counts = { all: list.length, pending: n('pending'), priced: n('priced'), paid: n('paid'), rejected: n('rejected'), cancelled: n('cancelled') }
+    if (f.status && f.status !== 'all') list = list.filter((e) => e.status === f.status)
+    list.sort((a, b) => Number(b.status === 'pending') - Number(a.status === 'pending') || b.createdAt.localeCompare(a.createdAt))
+    const size = Math.min(200, Math.max(10, f.size ?? 50)), page = Math.max(1, f.page ?? 1)
+    return { items: list.slice((page - 1) * size, page * size).map((e) => exemptionDto(db, e, true, full)), total: list.length, page, size, counts }
+  }),
+  priceExemption: (id, amount, note) => tx((db) => {
+    const u = need(db, 'exemptions.manage')
+    if (!(amount > 0) || amount > 1_000_000) throw new ApiError('قيمة الغرامة أكبر من صفر وحتى 1,000,000 ريال')
+    const n = (note ?? '').trim()
+    if (n.length > 500) throw new ApiError('الملاحظة طويلة (500 حرف كحد أقصى)')
+    const e = demoExemptions(db).find((x) => x.id === id)
+    if (!e) throw new ApiError('طلب الاستثناء غير موجود')
+    if (!isOpenExemption(e.status)) throw new ApiError(closedWhyExemption(e))
+    const changed = e.status === 'priced'
+    Object.assign(e, { amount: Math.round(amount * 100) / 100, staffNote: n || undefined, status: 'priced', pricedAt: iso(now()), pricedByName: u.fullName })
+    notify(db, e.ownerId, 'exemption', changed ? `عُدّلت غرامة طلب الاستثناء ${e.number}` : `حُدّدت غرامة طلب الاستثناء ${e.number}`, `غرامة عدم تسمية الشريحة ${e.camelChip} في «${e.festivalName}»: ${e.amount} ريال. سدّدها لتصدر لك وثيقة الاستثناء.` + (n ? ` ملاحظة: ${n}` : ''), '/dashboard/exemptions')
+    return exemptionDto(db, e, true, permsOf(db, u).includes('owners.full'))
+  }),
+  rejectExemption: (id, reason) => tx((db) => {
+    const u = need(db, 'exemptions.manage')
+    const why = reason.trim()
+    if (why.length < 3) throw new ApiError('اكتب سبب الرفض، يصل للمالك')
+    if (why.length > 500) throw new ApiError('سبب الرفض طويل (500 حرف كحد أقصى)')
+    const e = demoExemptions(db).find((x) => x.id === id)
+    if (!e) throw new ApiError('طلب الاستثناء غير موجود')
+    if (!isOpenExemption(e.status)) throw new ApiError(closedWhyExemption(e))
+    Object.assign(e, { status: 'rejected', rejectedAt: iso(now()), rejectReason: why, rejectedByName: u.fullName })
+    notify(db, e.ownerId, 'exemption', `رُفض طلب الاستثناء ${e.number}`, `الشريحة ${e.camelChip} في «${e.festivalName}» — السبب: ${why}`, '/dashboard/exemptions')
+    return exemptionDto(db, e, true, permsOf(db, u).includes('owners.full'))
+  }),
+  revokeExemption: (id, reason) => tx((db) => {
+    const u = need(db, 'exemptions.manage')
+    const why = reason.trim()
+    if (why.length < 5) throw new ApiError('اكتب سبب إلغاء الوثيقة')
+    if (why.length > 500) throw new ApiError('سبب الإلغاء طويل (500 حرف كحد أقصى)')
+    const e = demoExemptions(db).find((x) => x.id === id)
+    if (!e) throw new ApiError('طلب الاستثناء غير موجود')
+    if (e.status !== 'paid') throw new ApiError('لم تصدر وثيقة لهذا الطلب بعد')
+    if (e.revokedAt) throw new ApiError('أُلغيت هذه الوثيقة مسبقًا')
+    Object.assign(e, { revokedAt: iso(now()), revokeReason: why, revokedByName: u.fullName })
+    notify(db, e.ownerId, 'exemption', `أُلغيت وثيقة الاستثناء ${e.number}`, `السبب: ${why}`, '/dashboard/exemptions')
+    return exemptionDto(db, e, true, permsOf(db, u).includes('owners.full'))
+  }),
+  verifyExemption: (number, sig) => tx((db) => {
+    const e = demoExemptions(db).find((x) => x.number === number.trim().toUpperCase() && x.status === 'paid')
+    if (!e?.signature) return null
+    const intact = exemptionSign(e) === e.signature
+    const status = !intact || e.revokedAt ? 'revoked' as const : 'valid' as const
+    const matches = sig ? intact && sig.replace(/\s/g, '').toUpperCase() === e.signature : undefined
+    if (matches !== true) return { number: e.number, status, signatureMatches: matches, issuedAt: e.issuedAt }
+    return { number: e.number, status, signatureMatches: true, issuedAt: e.issuedAt, ownerNameAr: db.users.find((x) => x.id === e.ownerId)?.fullName, ownerNameEn: e.ownerNameEn,
+      camelChip: e.camelChip, camelType: e.camelType, festivalName: e.festivalName, race: e.race, revokedAt: e.revokedAt, revokeReason: e.revokeReason }
   }),
 
   // ───── «نقل ملكية اسم» ─────

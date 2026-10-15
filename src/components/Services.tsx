@@ -10,7 +10,7 @@ import { termsOf } from '../lib/serviceTerms'
 import type { ServiceKey as SettingKey } from '../lib/types'
 import { Modal } from './ui'
 
-export type ServiceKey = 'mark' | 'invest' | 'resale' | 'transfer' | 'compound'
+export type ServiceKey = 'mark' | 'invest' | 'resale' | 'transfer' | 'compound' | 'exemption'
 
 export interface EService {
   key: ServiceKey
@@ -36,6 +36,14 @@ export interface EService {
 }
 
 const pct = (r: number) => Math.round(r * 100)
+const exemptionTerms = () => [
+  tr('لا يشارك الجمل في المهرجانات دون اسم مسجل في سمّها، والاستثناء يسمح بمشاركة جمل بلا اسم في مهرجان محدد.', 'A camel may not take part in festivals without a name registered with Sammha; an exemption lets a camel without a name take part in one festival.'),
+  tr('يُقدَّم الطلب لشريحة واحدة في مهرجان واحد، ولا يُقبل طلب لشريحة مربوطة باسم مسجل.', 'A request covers one chip at one festival; a chip that already carries a registered name does not need one.'),
+  tr('تدرس اللجنة الطلب وتحدد غرامة عدم التسمية أو ترفضه مع ذكر السبب، ويصلك إشعار بذلك.', 'The committee reviews the request and sets the fine for not naming the camel, or rejects it with a reason; you are notified.'),
+  tr('تُسدَّد الغرامة بالبطاقة أو Apple Pay، وهي غير خاضعة لضريبة القيمة المضافة ولا تُسترد بعد صدور الوثيقة.', 'The fine is paid by card or Apple Pay; it carries no VAT and is not refunded once the document is issued.'),
+  tr('تصدر وثيقة الاستثناء فور السداد برمز توثيق ورمز QR، وتسري لهذا المهرجان وهذه الشريحة فقط.', 'The exemption document is issued on payment with an authentication code and a QR code, valid for this festival and this chip only.'),
+  tr('يمكنك سحب الطلب قبل السداد، ويحق للإدارة إلغاء وثيقة صدرت ببيانات غير صحيحة.', 'You can withdraw the request before paying; the administration may revoke a document issued on incorrect details.'),
+]
 const FREE = () => tr('مجانًا', 'Free')
 
 /** The five e-services with live prices and open/closed state from the public settings. */
@@ -99,7 +107,15 @@ export function useServices(): EService[] {
       priceNote: compoundFee ? tr('تُدفع بالبطاقة، ويُطلب من بطاقة الاسم في «أسمائي».', 'Paid by card; requested from the name card in “My names”.') : tr('يُطلب من بطاقة الاسم في «أسمائي».', 'Requested from the name card in “My names”.'),
       free: !compoundFee, open: s.compoundOpen, closedNote: s.compoundOpen ? undefined : closed(s.compoundClosedNote),
     },
-  ] as Omit<EService, 'terms'>[]).map((x) => ({ ...x, desc: textOf(x.key, x.desc), terms: termsOf(own[x.key] as SettingKey, s, lang) })).map((x) => (soonOf[x.key] ? { ...x, open: false, soon: true, closedNote: undefined } : x))
+    {
+      key: 'exemption', icon: 'trophy', to: '/dashboard/exemptions', mine: '/dashboard/exemptions',
+      title: tr('استثناء المشاركة بدون اسم', 'Race without a name'),
+      desc: tr('لجمل ليس له اسم مسجل بعد: اطلب استثناءً لشريحته في المهرجان، وبعد سداد غرامة عدم التسمية تصدر وثيقة الاستثناء.', 'For a camel without a registered name yet: ask for an exemption for its chip at the festival; once the fine for not naming it is paid, the exemption document is issued.'),
+      price: tr('غرامة تحددها اللجنة', 'A fine set by the committee'),
+      priceNote: tr('تُدفع بالبطاقة دون ضريبة، بعد دراسة الطلب.', 'Paid by card, no VAT, after the request is reviewed.'),
+      free: false, open: true,
+    },
+  ] as Omit<EService, 'terms'>[]).map((x) => ({ ...x, desc: x.key === 'exemption' ? x.desc : textOf(x.key, x.desc), terms: x.key === 'exemption' ? exemptionTerms() : termsOf(own[x.key] as SettingKey, s, lang) })).map((x) => (soonOf[x.key] ? { ...x, open: false, soon: true, closedNote: undefined } : x))
     // available services first (they start from the right in Arabic), then closed, then «قريبًا»; the original order inside each group
     .map((x, i) => ({ x, i, rank: x.open ? 0 : x.soon ? 2 : 1 })).sort((a, b) => a.rank - b.rank || a.i - b.i).map(({ x }) => x)
 }
@@ -110,7 +126,7 @@ export function ServicesGrid({ audience, className = '' }: { audience: 'public' 
   const list = useServices()
   const isOwner = audience === 'owner' || user?.role === 'owner'
   // the same grid on the home page and in the owner's dashboard
-  const cols = 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'
+  const cols = 'sm:grid-cols-2 lg:grid-cols-3'
   return (
     <ul className={`grid gap-4 ${cols} ${className}`}>
       {list.map((s) => <ServiceCard key={s.key} s={s} isOwner={isOwner} signedIn={!!user} />)}

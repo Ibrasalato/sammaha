@@ -2,7 +2,8 @@ import type {
   AppNotification, CamelEvent, AdminOverview, Auction, AuctionFilter, Bid, Invoice, LogoRequest, NameCheck, NameType,
   ActivityFilter, ActivityPage, IcoName, Certificate, CertificatePage, CertificateScope, CertificateVerify, Delegation, DelegationInput, AuditRow, BankAccount, BankAccountInput, BankStatus, DepositRow, DocumentFile, IbanCheck, MarkRow, OwnerCrm, StaffBankAccount, WalletDetail, WalletRow, Withdrawal, WithdrawalStatus,
   AddressInput, AdminSettings, AuctionActionResult, AuctionScope, AuctionView, PersonalInput, StaffRole, TicketRouting, InvestmentItem, ListingMode, NameListing, Preferences, PublicSettings, PublicStats, SecuritySummary, SessionInfo, SettingsChange, SettingsPatch, RequestStatus, ReservedName, ReviewDecision, Role, StaffInput, Ticket, TicketInput, TicketPriority, TicketStatus, User, Wallet, MyTransfers, NameTransfer, TransferReason, TransferStatus, LogoRow, LogoStatus, PayoutStatus, MyCamels, OwnedCamel,
-  Festival, Violation, ViolationInput, ViolationOwner, ViolationPage, ViolationStatus, ViolationType } from './types'
+  Festival, Violation, ViolationInput, ViolationOwner, ViolationPage, ViolationStatus, ViolationType,
+  Exemption, ExemptionInput, ExemptionPage, ExemptionStatus, ExemptionVerify, FestivalOption } from './types'
 
 /** owner sign-up (the address is completed later in the dashboard) */
 export interface SignUpInput {
@@ -276,6 +277,19 @@ export interface SammhaApi {
   payViolation(id: string): Promise<Violation>
   /** settle a no-name fine by linking a قعود/بكرة name the owner already owns to the fined camel's chip */
   linkNameToViolation(id: string, reservedId: string): Promise<Violation>
+  // «طلب استثناء المشاركة بدون اسم»: the owner asks, staff set the fine (exemptions.manage), the owner pays by card, a signed document is issued
+  exemptionFestivals(): Promise<FestivalOption[]>
+  myExemptions(): Promise<Exemption[]>
+  /** one request by number: the owner's own, or any for staff with exemptions.view */
+  exemption(number: string): Promise<Exemption>
+  requestExemption(input: ExemptionInput): Promise<Exemption>
+  cancelMyExemption(id: string): Promise<Exemption>
+  payExemption(id: string): Promise<Exemption>
+  adminExemptions(f?: { q?: string; status?: ExemptionStatus | 'all'; festivalId?: string; page?: number; size?: number }): Promise<ExemptionPage>
+  priceExemption(id: string, amount: number, note?: string): Promise<Exemption>
+  rejectExemption(id: string, reason: string): Promise<Exemption>
+  revokeExemption(id: string, reason: string): Promise<Exemption>
+  verifyExemption(number: string, sig?: string): Promise<ExemptionVerify | null>
   // direct payouts of refund requests
   payoutStatus(): Promise<PayoutStatus>
   payoutWithdrawal(id: string): Promise<Withdrawal>

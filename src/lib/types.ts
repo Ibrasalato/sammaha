@@ -537,7 +537,7 @@ export interface CamelEvent {
 export interface AppNotification {
   id: string
   userId: string
-  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'auction_update' | 'refund' | 'ticket' | 'reminder' | 'delegation' | 'certificate' | 'legacy' | 'transfer' | 'violation'
+  kind: 'outbid' | 'won' | 'lost' | 'reviewed' | 'auction_opened' | 'auction_update' | 'refund' | 'ticket' | 'reminder' | 'delegation' | 'certificate' | 'legacy' | 'transfer' | 'violation' | 'exemption'
   title: string
   body: string
   link?: string
@@ -828,4 +828,77 @@ export interface ViolationInput {
   festivalId?: string
   camelChip?: string
   attachment?: { fileName: string; contentType: string; dataBase64: string }
+}
+
+/** «طلب استثناء المشاركة بدون اسم»: pending → priced (staff set the fine) → paid (document issued); or rejected / cancelled by the owner */
+export type ExemptionStatus = 'pending' | 'priced' | 'paid' | 'rejected' | 'cancelled'
+
+export interface Exemption {
+  id: string
+  /** EX-YYYY-NNNNN */
+  number: string
+  ownerId: string
+  ownerName: string
+  /** staff only: masked unless owners.full */
+  ownerPhone?: string
+  /** masked unless the staff member has owners.full */
+  nationalId?: string
+  camelChip: string
+  camelType: 'qaadan' | 'bakkar'
+  festivalId?: string
+  festivalName: string
+  /** «الشوط» */
+  race?: string
+  ownerNote?: string
+  status: ExemptionStatus
+  createdAt: string
+  /** the fine for not naming the camel, set by staff */
+  amount?: number
+  staffNote?: string
+  pricedAt?: string
+  /** staff only */
+  pricedByName?: string
+  rejectedAt?: string
+  rejectReason?: string
+  rejectedByName?: string
+  cancelledAt?: string
+  paidAt?: string
+  paymentId?: string
+  paymentMethod?: string
+  /** the exemption document: given once it is paid */
+  issuedAt?: string
+  signature?: string
+  ownerNameEn?: string
+  revokedAt?: string
+  revokeReason?: string
+  revokedByName?: string
+}
+
+export interface ExemptionPage {
+  items: Exemption[]
+  total: number
+  page: number
+  size: number
+  counts: { all: number; pending: number; priced: number; paid: number; rejected: number; cancelled: number }
+}
+
+/** an active festival an owner can ask an exemption for */
+export interface FestivalOption { id: string; name: string; nameEn?: string; year?: number; startsOn?: string; endsOn?: string }
+
+export interface ExemptionInput { camelChip: string; camelType: 'qaadan' | 'bakkar'; festivalId: string; race?: string; note?: string }
+
+/** public verification of an exemption document; details only with the printed code */
+export interface ExemptionVerify {
+  number: string
+  status: 'valid' | 'revoked'
+  signatureMatches?: boolean | null
+  issuedAt?: string
+  ownerNameAr?: string
+  ownerNameEn?: string
+  camelChip?: string
+  camelType?: 'qaadan' | 'bakkar'
+  festivalName?: string
+  race?: string
+  revokedAt?: string
+  revokeReason?: string
 }

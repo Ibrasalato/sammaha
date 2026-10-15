@@ -377,7 +377,7 @@ export function FestivalsPanel() {
     <section className="panel overflow-hidden">
       <header className="flex flex-wrap items-start gap-3 border-b border-line/70 px-5 py-4">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gold-soft text-gold-deep"><Icon name="trophy" className="h-[18px] w-[18px]" /></span>
-        <div className="flex-1"><h2 className="text-[17px]">{tr('المهرجانات', 'Festivals')}</h2><p className="mt-0.5 text-[14px] leading-6 text-muted">{tr('يختار الموظف المهرجان الذي شارك فيه المالك عند إصدار المخالفة. المهرجان الموقوف لا يظهر في نموذج الإصدار.', 'Staff choose the festival the owner took part in when issuing a violation. A switched-off festival is not offered.')}</p></div>
+        <div className="flex-1"><h2 className="text-[17px]">{tr('المهرجانات', 'Festivals')}</h2><p className="mt-0.5 text-[14px] leading-6 text-muted">{tr('يختار الموظف المهرجان عند إصدار المخالفة، ويختاره المالك عند طلب استثناء المشاركة بدون اسم. المهرجان الموقوف أو المنتهي لا يظهر في النماذج.', 'Staff choose the festival when issuing a violation, and owners choose it when asking for an exemption to race without a name. A switched-off or finished festival is not offered.')}</p></div>
         {!edit && <button className="btn-primary btn-sm" onClick={() => { setEdit({ id: null, name: '', nameEn: '', year: String(new Date().getFullYear()), startsOn: '', endsOn: '', active: true }); setErr('') }}><Icon name="plus" className="h-4 w-4" />{tr('مهرجان جديد', 'New festival')}</button>}
       </header>
       {edit && (

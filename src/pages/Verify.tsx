@@ -1,7 +1,7 @@
 import { tr } from '../lib/i18n'
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import type { CertificateVerify } from '../lib/types'
+import type { CertificateVerify, ExemptionVerify } from '../lib/types'
 import { Loading, NameSeal, TypeBadge } from '../components/ui'
 import { certNo } from '../lib/cert'
 import { date } from '../lib/format'
@@ -13,16 +13,18 @@ export default function Verify() {
   const [input, setInput] = useState(code)
   const [params] = useSearchParams()
   const sig = params.get('s') ?? undefined
+  const exemption = /^EX-(\d{4}-\d+|L\d+)$/i.test(code)
   const issued = /^SC-\d{4}-\d+$/i.test(code)
-  const { data, loading } = useLoad(() => (code && !issued ? api.verifyCertificate(code) : Promise.resolve(null)), [code])
+  const { data, loading } = useLoad(() => (code && !issued && !exemption ? api.verifyCertificate(code) : Promise.resolve(null)), [code])
+  const ex = useLoad(() => (code && exemption ? api.verifyExemption(code, sig) : Promise.resolve(null)), [code, sig])
   const iss = useLoad(() => (code && issued ? api.verifyIssuedCertificate(code, sig) : Promise.resolve(null)), [code, sig])
 
   return (
     <>
       <section className="hero-field text-paper">
         <div className="wrap py-12">
-          <h1 className="text-[36px] font-extrabold text-paper">{tr('التحقق من شهادة اسم', 'Verify a name certificate')}</h1>
-          <p className="mt-2 max-w-xl text-paper/75">{tr('اكتب رقم الشهادة أو امسح رمز QR المطبوع عليها للتأكد من أنها صادرة من منصة سمّها.', 'Enter the certificate number or scan its QR code to confirm it was issued by Sammha.')}</p>
+          <h1 className="text-[36px] font-extrabold text-paper">{tr('التحقق من شهادة أو وثيقة', 'Verify a certificate or document')}</h1>
+          <p className="mt-2 max-w-xl text-paper/75">{tr('اكتب رقم الشهادة أو وثيقة الاستثناء، أو امسح رمز QR المطبوع عليها، للتأكد من أنها صادرة من منصة سمّها.', 'Enter the number of a certificate or exemption document, or scan its QR code, to confirm it was issued by Sammha.')}</p>
           <form className="mt-6 flex max-w-lg gap-2 rounded-lg bg-paper p-2 shadow-lift" onSubmit={(e) => { e.preventDefault(); if (input.trim()) nav(`/verify/${input.trim().toUpperCase()}`) }}>
             <label htmlFor="cn" className="sr-only">{tr('رقم الشهادة', 'Certificate no.')}</label>
             <input id="cn" dir="ltr" className="min-w-0 flex-1 rounded-md px-3 py-2.5 text-[17px] font-bold text-ink outline-none placeholder:font-normal" placeholder="SC-2026-000001" value={input} onChange={(e) => setInput(e.target.value)} />
@@ -32,7 +34,7 @@ export default function Verify() {
         <div className="h-1 bg-gold" aria-hidden />
       </section>
       <div className="wrap py-10">
-        {issued ? (iss.loading && !iss.data ? <Loading /> : iss.data ? <IssuedResult v={iss.data} /> : <NotFound code={code} />) : !code ? null : loading ? <Loading /> : data ? (
+        {exemption ? (ex.loading && !ex.data ? <Loading /> : ex.data ? <ExemptionResult v={ex.data} /> : <NotFound code={code} />) : issued ? (iss.loading && !iss.data ? <Loading /> : iss.data ? <IssuedResult v={iss.data} /> : <NotFound code={code} />) : !code ? null : loading ? <Loading /> : data ? (
           <div className="panel mx-auto max-w-2xl overflow-hidden">
             <div className="flex items-center gap-3 bg-[#E2F0E8] px-6 py-4 text-ok">
               <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden><path d="M20 6L9 17l-5-5" /></svg>
@@ -111,6 +113,39 @@ function IssuedResult({ v }: { v: CertificateVerify }) {
           </tbody>
         </table>
       </div>
+      <p className="border-t border-line px-6 py-3 text-[12.5px] text-muted">{tr('صادرة من منصة سمّها ومعتمدة من المنظمة الدولية للإبل. لا تعرض صفحة التحقق رقم هوية المالك.', 'Issued by Sammha and attested by the International Camel Organization. The verification page never shows the owner’s ID number.')}</p>
+    </div>
+  )
+}
+
+/** an exemption document (taking part in a festival without a name): valid or revoked, whether the printed code matches, and its details with the code */
+function ExemptionResult({ v }: { v: ExemptionVerify }) {
+  const valid = v.status === 'valid'
+  return (
+    <div className="panel mx-auto max-w-2xl overflow-hidden">
+      <div className={`px-6 py-4 ${valid ? 'bg-[#E2F0E8] text-ok' : 'bg-bad/10 text-bad'}`}>
+        <p className="text-[18px] font-extrabold">{valid ? tr('وثيقة استثناء صحيحة وسارية', 'Valid exemption document, in force') : tr('وثيقة استثناء ملغاة', 'Revoked exemption document')}</p>
+        <p className="text-[14px] opacity-90">{valid ? tr('يحق للجمل صاحب الشريحة المشاركة في المهرجان المذكور دون اسم مسجل.', 'The camel with this chip may take part in the stated festival without a registered name.') : tr('ألغت المنصة هذه الوثيقة ولا يُعتد بها.', 'The platform revoked this document; it must not be relied on.')}</p>
+        {!valid && v.revokeReason && <p className="mt-1 text-[14px]">{tr('السبب:', 'Reason:')} {v.revokeReason}</p>}
+      </div>
+      {v.signatureMatches !== undefined && v.signatureMatches !== null && (
+        <p className={`border-b border-line px-6 py-2.5 text-[14px] font-bold ${v.signatureMatches ? 'text-ok' : 'text-bad'}`}>
+          {v.signatureMatches ? tr('✓ رمز التوثيق مطابق لما في السجل', '✓ The authentication code matches the registry') : tr('✗ رمز التوثيق لا يطابق هذه الوثيقة: قد تكون النسخة معدّلة', '✗ The authentication code does not match this document: the copy may be altered')}
+        </p>
+      )}
+      <dl className="grid gap-4 p-6 text-[15px] sm:grid-cols-2">
+        <div><dt className="text-[13px] font-medium text-muted">{tr('رقم الوثيقة', 'Document no.')}</dt><dd className="num font-extrabold" dir="ltr" style={{ textAlign: 'start' }}>{v.number}</dd></div>
+        {v.issuedAt && <div><dt className="text-[13px] font-medium text-muted">{tr('تاريخ الإصدار', 'Issued on')}</dt><dd className="num font-bold">{date(v.issuedAt)}</dd></div>}
+        {v.signatureMatches ? (
+          <>
+            <div><dt className="text-[13px] font-medium text-muted">{tr('رقم الشريحة', 'Chip number')}</dt><dd className="num text-[18px] font-extrabold" dir="ltr" style={{ textAlign: 'start' }}>{v.camelChip}</dd><dd className="text-[13px] text-muted">{v.camelType === 'bakkar' ? tr('بكرة', 'Bakra (female)') : tr('قعود', "Qa'ud (male)")}</dd></div>
+            <div><dt className="text-[13px] font-medium text-muted">{tr('المهرجان', 'Festival')}</dt><dd className="font-bold">{v.festivalName}</dd>{v.race && <dd className="text-[13px] text-muted">{tr('الشوط', 'Race')}: {v.race}</dd>}</div>
+            <div className="sm:col-span-2"><dt className="text-[13px] font-medium text-muted">{tr('المالك', 'Owner')}</dt><dd className="font-bold">{v.ownerNameAr}</dd>{v.ownerNameEn && <dd className="text-[13px] text-muted" dir="ltr" style={{ textAlign: 'start' }}>{v.ownerNameEn}</dd>}</div>
+          </>
+        ) : (
+          <p className="text-[14px] text-muted sm:col-span-2">{tr('امسح رمز QR المطبوع على الوثيقة لعرض الشريحة والمهرجان والمالك.', 'Scan the QR code printed on the document to see the chip, festival and owner.')}</p>
+        )}
+      </dl>
       <p className="border-t border-line px-6 py-3 text-[12.5px] text-muted">{tr('صادرة من منصة سمّها ومعتمدة من المنظمة الدولية للإبل. لا تعرض صفحة التحقق رقم هوية المالك.', 'Issued by Sammha and attested by the International Camel Organization. The verification page never shows the owner’s ID number.')}</p>
     </div>
   )

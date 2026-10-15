@@ -54,6 +54,9 @@ const TransfersPage = pick(() => import('./pages/owner/Transfers'), 'TransfersPa
 const MyCamelsPage = pick(() => import('./pages/owner/Camels'), 'MyCamelsPage')
 const MyViolationsPage = pick(() => import('./pages/owner/Violations'), 'MyViolationsPage')
 const AdminViolations = pick(() => import('./pages/admin/Violations'), 'AdminViolations')
+const exMod = () => import('./pages/owner/Exemptions')
+const MyExemptionsPage = pick(exMod, 'MyExemptionsPage'), ExemptionView = pick(exMod, 'ExemptionView'), StaffExemptionView = pick(exMod, 'StaffExemptionView')
+const AdminExemptions = pick(() => import('./pages/admin/Exemptions'), 'AdminExemptions')
 const ServicesPage = pick(() => import('./pages/owner/Services'), 'ServicesPage')
 const PublicServices = pick(() => import('./pages/owner/Services'), 'PublicServices')
 const AdminTickets = pick(() => import('./pages/admin/Tickets'), 'AdminTickets'), AdminTicket = pick(() => import('./pages/admin/Tickets'), 'AdminTicket')
@@ -66,7 +69,7 @@ const AdminUsers = pick(() => import('./pages/admin/Users'), 'AdminUsers'), Staf
 /** Tab titles per page (the auction page sets its own with the name). */
 const TITLES: [RegExp, string, string][] = [
   [/^\/$/, '', ''], [/^\/auctions$/, 'المزادات', 'Auctions'], [/^\/names/, 'سجل الأسماء', 'Name registry'], [/^\/events/, 'المواعيد والمهرجانات', 'Events'],
-  [/^\/verify/, 'التحقق من شهادة', 'Verify a certificate'], [/^\/faq/, 'الأسئلة الشائعة', 'FAQ'], [/^\/terms/, 'الشروط والأحكام', 'Terms'],
+  [/^\/verify/, 'التحقق من شهادة أو وثيقة', 'Verify a certificate or document'], [/^\/faq/, 'الأسئلة الشائعة', 'FAQ'], [/^\/terms/, 'الشروط والأحكام', 'Terms'],
   [/^\/privacy/, 'سياسة الخصوصية', 'Privacy'], [/^\/refund/, 'سياسة الاسترداد', 'Refunds'], [/^\/contact\/track/, 'متابعة طلب', 'Track a request'],
   [/^\/contact/, 'تواصل معنا', 'Contact'], [/^\/about/, 'عن المنصة', 'About'], [/^\/invest/, 'استثمار الاسم', 'Name investment'], [/^\/services/, 'الخدمات الإلكترونية', 'E-services'], [/^\/market/, 'سوق الأسماء', 'Name market'], [/^\/login/, 'تسجيل الدخول', 'Sign in'], [/^\/signup/, 'إنشاء حساب', 'Sign up'],
   [/^\/dashboard/, 'لوحة التحكم', 'Dashboard'], [/^\/admin/, 'لجنة الاعتماد', 'Committee'], [/^\/ico-staff/, 'بوابة الموظفين', 'Staff'],
@@ -102,7 +105,7 @@ function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
 
 const OWNER_NAV: NavItem[] = [
   { to: '/dashboard', get label() { return tr('الرئيسية', 'Home') }, icon: 'home', end: true },
-  { to: '/dashboard/services', get label() { return tr('الخدمات الإلكترونية', 'E-services') }, get short() { return tr('الخدمات', 'Services') }, icon: 'list', also: ['/dashboard/requests', '/dashboard/invest', '/dashboard/sell', '/dashboard/transfers'] },
+  { to: '/dashboard/services', get label() { return tr('الخدمات الإلكترونية', 'E-services') }, get short() { return tr('الخدمات', 'Services') }, icon: 'list', also: ['/dashboard/requests', '/dashboard/invest', '/dashboard/sell', '/dashboard/transfers', '/dashboard/exemptions'] },
   { to: '/dashboard/bids', get label() { return tr('مزايداتي', 'My bids') }, icon: 'gavel' },
   { to: '/dashboard/watchlist', get label() { return tr('قائمة المتابعة', 'Watchlist') }, get short() { return tr('المتابعة', 'Watchlist') }, icon: 'clock' },
   { to: '/dashboard/names', get label() { return tr('أسمائي', 'My names') }, icon: 'tag' },
@@ -131,6 +134,7 @@ const ADMIN_NAV: (NavItem & { perms?: Permission[] })[] = [
   { to: '/admin/deposits', get label() { return tr('الضمانات', 'Guarantees') }, icon: 'lock', perms: ['deposits.view'] },
   { to: '/admin/tickets', get label() { return tr('الشكاوى والبلاغات', 'Complaints & reports') }, icon: 'alert', perms: ['tickets.view'] },
   { to: '/admin/violations', get label() { return tr('المخالفات', 'Violations') }, icon: 'alert', perms: ['violations.view', 'violations.manage'] },
+  { to: '/admin/exemptions', get label() { return tr('طلبات الاستثناء', 'Exemption requests') }, get short() { return tr('الاستثناءات', 'Exemptions') }, icon: 'trophy', perms: ['exemptions.view', 'exemptions.manage'] },
   { to: '/admin/events', get label() { return tr('المواعيد والفعاليات', 'Dates & events') }, icon: 'list', perms: ['events.manage'] },
   { to: '/admin/users', get label() { return tr('المستخدمون', 'Users') }, icon: 'users', perms: ['users.view'] },
   { to: '/admin/roles', get label() { return tr('الأدوار والصلاحيات', 'Roles & permissions') }, get short() { return tr('الأدوار', 'Roles') }, icon: 'shield', perms: ['roles.manage'] },
@@ -215,6 +219,8 @@ function AppRoutes() {
             <Route path="invoices" element={<MyInvoices />} />
             <Route path="invoices/:id" element={<InvoicePage />} />
             <Route path="violations" element={<MyViolationsPage />} />
+            <Route path="exemptions" element={<MyExemptionsPage />} />
+            <Route path="exemptions/:number" element={<ExemptionView />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="tickets" element={<MyTickets />} />
             <Route path="watchlist" element={<WatchlistPage />} />
@@ -247,6 +253,8 @@ function AppRoutes() {
             <Route path="tickets" element={<Can perms={['tickets.view']}><AdminTickets /></Can>} />
             <Route path="tickets/:id" element={<Can perms={['tickets.view']}><AdminTicket /></Can>} />
             <Route path="violations" element={<Can perms={['violations.view', 'violations.manage']}><AdminViolations /></Can>} />
+            <Route path="exemptions" element={<Can perms={['exemptions.view', 'exemptions.manage']}><AdminExemptions /></Can>} />
+            <Route path="exemptions/:number" element={<Can perms={['exemptions.view', 'exemptions.manage']}><StaffExemptionView /></Can>} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
