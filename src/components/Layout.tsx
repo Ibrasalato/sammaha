@@ -1,3 +1,4 @@
+import { IS_NATIVE } from '../lib/native'
 import { useEffect, useRef, useState } from 'react'
 import { LangSwitch, tr } from '../lib/i18n'
 import type { ReactNode } from 'react'
@@ -79,7 +80,7 @@ export function PublicLayout() {
   const [open, setOpen] = useState(false)
   return (
     <div className="flex min-h-screen flex-col bg-stone">
-      <UtilityBar />
+      {!IS_NATIVE && <UtilityBar />}
       <header className="sticky top-0 z-30 border-b border-line bg-paper/95 backdrop-blur">
         <div className="wrap flex h-[76px] items-center gap-6">
           <Link to="/" aria-label={tr('الرئيسية', 'Home')} className="shrink-0"><Logo className="h-14" /></Link>
