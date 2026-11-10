@@ -12,6 +12,13 @@ import { cur, dateTimeRef, num, sar, time } from '../lib/format'
 import { api, useApp, useLoad, useNow } from '../lib/store'
 import { usePageTitle } from '../lib/usePageTitle'
 import { Approx } from '../components/Region'
+import { IS_NATIVE } from '../lib/native'
+import { Sheet } from '../components/AppChrome'
+
+/** in the app the long sections fold away; on the website they are plain sections */
+function Fold({ title, open, children }: { title: string; open?: boolean; children: React.ReactNode }) {
+  return IS_NATIVE ? <details className="app-fold" open={open}><summary>{title}</summary>{children}</details> : <>{children}</>
+}
 import { userTzLabel } from '../lib/region'
 
 function Heart({ on }: { on: boolean }) {
@@ -31,6 +38,7 @@ export default function AuctionDetail() {
   const [amount, setAmount] = useState('')
   const [autoMax, setAutoMax] = useState('')
   const [confirm, setConfirm] = useState<number | null>(null)
+  const [ask, setAsk] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [payingDeposit, setPayingDeposit] = useState(false)
   const [flash, setFlash] = useState(0)
@@ -73,6 +81,8 @@ export default function AuctionDetail() {
     const r = await run(api.placeBid(a!.id, value), () => tr(`تمت مزايدتك بمبلغ ${sar(value)}`, `Your bid of ${sar(value)} was placed`))
     if (r) { setData(r); setAmount('') }
   }
+  // in the app every bid is confirmed once in a sheet, so a stray tap never places one
+  const tryBid = (v: number) => { if (IS_NATIVE) setAsk(v); else void bid(v) }
   async function auto() {
     const r = await run(api.setAutoBid(a!.id, Number(autoMax)), () => tr(`فُعّلت المزايدة التلقائية حتى ${sar(Number(autoMax))}`, `Auto-bid set up to ${sar(Number(autoMax))}`))
     if (r) { setData(r); setAutoMax('') }
@@ -91,7 +101,7 @@ export default function AuctionDetail() {
         <div className="wrap py-8 sm:py-10">
           <nav className="text-[14px] text-paper/60" aria-label={tr('مسار الصفحة', 'Breadcrumb')}><Link to="/" className="hover:text-paper">{tr('الرئيسية', 'Home')}</Link> / <Link to="/auctions" className="hover:text-paper">{tr('المزادات', 'Auctions')}</Link> / <span className="text-paper">{a.name}</span></nav>
           <div className="mt-6 flex flex-col items-start gap-6 sm:flex-row sm:items-center">
-            <NameSeal name={a.name} type={a.type} size="lg" latin={a.latin} />
+            <span className="app-hide"><NameSeal name={a.name} type={a.type} size="lg" latin={a.latin} /></span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2"><TypeBadge type={a.type} />{a.investment && <Link to="/invest" className="pill bg-gold text-pine hover:bg-gold-light">{tr('استثمار الاسم', 'Name investment')}</Link>}{resale && <Link to="/market" className="pill bg-gold text-pine hover:bg-gold-light">{tr('إعادة بيع من مالكه', 'Resale by its owner')}</Link>}<AuctionStatePill a={a} phase={phase === 'paused' ? 'live' : phase} />{a.number && <span className="num pill bg-stone text-muted">{tr('مزاد رقم', 'Auction')} {a.number}</span>}{(a.extensions ?? 0) > 0 && phase === 'live' && <span className="pill bg-gold text-pine-deep">{tr(`مُدّد ${num(a.extensions!)} مرة`, `Extended ${num(a.extensions!)}×`)}</span>}</div>
               <h1 className="mt-3 text-[40px] font-extrabold leading-none text-paper sm:text-[48px]">{a.name}</h1>
@@ -117,15 +127,15 @@ export default function AuctionDetail() {
         )}
         <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
           <div className="min-w-0 space-y-8">
-            <section className="panel p-5 sm:p-6">
+            <Fold title={tr('تطور السعر', 'Price history')}><section className="panel p-5 sm:p-6">
               <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
                 <h2 className="text-lg">{tr('تطور السعر', 'Price history')}</h2>
                 <span className="text-[13px] text-muted"><span className="me-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-gold bg-paper align-middle" />{tr('مزايدة تلقائية', 'Auto bid')}<span className="mx-2 ms-4 inline-block h-2.5 w-2.5 rounded-full bg-gold align-middle" />{tr('مزايدة يدوية', 'Manual bid')}</span>
               </div>
               <PriceChart a={a} bids={data.bids} />
-            </section>
+            </section></Fold>
 
-            <section className="panel">
+            <Fold title={tr('بيانات المزاد', 'Auction details')} open><section className="panel">
               <h2 className="border-b border-line px-6 py-4 text-lg">{tr('بيانات المزاد', 'Auction details')}</h2>
               <dl className="grid grid-cols-2 sm:grid-cols-3">
                 {([
@@ -145,9 +155,9 @@ export default function AuctionDetail() {
               <p className="px-6 py-4 text-[14px] leading-7 text-muted">
                 {tr(`يرسو الاسم على أعلى مزايد عند انتهاء الوقت، وإن لم تُسجَّل مزايدة يرسو على مقدم الطلب بالسعر الافتتاحي. تصدر للفائز فاتورة إلكترونية يسدّدها خلال ${deadline} ساعة ثم يُعاد ضمانه، وإن لم يسدّد يُخصم الضمان ويصبح الاسم ملكًا للمنظمة الدولية للإبل.`, `The name goes to the highest bidder when time runs out; with no bids it goes to the requester at the opening price. The winner gets an e-invoice to pay within ${deadline} hours, then the guarantee is returned; unpaid, the guarantee is forfeited and the name passes to the International Camel Organization.`)}
               </p>
-            </section>
+            </section></Fold>
 
-            <section>
+            <Fold title={`${tr('سجل المزايدات', 'Bid history')} (${num(data.bids.length)})`}><section>
               <h2 className="sec-title mb-5 !text-xl">{tr('سجل المزايدات', 'Bid history')}</h2>
               {data.bids.length ? (
                 <div className="panel overflow-x-auto">
@@ -166,7 +176,7 @@ export default function AuctionDetail() {
                   </table>
                 </div>
               ) : <p className="panel px-5 py-6 text-muted">{tr(`لا توجد مزايدات بعد. أول مزايدة تبدأ من ${sar(min)}.`, `No bids yet. The first bid starts at ${sar(min)}.`)}</p>}
-            </section>
+            </section></Fold>
           </div>
 
           <aside ref={panel} id="bid" className="panel h-fit self-start overflow-hidden lg:sticky lg:top-6 lg:-mt-24 lg:shadow-lift">
@@ -221,7 +231,7 @@ export default function AuctionDetail() {
                 </div>
               )}
               {phase === 'live' && !ownInvest && !needDeposit && (user ? (
-                <form className="mt-5" onSubmit={(e) => { e.preventDefault(); bid(Number(amount)) }}>
+                <form className="mt-5" onSubmit={(e) => { e.preventDefault(); tryBid(Number(amount)) }}>
                   {isRequester && <p className="mb-3 rounded-md bg-stone px-3 py-2 text-[13px] text-muted">{tr(`أنت مقدم طلب هذا الاسم، وضمان طلبك يغطي دخولك المزاد. إن لم يزايد أحد يرسو عليك بالسعر الافتتاحي، وتسدّده خلال ${deadline} ساعة ثم يُعاد ضمانك.`, `You requested this name; your request guarantee covers your entry. If nobody bids it is yours at the opening price, payable within ${deadline} hours, then your guarantee is returned.`)}</p>}
                   <span className="label">{tr('مزايدة سريعة', 'Quick bid')}</span>
                   <div className="grid grid-cols-3 gap-2">
@@ -229,7 +239,7 @@ export default function AuctionDetail() {
                       const inc = Math.max(step, a.minIncrement)
                       const v = a.currentPrice + inc
                       return (
-                        <button type="button" key={k} disabled={busy || leading} onClick={() => bid(v)}
+                        <button type="button" key={k} disabled={busy || leading} onClick={() => tryBid(v)}
                           className="flex flex-col items-center rounded-lg border-2 border-line bg-paper py-2 transition hover:border-gold hover:bg-gold-soft/40 disabled:opacity-50">
                           <span className="text-[12px] font-bold text-gold-deep">+{num(inc)}</span>
                           <span className="num text-[17px] font-extrabold">{num(v)}</span>
@@ -282,6 +292,21 @@ export default function AuctionDetail() {
       </div>
 
       {/* mobile: price and bid button always in reach */}
+      <Sheet open={ask !== null} onClose={() => setAsk(null)} title={tr('تأكيد المزايدة', 'Confirm your bid')}>
+        {ask !== null && (
+          <div className="space-y-3 pb-2">
+            <dl className="divide-y divide-line/70 rounded-xl border border-line">
+              {([[tr('الاسم', 'Name'), a.name], [tr('أعلى مزايدة حالية', 'Current top bid'), sar(a.currentPrice)], [tr('قيمة الزيادة', 'Your raise'), sar(Math.max(ask - a.currentPrice, 0))]] as [string, string][]).map(([l, v]) => (
+                <div key={l} className="flex items-center justify-between px-4 py-3"><dt className="text-[14px] text-muted">{l}</dt><dd className="num font-bold">{v}</dd></div>
+              ))}
+            </dl>
+            <div className="flex items-center justify-between rounded-xl border-2 border-gold/60 bg-gold-soft px-4 py-3"><span className="text-[14px] font-bold text-gold-deep">{tr('مزايدتك الجديدة', 'Your new bid')}</span><b className="num text-[24px]">{sar(ask)}</b></div>
+            {ask < min && <p className="text-[13.5px] font-bold text-bad">{tr(`أقل مزايدة مسموحة ${sar(min)}.`, `The minimum bid is ${sar(min)}.`)}</p>}
+            <button className="btn-primary w-full" disabled={busy || ask < min} onClick={() => { const v = ask; setAsk(null); void bid(v) }}>{tr('تأكيد المزايدة', 'Confirm bid')}</button>
+            <button className="btn-ghost w-full" onClick={() => setAsk(null)}>{tr('إلغاء', 'Cancel')}</button>
+          </div>
+        )}
+      </Sheet>
       {payingDeposit && (
         <PayModal open title={tr(`ضمان دخول مزاد «${a.name}»`, `Guarantee for “${a.name}”`)} amount={a.bidDeposit ?? RULES.resaleBidDeposit} onClose={() => setPayingDeposit(false)}
           onPay={async (m) => { try { setData(await api.payBidDeposit(a.id, m)); toast(tr('تم دفع الضمان، تقدر تزايد الآن', 'Guarantee paid, you can bid now')) } catch (e) { toast((e as Error).message, 'bad'); throw e } }} />
@@ -296,7 +321,7 @@ export default function AuctionDetail() {
             {user && needDeposit
               ? <button className="btn-gold" onClick={() => setPayingDeposit(true)}>{tr('ادفع الضمان', 'Pay guarantee')}</button>
               : user
-              ? <button className="btn-gold" disabled={busy || leading} onClick={() => bid(min)}>{leading ? tr('أنت المتصدر', 'Leading') : tr(`زايد ${num(min)}`, `Bid ${num(min)}`)}</button>
+              ? <button className="btn-gold" disabled={busy || leading} onClick={() => tryBid(min)}>{leading ? tr('أنت المتصدر', 'Leading') : tr(`زايد ${num(min)}`, `Bid ${num(min)}`)}</button>
               : <Link to="/login" state={{ from: loc.pathname }} className="btn-gold">{tr('سجّل للمزايدة', 'Sign in to bid')}</Link>}
             <button className="btn-ghost btn-sm" onClick={() => panel.current?.scrollIntoView({ behavior: 'smooth' })} aria-label={tr('خيارات المزايدة', 'Bid options')}>⋯</button>
           </div>

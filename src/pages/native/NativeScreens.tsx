@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../../components/dash'
-import { DueFines, useFines } from '../../components/Fines'
+import { useFines } from '../../components/Fines'
 import { ProfileCompletion } from '../owner/Profile'
 import { useClosed } from '../../components/SettingsUi'
 import { Countdown, Empty, Loading } from '../../components/ui'
@@ -167,7 +167,7 @@ export function NativeDash() {
   const outbid = liveBids.filter((b) => !b.auction.isLeader)
   const pendingPay = reqs.data?.filter((r) => r.status === 'pending_payment') ?? []
   const todo = unpaid.length + pendingPay.length + outbid.length + finesDue.length
-  const soon = [...(live.data ?? [])].sort((a, b) => Date.parse(a.endsAt) - Date.parse(b.endsAt)).slice(0, 4)
+  const soon = (liveBids.length ? liveBids.map((b) => b.auction).sort((x, y) => Number(!!x.isLeader) - Number(!!y.isLeader) || Date.parse(x.endsAt) - Date.parse(y.endsAt)) : [...(live.data ?? [])].sort((a, b) => Date.parse(a.endsAt) - Date.parse(b.endsAt))).slice(0, 4)
 
   return (
     <div className="space-y-3.5">
@@ -180,7 +180,7 @@ export function NativeDash() {
       {outbid.map((b) => <Alert key={b.id} to={`/auctions/${b.auctionId}`} icon="alert" title={tr(`تم تجاوز مزايدتك على «${b.auction.name}»`, `You were outbid on «${b.auction.name}»`)} aside={sar(b.auction.currentPrice)} />)}
       {unpaid.map((i) => <Alert key={i.id} to={`/dashboard/invoices/${i.id}`} tone="gold" icon="receipt" title={tr(`سدّد فاتورة «${i.name}» لإصدار الشهادة`, `Pay the invoice for «${i.name}» to get the certificate`)} aside={sar(i.amountDue)} />)}
       {pendingPay.map((r) => <Alert key={r.id} to={`/dashboard/requests/${r.id}`} tone="gold" icon="file" title={tr(`الطلب ${r.number}: سدّد الضمان لإكماله`, `Request ${r.number}: pay the guarantee to complete it`)} />)}
-      {fines.list && <DueFines fines={fines.list} onPaid={fines.reload} />}
+      {!!finesDue.length && <Alert to="/dashboard/violations" icon="alert" title={tr(`مخالفات وغرامات مستحقة (${finesDue.length})`, `Violations and fines due (${finesDue.length})`)} aside={sar(finesDue.reduce((t, f) => t + f.amount, 0))} />}
       <ProfileCompletion />
 
       <Link to="/dashboard/wallet" className="app-wallet">
@@ -188,16 +188,15 @@ export function NativeDash() {
         <span className="grid h-11 w-11 place-items-center rounded-full bg-gold text-pine-deep"><Icon name="plus" className="h-5 w-5" /></span>
       </Link>
 
-      <div className="grid grid-cols-3 gap-2.5">
-        <Link to="/auctions" className="app-stat"><Icon name="gavel" className="h-5 w-5 text-gold-deep" /><b className="num text-[22px]">{num(liveBids.length)}</b><span>{tr('مزايداتي', 'My bids')}</span></Link>
-        <Link to="/dashboard/certificates" className="app-stat"><Icon name="file" className="h-5 w-5 text-gold-deep" /><b className="num text-[22px]">{num(certs.data?.length ?? 0)}</b><span>{tr('شهاداتي', 'Certificates')}</span></Link>
-        <Link to="/dashboard/names" className="app-stat"><Icon name="tag" className="h-5 w-5 text-gold-deep" /><b className="num text-[22px]">{num(names.data?.length ?? 0)}</b><span>{tr('أسمائي', 'My names')}</span></Link>
+      <div className="grid grid-cols-2 gap-2.5">
+        <Link to="/dashboard/requests/new" className="app-stat !border-gold/60 !bg-gold-soft"><Icon name="tag" className="h-6 w-6 text-gold-deep" /><span className="!text-[14px] !text-gold-deep">{requestsClosed ? tr('طلب شعار (مغلق حاليًا)', 'New request (closed)') : tr('طلب شعار جديد', 'New name request')}</span></Link>
+        <Link to="/dashboard/names" className="app-stat"><Icon name="shield" className="h-6 w-6 text-pine" /><span className="!text-[14px]">{tr('أسمائي', 'My names')}</span><b className="num text-[20px]">{num(names.data?.length ?? 0)}</b></Link>
+        <Link to="/dashboard/requests" className="app-stat"><Icon name="file" className="h-6 w-6 text-pine" /><span className="!text-[14px]">{tr('طلبات قيد المراجعة', 'Under review')}</span><b className="num text-[20px]">{num(reqs.data?.filter((r) => r.status === 'under_review').length ?? 0)}</b></Link>
+        <Link to="/dashboard/invoices" className="app-stat"><Icon name="receipt" className="h-6 w-6 text-pine" /><span className="!text-[14px]">{tr('الفواتير', 'Invoices')}</span><b className="num text-[20px]">{num(unpaid.length)}</b></Link>
       </div>
 
-      {!requestsClosed && <Link to="/dashboard/requests/new" className="btn-gold w-full"><Icon name="plus" className="h-4 w-4" />{tr('طلب شعار جديد', 'New name request')}</Link>}
-
       <div className="flex items-center justify-between pt-1">
-        <h2 className="flex items-center gap-1.5 text-[18px]"><Icon name="clock" className="h-[18px] w-[18px] text-gold-deep" />{tr('مزادات قريبة من الانتهاء', 'Closing soon')}</h2>
+        <h2 className="flex items-center gap-1.5 text-[18px]"><Icon name="clock" className="h-[18px] w-[18px] text-gold-deep" />{liveBids.length ? tr('مزايداتي الجارية', 'My live bids') : tr('مزادات قريبة من الانتهاء', 'Closing soon')}</h2>
         <Link to="/auctions" className="text-[14px] font-bold text-pine">{tr('الكل', 'All')}</Link>
       </div>
       {soon.length ? (
@@ -269,10 +268,14 @@ export function NativeWallet() {
       <section className="rounded-2xl bg-gradient-to-br from-pine to-pine-deep p-5 text-paper">
         <div className="flex items-center justify-between"><span className="text-[13px] text-paper/75">{tr('رصيد المحفظة', 'Wallet balance')}</span><Icon name="wallet" className="h-5 w-5 text-gold-light" /></div>
         <p className="num mt-1 text-[34px] font-extrabold leading-tight">{data ? sar(data.balance) : '…'}</p>
-        <button className="btn-gold mt-3 w-full" onClick={() => setTop(true)}><Icon name="plus" className="h-4 w-4" />{tr('شحن المحفظة', 'Top up')}</button>
       </section>
+      <div className="grid grid-cols-3 gap-2.5">
+        <button className="app-tile" onClick={() => setTop(true)}><Icon name="plus" className="h-6 w-6 text-pine" /><span>{tr('شحن الرصيد', 'Top up')}</span></button>
+        <button className="app-tile" onClick={() => document.getElementById('wallet-bank')?.scrollIntoView({ behavior: 'smooth' })}><Icon name="arrow" className="h-6 w-6 text-pine" /><span>{tr('سحب الرصيد', 'Withdraw')}</span></button>
+        <button className="app-tile" onClick={() => document.getElementById('wallet-txs')?.scrollIntoView({ behavior: 'smooth' })}><Icon name="file" className="h-6 w-6 text-pine" /><span>{tr('كشف الحركات', 'Statement')}</span></button>
+      </div>
       <p className="text-[13px] leading-6 text-muted">{tr('رصيد المحفظة لسداد الضمانات والفواتير، ويمكنك طلب استرداده إلى حسابك البنكي.', 'The wallet pays guarantees and invoices; you can ask to refund it to your bank account.')}</p>
-      <h2 className="text-[18px]">{tr('آخر العمليات', 'Recent activity')}</h2>
+      <h2 id="wallet-txs" className="text-[18px]">{tr('آخر العمليات', 'Recent activity')}</h2>
       {loading && !data ? <Loading /> : data?.txs.length ? (
         <ul className="space-y-2">
           {data.txs.map((t) => (
@@ -284,6 +287,7 @@ export function NativeWallet() {
           ))}
         </ul>
       ) : <Empty title={tr('لا توجد عمليات بعد', 'No transactions yet')} />}
+      <div id="wallet-bank" />
       {user?.acting ? null : <BankAndRefunds balance={data?.balance ?? 0} onChange={reload} />}
       <Sheet open={top} onClose={() => setTop(false)} title={tr('شحن المحفظة', 'Top up wallet')}>
         <label className="label" htmlFor="amt">{tr('المبلغ', 'Amount')}</label>
@@ -315,18 +319,27 @@ export function NativeAccount() {
   const invoices = useLoad(() => api.myInvoices(), [])
   const fines = useFines()
   const tickets = useLoad(() => api.myTickets(), [])
+  const wallet = useLoad(() => api.myWallet(), [])
+  const names = useLoad(() => api.myNames(), [])
+  const certs = useLoad(() => api.myCertificates(), [])
   if (!user) return null
   const unpaid = invoices.data?.filter((i) => i.status === 'unpaid').length ?? 0
   const due = fines.list?.filter((f) => f.state === 'due').length ?? 0
   const openTickets = tickets.data?.filter((t) => t.status !== 'closed').length ?? 0
   return (
     <div className="space-y-3.5">
-      <h1>{tr('حسابي', 'My account')}</h1>
-      <L2 to="/dashboard/profile" className="app-card flex items-center gap-3">
-        <Avatar name={user.fullName} src={user.avatarUrl} size={56} ring />
-        <span className="min-w-0 flex-1 text-start"><b className="block truncate text-[18px]">{user.fullName}</b><span className="block text-[13px] text-muted">{tr('مالك إبل', 'Camel owner')}</span><span className="text-[13px] font-bold text-pine">{tr('عرض الملف الشخصي وتعديله', 'View and edit your profile')}</span></span>
-        <Icon name="arrow" className="h-4 w-4 text-muted rtl:rotate-180" />
+      <L2 to="/dashboard/profile" className="flex flex-col items-center gap-1 text-center">
+        <Avatar name={user.fullName} src={user.avatarUrl} size={88} ring />
+        <b className="mt-1 text-[20px]">{user.fullName}</b>
+        <span className="text-[13px] text-muted">{tr('مالك إبل', 'Camel owner')}</span>
+        <span className="text-[13px] font-bold text-pine">{tr('عرض الملف الشخصي وتعديله', 'View and edit your profile')}</span>
       </L2>
+      <div className="grid grid-cols-4 gap-2">
+        <L2 to="/dashboard/wallet" className="app-stat"><Icon name="wallet" className="h-5 w-5 text-pine" /><span>{tr('المحفظة', 'Wallet')}</span><b className="num text-[13px]">{wallet.data ? sar(wallet.data.balance) : '…'}</b></L2>
+        <L2 to="/dashboard/invoices" className="app-stat"><Icon name="receipt" className="h-5 w-5 text-pine" /><span>{tr('الفواتير', 'Invoices')}</span><b className="num text-[15px]">{num(unpaid)}</b></L2>
+        <L2 to="/dashboard/names" className="app-stat"><Icon name="tag" className="h-5 w-5 text-pine" /><span>{tr('أسمائي', 'Names')}</span><b className="num text-[15px]">{num(names.data?.length ?? 0)}</b></L2>
+        <L2 to="/dashboard/certificates" className="app-stat"><Icon name="file" className="h-5 w-5 text-pine" /><span>{tr('الشهادات', 'Certs')}</span><b className="num text-[15px]">{num(certs.data?.length ?? 0)}</b></L2>
+      </div>
       <section className="app-card !p-0 overflow-hidden">
         <MenuRow to="/dashboard/names" icon="tag" label={tr('أسمائي', 'My names')} />
         <MenuRow to="/dashboard/camels" icon="shield" label={tr('إبلي', 'My camels')} />

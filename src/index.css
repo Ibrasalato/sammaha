@@ -123,15 +123,16 @@
 /* the app (Capacitor): no pull-to-refresh bounce, no text-size jumps, notch-safe edges */
 html.native { -webkit-text-size-adjust: 100%; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
 html.native body { -webkit-user-select: none; user-select: none; background: #F4F5F7; }
+html.native .app-top .relative > button { color: #00513B !important; border-color: #C9D8CF !important; background: #fff; height: 40px; width: 40px; }
 html.native input, html.native textarea, html.native [contenteditable] { -webkit-user-select: text; user-select: text; }
 
 /* ───── the app's own layout: fixed top bar, fixed tab bar, the page scrolls between them ───── */
-html.native .app-root { display: flex; min-height: 100dvh; flex-direction: column; background: #F4F5F7; }
-html.native .app-top { position: sticky; top: 0; z-index: 30; background: #00513B; color: #fff; padding-top: env(safe-area-inset-top); border-bottom: 3px solid #C99532; }
+html.native .app-root { display: flex; min-height: 100dvh; flex-direction: column; background: linear-gradient(180deg, #E4F1E9 0, #EEF4F0 220px, #F4F5F7 420px) no-repeat, #F4F5F7; }
+html.native .app-top { position: sticky; top: 0; z-index: 30; background: rgba(228,241,233,.92); backdrop-filter: blur(10px); color: #092F27; padding-top: env(safe-area-inset-top); }
 html.native .app-main { flex: 1; padding: 14px 14px calc(84px + env(safe-area-inset-bottom)); min-width: 0; }
 html.native .app-main h1 { font-size: 22px; line-height: 1.35; }
-html.native .app-iconbtn { display: grid; height: 36px; width: 36px; place-items: center; border-radius: 9999px; background: rgba(255,255,255,.12); }
-html.native .app-pill { border: 1px solid rgba(255,255,255,.3); border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700; }
+html.native .app-iconbtn { display: grid; height: 40px; width: 40px; place-items: center; border-radius: 9999px; background: #fff; color: #00513B; box-shadow: 0 1px 3px rgba(9,47,39,.12); }
+html.native .app-pill { border: 1px solid #C9D8CF; background: #fff; color: #00513B; border-radius: 9999px; padding: 6px 14px; font-size: 13px; font-weight: 700; }
 html.native .app-tabs { position: fixed; inset-inline: 0; bottom: 0; z-index: 40; display: flex; background: rgba(255,255,255,.97); border-top: 1px solid #DFE3E8; padding-bottom: env(safe-area-inset-bottom); backdrop-filter: blur(8px); }
 html.native .app-tab { display: flex; flex: 1; min-width: 0; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px 8px; font-size: 11.5px; font-weight: 700; color: #5B6675; }
 html.native .app-tab-ic { display: grid; height: 30px; width: 56px; place-items: center; border-radius: 9999px; transition: background .15s; }
@@ -183,3 +184,14 @@ html.native .hero-field .wrap { padding-top: 14px; padding-bottom: 14px; }
 html.native .hero-field h1 { font-size: 30px; margin-top: 8px; }
 html.native .hero-field p { display: none; }
 html.native #bid { order: -1; }
+
+html.native .app-card, html.native .app-row, html.native .app-stat, html.native .app-tile { box-shadow: 0 2px 8px -2px rgba(9,47,39,.10); }
+html.native .app-fold { border: 1px solid #DFE3E8; border-radius: 16px; background: #fff; margin-bottom: 10px; overflow: hidden; }
+html.native .app-fold > summary { display: flex; align-items: center; justify-content: space-between; list-style: none; padding: 14px 16px; font-weight: 800; font-size: 16px; }
+html.native .app-fold > summary::-webkit-details-marker { display: none; }
+html.native .app-fold > summary::after { content: "⌄"; color: #5B6675; font-size: 18px; transition: transform .15s; }
+html.native .app-fold[open] > summary::after { transform: rotate(180deg); }
+html.native .app-fold h2 { display: none; }
+html.native .app-fold .panel { border: 0; box-shadow: none; border-radius: 0; }
+html.native .app-fold > section > h2.sec-title { display: none; }
+html.native .app-hide { display: none; }

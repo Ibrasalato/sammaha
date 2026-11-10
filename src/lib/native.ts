@@ -34,7 +34,7 @@ export async function initNative() {
   const [{ App }, { StatusBar, Style }, { SplashScreen }, { Browser }] = await Promise.all([
     import('@capacitor/app'), import('@capacitor/status-bar'), import('@capacitor/splash-screen'), import('@capacitor/browser'),
   ])
-  try { await StatusBar.setStyle({ style: Style.Dark }); if (Capacitor.getPlatform() === 'android') await StatusBar.setBackgroundColor({ color: '#00513B' }) } catch { /* not supported */ }
+  try { await StatusBar.setStyle({ style: Style.Light }); if (Capacitor.getPlatform() === 'android') await StatusBar.setBackgroundColor({ color: '#E4F1E9' }) } catch { /* not supported */ }
   // Android back: go back in the app, and leave only from the first screen
   App.addListener('backButton', ({ canGoBack }) => {
     if (canGoBack && location.hash.replace(/^#\/?/, '') !== '') history.back()

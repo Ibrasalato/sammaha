@@ -63,16 +63,16 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   )
 }
 
-function TopBar({ title, back, children }: { title: string; back?: boolean; children?: ReactNode }) {
+function TopBar({ title, back, start, children }: { title: string; back?: boolean; start?: ReactNode; children?: ReactNode }) {
   const nav = useNavigate()
   return (
     <header className="app-top">
-      <div className="flex h-12 items-center gap-2 px-3">
+      <div className="flex h-14 items-center gap-2 px-3.5">
+        <span className="flex shrink-0 items-center">{start}</span>
+        <span className="min-w-0 flex-1 truncate text-center text-[17px] font-extrabold text-pine-deep">{back ? title : ''}</span>
         {back
           ? <button className="app-iconbtn" onClick={() => nav(-1)} aria-label={tr('رجوع', 'Back')}><Icon name="arrow" className="h-5 w-5 ltr:rotate-180" /></button>
-          : <Link to="/" aria-label={tr('الرئيسية', 'Home')} className="shrink-0"><Logo light className="h-8" /></Link>}
-        <span className="min-w-0 flex-1 truncate text-[17px] font-extrabold">{title}</span>
-        {children}
+          : <span className="flex items-center gap-2">{children}</span>}
       </div>
     </header>
   )
@@ -122,9 +122,8 @@ export function NativeShell({ nav, title }: { nav: NavItem[]; title: string }) {
   const home = user?.role === 'owner' ? '/dashboard/account' : '/admin/account'
   return (
     <div className="app-root">
-      <TopBar title={pageTitle(pathname, nav, title)} back={deep}>
+      <TopBar title={pageTitle(pathname, nav, title)} back={deep} start={user && <Link to={home} aria-label={tr('حسابي', 'My account')}><Avatar name={user.fullName} src={user.avatarUrl} size={40} ring /></Link>}>
         <NotificationBell />
-        {user && <Link to={home} aria-label={tr('حسابي', 'My account')}><Avatar name={user.fullName} src={user.avatarUrl} size={32} /></Link>}
       </TopBar>
       <SiteBanner dashboard />
       {user?.acting && (
@@ -175,7 +174,7 @@ export function NativePublicLayout() {
   const acct = user ? (user.role === 'owner' ? '/dashboard' : '/admin') : '/login'
   return (
     <div className="app-root">
-      <TopBar title={pathname === '/' ? tr('سمّها', 'Sammha') : title} back={deep}><LangSwitch className="app-pill" /></TopBar>
+      <TopBar title={title} back={deep} start={<Link to="/" aria-label={tr('الرئيسية', 'Home')}><Logo className="h-9" /></Link>}><LangSwitch className="app-pill" /></TopBar>
       <SiteBanner />
       <main className="app-main"><Outlet /></main>
       <nav className="app-tabs" aria-label={tr('التنقل السريع', 'Quick navigation')}>
