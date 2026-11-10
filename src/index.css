@@ -129,7 +129,7 @@ html.native input, html.native textarea, html.native [contenteditable] { -webkit
 /* ───── the app's own layout: fixed top bar, fixed tab bar, the page scrolls between them ───── */
 html.native .app-root { display: flex; min-height: 100dvh; flex-direction: column; background: linear-gradient(180deg, #E4F1E9 0, #EEF4F0 220px, #F4F5F7 420px) no-repeat, #F4F5F7; }
 html.native .app-top { position: sticky; top: 0; z-index: 30; background: rgba(228,241,233,.92); backdrop-filter: blur(10px); color: #092F27; padding-top: env(safe-area-inset-top); }
-html.native .app-top::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 80' fill='%23006B4A'><path d='M10 50c2-9 6-14 12-15 3-8 9-12 15-10 3 1 5 4 5 8 6 2 11 5 16 9 7-1 14 0 20 3 3-9 9-14 16-13 5 1 8 5 9 10 3 3 6 6 10 7l5-6 7 2-2 9c-4 4-10 5-16 4l-1 22h-8l-3-22H78l-2 22h-8l-2-22H44l-3 22h-8l-2-22c-8 0-15-2-19-8z' opacity='.55'/></svg>") no-repeat 38% 30px / 170px auto; opacity: .24; }
+html.native .app-top::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 110' preserveAspectRatio='xMidYMax slice'><path d='M0 96 C90 70 190 60 300 76 C410 92 500 80 600 62 L600 110 L0 110Z' fill='%237FBF95' opacity='.28'/><path d='M0 104 C120 88 230 92 330 98 C440 104 520 96 600 86 L600 110 L0 110Z' fill='%237FBF95' opacity='.22'/><g fill='%2369B086' opacity='.75'><g transform='translate(170 14) scale(.78)'><path d='M40 62 C42 52 50 47 57 49 C61 39 72 36 79 45 C83 50 88 52 93 51 L101 37 C102 32 108 30 113 32 L120 35 L118 40 L112 38 L107 53 C104 61 99 64 94 64 L94 86 L90 86 L89 66 L79 66 L78 86 L74 86 L73 66 L58 66 L57 86 L53 86 L52 66 L47 66 L46 86 L42 86 L42 64 C38 63 36 60 37 57 L33 70 L31 69 L35 56 C37 56 39 59 40 62Z'/></g><g transform='translate(275 34) scale(.5)'><path d='M40 62 C42 52 50 47 57 49 C61 39 72 36 79 45 C83 50 88 52 93 51 L101 37 C102 32 108 30 113 32 L120 35 L118 40 L112 38 L107 53 C104 61 99 64 94 64 L94 86 L90 86 L89 66 L79 66 L78 86 L74 86 L73 66 L58 66 L57 86 L53 86 L52 66 L47 66 L46 86 L42 86 L42 64 C38 63 36 60 37 57 L33 70 L31 69 L35 56 C37 56 39 59 40 62Z'/></g></g></svg>") no-repeat 50% 100% / 100% 100%; opacity: .7; }
 html.native .app-top > * { position: relative; }
 html.native .app-main { flex: 1; padding: 14px 14px calc(84px + env(safe-area-inset-bottom)); min-width: 0; }
 html.native .app-main h1 { font-size: 22px; line-height: 1.35; }
@@ -219,3 +219,16 @@ html.native .app-list > * + * { border-top: 1px solid rgba(223,227,232,.8); }
 html.native .no-tabs .app-bidbar { bottom: 0; padding-bottom: calc(env(safe-area-inset-bottom) + 10px); border-top: 0; background: #fff; }
 html.native .no-tabs .app-bidbar .btn-primary { min-height: 56px; font-size: 19px; border-radius: 16px; }
 html.native .no-tabs .app-main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+
+/* identity pass: tab bar with a filled pill for the open tab */
+html.native .app-tabs { padding: 6px 8px env(safe-area-inset-bottom); border-top: 0; border-radius: 22px 22px 0 0; box-shadow: 0 -6px 24px -10px rgba(9,47,39,.18); }
+html.native .app-tab { gap: 3px; margin: 2px 4px 6px; padding: 8px 2px 7px; border-radius: 18px; font-size: 13px; color: #4A5563; }
+html.native .app-tab .app-tab-ic { height: auto; width: auto; background: none !important; }
+html.native .app-tab .app-tab-ic svg { height: 26px; width: 26px; }
+html.native .app-tab.on { background: #E3F1E8; color: #00513B; font-weight: 800; }
+html.native .app-tab.on .app-tab-ic svg { fill: none; }
+html.native .app-qtile { display: flex; align-items: center; gap: 8px; min-height: 64px; white-space: nowrap; border: 1px solid #E3E7EB; border-radius: 18px; background: #fff; padding: 10px 12px; font-size: 14.5px; font-weight: 800; color: #0D1B2A; box-shadow: 0 4px 14px -8px rgba(9,47,39,.18); }
+html.native .app-qtile .cnt { display: grid; min-width: 34px; height: 26px; place-items: center; border-radius: 9999px; background: #E3F1E8; color: #0D1B2A; font-size: 15px; font-weight: 800; padding: 0 10px; }
+html.native .app-wallet { padding: 20px 18px; border-radius: 22px; box-shadow: 0 12px 26px -14px rgba(0,81,59,.7); }
+html.native .app-top span.rounded-full[aria-hidden], html.native .app-root a > span.rounded-full[aria-hidden] { background: #00513B !important; color: #fff !important; }
+html.native .app-top .relative > button { border-radius: 16px !important; border: 0 !important; box-shadow: 0 4px 14px -6px rgba(9,47,39,.25); height: 46px !important; width: 46px !important; }

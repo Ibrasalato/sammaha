@@ -1,9 +1,10 @@
+import { IS_NATIVE } from '../lib/native'
 const TONES = ['bg-pine text-paper', 'bg-gold text-pine-deep', 'bg-info text-paper', 'bg-rose text-paper', 'bg-pine-3 text-paper']
 
 /** Owner photo, or the first letter of the name in a brand colour when there is no (public) photo. */
 export function Avatar({ name, src, size = 40, ring }: { name: string; src?: string; size?: number; ring?: boolean }) {
   const clean = name.replace(/^(الأمير|الشيخ|م\.|د\.)\s+/, '').trim()
-  const tone = TONES[[...clean].reduce((s, c) => s + c.charCodeAt(0), 0) % TONES.length]
+  const tone = IS_NATIVE ? TONES[0] : TONES[[...clean].reduce((s, c) => s + c.charCodeAt(0), 0) % TONES.length]
   const style = { width: size, height: size, fontSize: Math.round(size * 0.42) }
   // a lone alef (ا أ إ آ) reads like "!" or "I", so names starting with one show two letters
   const initial = /^[اأإآ]/.test(clean) ? [...clean].slice(0, 2).join('') : clean[0]

@@ -108,7 +108,7 @@ function OwnerTabs() {
     <>
       <Tab to="/dashboard" label={tr('الرئيسية', 'Home')} icon="home" end />
       <Tab to="/auctions" label={tr('المزادات', 'Auctions')} icon="gavel" />
-      <Tab to="/dashboard/services" label={tr('الخدمات', 'Services')} icon="layers" also={['/dashboard/requests', '/dashboard/invest', '/dashboard/sell', '/dashboard/transfers', '/dashboard/exemptions']} />
+      <Tab to="/dashboard/services" label={tr('الخدمات', 'Services')} icon="grid" also={['/dashboard/requests', '/dashboard/invest', '/dashboard/sell', '/dashboard/transfers', '/dashboard/exemptions']} />
       <Tab to="/dashboard/account" label={tr('حسابي', 'Account')} icon="user" also={['/dashboard/profile', '/dashboard/wallet', '/dashboard/invoices', '/dashboard/violations', '/dashboard/tickets', '/dashboard/names', '/dashboard/camels', '/dashboard/certificates', '/dashboard/settings', '/dashboard/watchlist', '/dashboard/bids']} />
     </>
   )
@@ -214,7 +214,7 @@ export function NativePublicLayout() {
       ) : /^\/auctions\/[^/]+$/.test(pathname) ? (
         <header className="app-top">
           <div className="flex h-14 items-center gap-2 px-3.5">
-            <button className="grid h-10 w-10 place-items-center text-ink" onClick={() => navigate(-1)} aria-label={tr('رجوع', 'Back')}><Icon name="arrow" className="h-5 w-5 ltr:rotate-180" /></button>
+            <button className="grid h-10 w-10 place-items-center text-ink" onClick={() => navigate(-1)} aria-label={tr('رجوع', 'Back')}><svg viewBox="0 0 24 24" className="h-6 w-6 ltr:rotate-180" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg></button>
             <span className="min-w-0 flex-1 truncate text-center text-[19px] font-extrabold">{title}</span>
             <button className="grid h-10 w-10 place-items-center text-ink" aria-label={tr('مشاركة', 'Share')} onClick={() => void shareLink(pathname)}><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v13M7 8l5-5 5 5M5 13v6a2 2 0 002 2h10a2 2 0 002-2v-6" /></svg></button>
           </div>

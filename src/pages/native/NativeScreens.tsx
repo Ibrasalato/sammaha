@@ -137,6 +137,12 @@ export function NativeAuctions() {
   return (
     <div>
       <h1 className="sr-only">{tr('المزادات', 'Auctions')}</h1>
+      {tab === 'all' && (
+        <div className="mb-2.5 flex items-center gap-2">
+            <div className="app-search !mb-0 flex-1"><svg viewBox="0 0 24 24" className="h-5 w-5 text-ink/70" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg><input type="search" placeholder={tr('البحث عن اسم', 'Search a name')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={tr('البحث عن اسم', 'Search a name')} /></div>
+            <button type="button" className="app-filterbtn" onClick={() => setFilt(true)} aria-label={tr('تصفية', 'Filter')}><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg></button>
+          </div>
+      )}
       <div className="app-seg" role="tablist">
         {([['all', `${tr('كل المزادات', 'All auctions')}${all.data ? ` (${num(all.data.length)})` : ''}`], ['mine', `${tr('مزايداتي', 'My bids')}${bids.data?.length ? ` (${num(bids.data.length)})` : ''}`], ...(tab === 'watch' ? [['watch', tr('المتابعة', 'Watching')]] : [])] as ['all' | 'mine' | 'watch', string][]).map(([v, l]) => (
           <button key={v} role="tab" aria-selected={tab === v} className={tab === v ? 'on' : ''} onClick={() => setTab(v)}>{l}</button>
@@ -147,10 +153,6 @@ export function NativeAuctions() {
         <Empty title={tr('سجّل الدخول لمتابعة مزايداتك', 'Sign in to follow your bids')}><button className="btn-primary" onClick={() => nav('/login')}>{tr('تسجيل الدخول', 'Sign in')}</button></Empty>
       ) : tab === 'all' ? (
         <>
-          <div className="mb-2.5 flex items-center gap-2">
-            <div className="app-search !mb-0 flex-1"><svg viewBox="0 0 24 24" className="h-5 w-5 text-ink/70" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg><input type="search" placeholder={tr('البحث عن اسم', 'Search a name')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={tr('البحث عن اسم', 'Search a name')} /></div>
-            <button type="button" className="app-filterbtn" onClick={() => setFilt(true)} aria-label={tr('تصفية', 'Filter')}><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg></button>
-          </div>
           <div className="app-chips">
             <button type="button" className="app-chip !inline-flex items-center gap-1" onClick={() => setSortOpen(true)}>{tr('ترتيب', 'Sort')}<svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4" /></svg></button>
             {([['all', tr('الكل', 'All')], ...(['bakkar', 'qaadan', 'manqiya'] as NameType[]).map((t) => [t, TYPE_LABEL[t]] as [NameType, string])] as [NameType | 'all', string][]).map(([v, l]) => <button key={v} type="button" aria-pressed={v === type} className={`app-chip ${v === type ? 'on' : ''}`} onClick={() => setType(v)}>{l}</button>)}
@@ -190,6 +192,33 @@ function Alert({ to, tone = 'red', icon, title, aside }: { to: string; tone?: 'r
   )
 }
 
+const Chevron = () => <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-ink/60 rtl:rotate-180" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg>
+
+/** a live auction on the home screen: price and my last bid, then my position and the time left */
+function BidCard({ a, myBid }: { a: Auction; myBid?: number }) {
+  const lead = !!a.isLeader
+  return (
+    <Link to={`/auctions/${a.id}`} className="app-card flex items-center gap-3 !rounded-[20px] !p-3.5">
+      <span className="min-w-0 flex-[1.35] text-start">
+        <b className="block truncate text-[21px] font-extrabold leading-tight">{a.name}</b>
+        <span className="mt-0.5 flex items-baseline gap-2"><b className="num text-[20px] font-extrabold">{sar(a.currentPrice)}</b><span className="text-[12.5px] text-muted">{tr('أعلى مزايدة حاليًا', 'Current top bid')}</span></span>
+        {myBid !== undefined
+          ? <span className={`mt-1.5 flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] ${lead ? 'bg-[#E3F1E8] text-pine' : 'bg-stone text-ink/80'}`}><Icon name="user" className="h-4 w-4" />{tr('مزايدتك الأخيرة:', 'Your last bid:')} <b className="num">{sar(myBid)}</b></span>
+          : <span className="mt-1.5 inline-flex"><TypePill type={a.type} /></span>}
+      </span>
+      <span className="h-16 w-px bg-line" aria-hidden />
+      <span className="flex flex-1 flex-col items-center gap-1">
+        {myBid !== undefined && (lead
+          ? <span className="inline-flex items-center gap-1 rounded-full bg-[#E3F1E8] px-3 py-1 text-[13.5px] font-extrabold text-pine"><Crown className="h-4 w-4" />{tr('أنت المتصدر', 'Leading')}</span>
+          : <span className="inline-flex items-center gap-1 rounded-full bg-[#FDECEE] px-3 py-1 text-[13.5px] font-extrabold text-bad">{tr('تم تجاوزك', 'Outbid')}<svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 9l6 6 6-6" /></svg></span>)}
+        <span className="flex items-center gap-1 text-[17px] font-bold"><Icon name="clock" className="h-4 w-4 text-muted" /><Countdown to={a.endsAt} /></span>
+        <span className="text-[12.5px] text-muted">{tr('متبقي', 'left')}</span>
+      </span>
+      <Chevron />
+    </Link>
+  )
+}
+
 /** The owner's home: what needs attention first, then the wallet, the numbers and the auctions about to close. */
 export function NativeDash() {
   const { user } = useApp()
@@ -210,7 +239,7 @@ export function NativeDash() {
   const pendingPay = reqs.data?.filter((r) => r.status === 'pending_payment') ?? []
   const alerts: React.ReactNode[] = [
     ...(ban.data ? [<Alert key="ban" to="/dashboard/profile" icon="lock" title={ban.data.endsOn ? tr(`حسابك محظور من المشاركة حتى ${date(ban.data.endsOn)}`, `Your account is barred until ${date(ban.data.endsOn)}`) : tr('حسابك محظور من المشاركة حتى إشعار آخر', 'Your account is barred until further notice')} />] : []),
-    ...outbid.map((b) => <Alert key={b.id} to={`/auctions/${b.auctionId}`} icon="alert" title={tr('لديك مزايدة تحتاج متابعة', 'A bid needs your attention')} aside={`${tr('تم تجاوزك على', 'Outbid on')} «${b.auction.name}» · ${sar(b.auction.currentPrice)}`} />),
+    ...outbid.map((b) => <Alert key={b.id} to={`/auctions/${b.auctionId}`} icon="alert" title={tr('لديك مزايدة تحتاج متابعة', 'A bid needs your attention')} aside={tr(`تم تجاوزك على «${b.auction.name}» بمبلغ ${sar(b.auction.currentPrice)}`, `Outbid on «${b.auction.name}» at ${sar(b.auction.currentPrice)}`)} />),
     ...unpaid.map((i) => <Alert key={i.id} to={`/dashboard/invoices/${i.id}`} tone="gold" icon="receipt" title={tr(`سدّد فاتورة «${i.name}»`, `Pay the invoice for «${i.name}»`)} aside={sar(i.amountDue)} />),
     ...pendingPay.map((r) => <Alert key={r.id} to={`/dashboard/requests/${r.id}`} tone="gold" icon="file" title={tr(`الطلب ${r.number}: سدّد الضمان لإكماله`, `Request ${r.number}: pay the guarantee`)} />),
     ...(finesDue.length ? [<Alert key="fines" to="/dashboard/violations" icon="alert" title={tr(`مخالفات وغرامات مستحقة (${finesDue.length})`, `Violations and fines due (${finesDue.length})`)} aside={sar(finesDue.reduce((t, f) => t + f.amount, 0))} />] : []),
@@ -220,8 +249,8 @@ export function NativeDash() {
   return (
     <div className="space-y-3.5">
       <div>
-        <h1>{tr('أهلاً بك يا', 'Welcome,')} {user?.fullName.split(' ')[0] ?? ''}</h1>
-        <p className="text-[14px] text-muted">{tr('تابع مزايداتك واطلب أسماء جديدة', 'Follow your bids and request new names')}</p>
+        <h1 className="!text-[28px] !font-extrabold text-pine-deep">{tr('أهلاً بك يا', 'Welcome,')} {user?.fullName.split(' ')[0] ?? ''}</h1>
+        <p className="text-[15px] text-muted">{tr('تابع مزايداتك وخدماتك من مكان واحد', 'Your bids and services in one place')}</p>
       </div>
 
       {alerts.length > 0 && (
@@ -233,34 +262,29 @@ export function NativeDash() {
       <ProfileCompletion />
 
       <Link to="/dashboard/wallet" className="app-wallet">
-        <Icon name="wallet" className="h-9 w-9 shrink-0 text-gold-light" />
-        <span className="min-w-0 flex-1 text-start"><span className="block text-[13px] text-paper/75">{tr('رصيد المحفظة', 'Wallet balance')}</span><span className="num block text-[28px] font-extrabold leading-tight">{wallet.data ? sar(wallet.data.balance) : '…'}</span></span>
-        <span className="plus"><Icon name="plus" className="h-5 w-5" /></span>
+        <Icon name="wallet" className="h-10 w-10 shrink-0 text-gold-light" />
+        <span className="min-w-0 flex-1 text-start"><span className="block text-[14px] text-paper/80">{tr('رصيد المحفظة', 'Wallet balance')}</span><span className="num block text-[30px] font-extrabold leading-tight">{wallet.data ? sar(wallet.data.balance) : '…'}</span></span>
+        <span className="h-12 w-px bg-paper/30" aria-hidden />
+        <span className="flex items-center gap-3"><span className="text-[15px] font-bold">{tr('إضافة رصيد', 'Top up')}</span><span className="plus !h-12 !w-12 !rounded-2xl"><Icon name="plus" className="h-6 w-6" /></span></span>
       </Link>
 
-      <div className="grid grid-cols-2 gap-2.5">
-        <Link to="/dashboard/requests/new" className="app-stat sm !border-gold/60 !bg-gold-soft"><Icon name="tag" className="h-6 w-6 text-gold-deep" /><span className="!text-[14px] !text-gold-deep">{requestsClosed ? tr('طلب شعار (مغلق حاليًا)', 'New request (closed)') : tr('طلب شعار جديد', 'New name request')}</span></Link>
-        <Link to="/dashboard/names" className="app-stat sm"><Icon name="shield" className="h-6 w-6 text-pine" /><span className="!text-[14px]">{tr('أسمائي', 'My names')}</span><b className="num text-[20px]">{num(names.data?.length ?? 0)}</b></Link>
-        <Link to="/dashboard/requests" className="app-stat sm"><Icon name="file" className="h-6 w-6 text-pine" /><span className="!text-[14px]">{tr('طلبات قيد المراجعة', 'Under review')}</span><b className="num text-[20px]">{num(reqs.data?.filter((r) => r.status === 'under_review').length ?? 0)}</b></Link>
-        <Link to="/dashboard/invoices" className="app-stat sm"><Icon name="receipt" className="h-6 w-6 text-pine" /><span className="!text-[14px]">{tr('الفواتير', 'Invoices')}</span><b className="num text-[20px]">{num(unpaid.length)}</b></Link>
+      <div className="grid grid-cols-2 gap-3">
+        <Link to="/dashboard/requests/new" className="app-qtile justify-center !border-gold/50 !bg-gold-soft !text-gold-deep"><span>{requestsClosed ? tr('الطلبات مغلقة', 'Requests closed') : tr('طلب شعار جديد', 'New name request')}</span><Icon name="tag" className="h-6 w-6" /></Link>
+        <Link to="/dashboard/names" className="app-qtile"><span className="cnt num">{num(names.data?.length ?? 0)}</span><span className="flex-1">{tr('أسمائي', 'My names')}</span><Icon name="shield" className="h-6 w-6 shrink-0 text-pine" /></Link>
+        <Link to="/dashboard/requests" className="app-qtile !whitespace-normal !text-[13px]"><span className="cnt num">{num(reqs.data?.filter((r) => r.status === 'under_review').length ?? 0)}</span><span className="flex-1 leading-tight">{tr('طلبات قيد المراجعة', 'Under review')}</span><Icon name="file" className="h-6 w-6 shrink-0 text-pine" /></Link>
+        <Link to="/dashboard/invoices" className="app-qtile"><span className="cnt num">{num(unpaid.length)}</span><span className="flex-1">{tr('الفواتير', 'Invoices')}</span><Icon name="receipt" className="h-6 w-6 shrink-0 text-pine" /></Link>
       </div>
 
-      <div className="flex items-center justify-between pt-1">
-        <h2 className="flex items-center gap-1.5 text-[18px]"><Icon name="clock" className="h-[18px] w-[18px] text-gold-deep" />{liveBids.length ? tr('مزايداتي تحتاج دخلك', 'My bids need you') : tr('مزادات قريبة من الانتهاء', 'Closing soon')}</h2>
-        <Link to="/auctions" className="text-[14px] font-bold text-pine">{tr('الكل', 'All')}</Link>
+      <div className="flex items-center justify-between pt-2">
+        <h2 className="flex items-center gap-2 text-[20px] font-extrabold"><Icon name="gavel" className="h-7 w-7 text-pine" />{liveBids.length ? tr('مزايداتي الجارية', 'My live bids') : tr('مزادات قريبة من الانتهاء', 'Closing soon')}</h2>
+        <Link to="/auctions" className="flex items-center gap-1 text-[15px] font-bold text-pine">{tr('عرض الكل', 'View all')}<svg viewBox="0 0 24 24" className="h-4 w-4 rtl:rotate-180" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg></Link>
       </div>
-      {soon.length ? (
-        <ul className="space-y-2.5">
-          {soon.map((a) => (
-            <li key={a.id}>
-              <Link to={`/auctions/${a.id}`} className="app-row !py-2.5">
-                <span className="min-w-0 flex-1 text-start"><b className="block truncate text-[18px]">{a.name}</b><span className="num block text-[16px] font-extrabold">{sar(a.currentPrice)}</span></span>
-                <span className="flex flex-col items-end gap-1"><TypePill type={a.type} /><span className={`flex items-center gap-1 text-[12.5px] font-bold ${Date.parse(a.endsAt) - Date.now() < 3600_000 ? 'text-bad' : 'text-muted'}`}><Icon name="clock" className="h-3.5 w-3.5" /><Countdown to={a.endsAt} /></span></span>
-                <Icon name="arrow" className="h-4 w-4 shrink-0 text-muted rtl:rotate-180" />
-              </Link>
-            </li>
-          ))}
+      {liveBids.length ? (
+        <ul className="space-y-3">
+          {liveBids.sort((x, y) => Number(!!x.auction.isLeader) - Number(!!y.auction.isLeader) || Date.parse(x.auction.endsAt) - Date.parse(y.auction.endsAt)).slice(0, 4).map((b) => <li key={b.id}><BidCard a={b.auction} myBid={b.amount} /></li>)}
         </ul>
+      ) : soon.length ? (
+        <ul className="space-y-3">{soon.map((a) => <li key={a.id}><BidCard a={a} /></li>)}</ul>
       ) : <p className="rounded-2xl border border-line bg-paper p-5 text-center text-muted">{tr('لا توجد مزادات جارية الآن.', 'No live auctions right now.')}</p>}
     </div>
   )
@@ -282,19 +306,32 @@ export function NativeServices() {
   const [open, setOpen] = useState<EService | null>(null)
   const isOwner = user?.role === 'owner'
   const main = list
+  const SHORT: Record<string, [string, string]> = {
+    mark: ['إصدار شعار باسم الإبل', 'Issue a mark for a camel name'], invest: ['طلب شعار للاستثمار في اسم', 'Request a mark to invest in a name'],
+    resale: ['عرض الاسم للبيع في المنصة', 'List a name for sale'], transfer: ['تحويل ملكية الاسم لمالك آخر', 'Transfer a name to another owner'],
+    compound: ['تسجيل وطلب اسم مركب جديد', 'Register a new compound name'], exemption: ['طلب المشاركة في المزادات', 'Take part in auctions'],
+  }
   const Tile = ({ s, gold }: { s: EService; gold?: boolean }) => (
-    <button type="button" onClick={() => setOpen(s)} className={`app-tile ${gold ? '!border-gold/60 !bg-gold-soft' : ''} ${s.open ? '' : 'opacity-70'}`}>
-      <Icon name={s.icon} className={`h-8 w-8 ${gold ? 'text-gold-deep' : 'text-pine'}`} />
-      <span className="text-[15px]">{s.title}</span>
-      {!s.open && <span className="text-[11px] font-medium text-muted">{s.soon ? tr('قريبًا', 'Soon') : tr('مغلقة', 'Closed')}</span>}
+    <button type="button" onClick={() => setOpen(s)} className={`flex flex-col items-center gap-1.5 rounded-[20px] border px-3 pb-4 pt-4 text-center shadow-[0_6px_18px_-12px_rgba(9,47,39,.3)] ${gold ? 'border-gold/60 bg-[#FFF6E2]' : 'border-[#E3E7EB] bg-paper'} ${s.open ? '' : 'opacity-70'}`}>
+      <span className={`grid h-14 w-14 place-items-center rounded-2xl ${gold ? 'bg-gold/15 text-gold-deep' : 'bg-[#E3F1E8] text-pine'}`}><Icon name={s.icon} className="h-8 w-8" /></span>
+      <b className="mt-1 text-[15px] font-extrabold leading-snug">{s.title}</b>
+      <span className="text-[12px] leading-5 text-muted">{s.open ? tr(...(SHORT[s.key] ?? [s.desc, s.desc])) : s.soon ? tr('قريبًا', 'Soon') : tr('مغلقة حاليًا', 'Closed now')}</span>
     </button>
   )
   return (
     <div>
-      <h1 className="text-center">{tr('الخدمات', 'Services')}</h1>
-      <p className="mb-4 text-center text-[14px] text-muted">{tr('أنجز معاملاتك بأسماء الإبل بسهولة وأمان.', 'Handle your camel-name transactions easily and safely.')}</p>
-      <div className="grid grid-cols-2 gap-2.5">{main.map((s, i) => <Tile key={s.key} s={s} gold={i === 0} />)}</div>
-      {isOwner && <L2 to="/dashboard/requests" className="app-row mt-3"><Icon name="file" className="h-5 w-5 text-pine" /><span className="flex-1 font-bold">{tr('متابعة طلباتي', 'Track my requests')}</span><Icon name="arrow" className="h-4 w-4 text-muted rtl:rotate-180" /></L2>}
+      <h1 className="text-center !text-[32px] !font-extrabold text-pine">{tr('الخدمات', 'Services')}</h1>
+      <p className="text-center text-[15px] text-muted">{tr('أنجز معاملاتك بأسماء الإبل بسهولة وأمان', 'Handle your camel-name transactions easily and safely')}</p>
+      <span className="mx-auto mb-5 mt-3 block h-1 w-12 rounded-full bg-gold" aria-hidden />
+      <div className="grid grid-cols-2 gap-3">{main.map((s, i) => <Tile key={s.key} s={s} gold={i === 0} />)}</div>
+      {isOwner && (
+        <L2 to="/dashboard/requests" className="mt-6 flex items-center gap-3 rounded-[20px] border-[1.5px] border-pine/70 bg-paper px-4 py-4">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#E3F1E8] text-pine"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg></span>
+          <span className="min-w-0 flex-1 text-start"><b className="block text-[19px] font-extrabold text-pine">{tr('متابعة طلباتي', 'Track my requests')}</b><span className="text-[13.5px] text-muted">{tr('اطلع على حالة جميع طلباتك', 'See the status of all your requests')}</span></span>
+          <span className="h-10 w-px bg-line" aria-hidden />
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#E3F1E8] text-pine"><Icon name="file" className="h-7 w-7" /></span>
+        </L2>
+      )}
       <Sheet open={!!open} onClose={() => setOpen(null)} title={open?.title ?? ''}>
         {open && <ul><ServiceCard s={open} isOwner={isOwner} signedIn={!!user} /></ul>}
       </Sheet>
@@ -351,7 +388,7 @@ function MenuRow({ to, icon, label, badge }: { to: string; icon: 'alert' | 'gave
       <Icon name={icon} className="h-5 w-5 text-pine" />
       <span className="flex-1 text-[15px] font-bold">{label}</span>
       {!!badge && <span className="num grid h-6 min-w-6 place-items-center rounded-full bg-bad px-1.5 text-[12px] font-bold text-paper">{badge}</span>}
-      <Icon name="arrow" className="h-4 w-4 text-muted rtl:rotate-180" />
+      <Chevron />
     </L2>
   )
 }
