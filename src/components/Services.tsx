@@ -134,7 +134,7 @@ export function ServicesGrid({ audience, className = '' }: { audience: 'public' 
   )
 }
 
-function ServiceCard({ s, isOwner, signedIn }: { s: EService; isOwner: boolean; signedIn: boolean }) {
+export function ServiceCard({ s, isOwner, signedIn }: { s: EService; isOwner: boolean; signedIn: boolean }) {
   const label = tr('تقدّم للخدمة', 'Apply')
   const nav = useNavigate()
   const [terms, setTerms] = useState<null | 'read' | 'apply'>(null)

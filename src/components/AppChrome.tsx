@@ -48,7 +48,7 @@ function Tab({ to, label, icon, end, also }: { to: string; label: string; icon: 
 }
 
 /** A bottom sheet that lists everything else. */
-function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-[60] flex items-end bg-ink/45" onClick={onClose} role="dialog" aria-modal aria-label={title}>
@@ -78,7 +78,19 @@ function TopBar({ title, back, children }: { title: string; back?: boolean; chil
   )
 }
 
-const DEPTH_ROOTS = new Set(['/', '/auctions', '/names', '/services', '/events', '/dashboard', '/dashboard/services', '/dashboard/bids', '/dashboard/wallet', '/admin', '/login', '/signup'])
+/** the owner's four tabs, the same on every screen of the app */
+function OwnerTabs() {
+  return (
+    <>
+      <Tab to="/dashboard" label={tr('الرئيسية', 'Home')} icon="home" end />
+      <Tab to="/auctions" label={tr('المزادات', 'Auctions')} icon="gavel" />
+      <Tab to="/dashboard/services" label={tr('الخدمات', 'Services')} icon="list" also={['/dashboard/requests', '/dashboard/invest', '/dashboard/sell', '/dashboard/transfers', '/dashboard/exemptions']} />
+      <Tab to="/dashboard/account" label={tr('حسابي', 'Account')} icon="users" also={['/dashboard/profile', '/dashboard/wallet', '/dashboard/invoices', '/dashboard/violations', '/dashboard/tickets', '/dashboard/names', '/dashboard/camels', '/dashboard/certificates', '/dashboard/settings', '/dashboard/watchlist', '/dashboard/bids']} />
+    </>
+  )
+}
+
+const DEPTH_ROOTS = new Set(['/', '/auctions', '/names', '/services', '/events', '/dashboard', '/dashboard/services', '/dashboard/bids', '/dashboard/account', '/admin', '/login', '/signup'])
 
 function pageTitle(pathname: string, nav: NavItem[], fallback: string) {
   const hit = [...nav].sort((a, b) => b.to.length - a.to.length).find((n) => pathname === n.to || pathname.startsWith(n.to + '/'))
@@ -98,7 +110,7 @@ export function NativeShell({ nav, title }: { nav: NavItem[]; title: string }) {
   const tabs = nav.slice(0, 4)
   const deep = !DEPTH_ROOTS.has(pathname)
   const roleLabel = user?.role === 'owner' ? tr('مالك إبل', 'Camel owner') : user?.role === 'committee' ? tr('لجنة الاعتماد', 'Accreditation Committee') : tr('مدير المنصة', 'Platform administrator')
-  const home = user?.role === 'owner' ? '/dashboard/profile' : '/admin/account'
+  const home = user?.role === 'owner' ? '/dashboard/account' : '/admin/account'
   return (
     <div className="app-root">
       <TopBar title={pageTitle(pathname, nav, title)} back={deep}>
@@ -114,8 +126,10 @@ export function NativeShell({ nav, title }: { nav: NavItem[]; title: string }) {
       )}
       <main ref={scroller} className="app-main"><Outlet /></main>
       <nav className="app-tabs" aria-label={tr('التنقل السريع', 'Quick navigation')}>
-        {tabs.map((n) => <Tab key={n.to} to={n.to} label={n.short ?? n.label} icon={n.icon} end={n.end} also={n.also} />)}
-        <button className="app-tab" onClick={() => setMore(true)}><span className="app-tab-ic"><Icon name="list" className="h-[22px] w-[22px]" /></span>{tr('المزيد', 'More')}</button>
+        {user?.role === 'owner' ? <OwnerTabs /> : <>
+          {tabs.map((n) => <Tab key={n.to} to={n.to} label={n.short ?? n.label} icon={n.icon} end={n.end} also={n.also} />)}
+          <button className="app-tab" onClick={() => setMore(true)}><span className="app-tab-ic"><Icon name="list" className="h-[22px] w-[22px]" /></span>{tr('المزيد', 'More')}</button>
+        </>}
       </nav>
       <Sheet open={more} onClose={() => setMore(false)} title={user?.fullName ?? title}>
         <p className="-mt-1 mb-3 text-[13px] text-muted">{user?.acting ? `${tr('مفوَّض', 'Delegate')}: ${user.acting.actorName}` : roleLabel}</p>
@@ -156,11 +170,13 @@ export function NativePublicLayout() {
       <SiteBanner />
       <main className="app-main"><Outlet /></main>
       <nav className="app-tabs" aria-label={tr('التنقل السريع', 'Quick navigation')}>
-        <Tab to="/" label={tr('الرئيسية', 'Home')} icon="home" end />
-        <Tab to="/auctions" label={tr('المزادات', 'Auctions')} icon="gavel" />
-        <Tab to="/names" label={tr('السجل', 'Registry')} icon="tag" />
-        <Tab to="/services" label={tr('الخدمات', 'Services')} icon="list" />
-        <Tab to={acct} label={user ? tr('حسابي', 'Account') : tr('دخول', 'Sign in')} icon={user ? 'users' : 'lock'} also={['/login', '/signup']} />
+        {user?.role === 'owner' ? <OwnerTabs /> : <>
+          <Tab to="/" label={tr('الرئيسية', 'Home')} icon="home" end />
+          <Tab to="/auctions" label={tr('المزادات', 'Auctions')} icon="gavel" />
+          <Tab to="/names" label={tr('السجل', 'Registry')} icon="tag" />
+          <Tab to="/services" label={tr('الخدمات', 'Services')} icon="list" />
+          <Tab to={acct} label={user ? tr('حسابي', 'Account') : tr('دخول', 'Sign in')} icon={user ? 'users' : 'lock'} also={['/login', '/signup']} />
+        </>}
       </nav>
     </div>
   )

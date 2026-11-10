@@ -287,7 +287,7 @@ export default function AuctionDetail() {
           onPay={async (m) => { try { setData(await api.payBidDeposit(a.id, m)); toast(tr('تم دفع الضمان، تقدر تزايد الآن', 'Guarantee paid, you can bid now')) } catch (e) { toast((e as Error).message, 'bad'); throw e } }} />
       )}
       {phase === 'live' && !ownInvest && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(0,0,0,.25)] backdrop-blur lg:hidden print:hidden">
+        <div className="app-bidbar fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(0,0,0,.25)] backdrop-blur lg:hidden print:hidden">
           <div className="mx-auto flex max-w-xl items-center gap-3">
             <div className="min-w-0 flex-1">
               <div className="num text-[22px] font-extrabold leading-none">{num(a.currentPrice)} <span className="text-[13px] font-medium text-muted">{cur()}</span></div>

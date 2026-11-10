@@ -41,6 +41,8 @@ const DashHome = pick(ownerMod, 'DashHome'), WalletPage = pick(ownerMod, 'Wallet
 const InvoicePage = pick(ownerMod, 'InvoicePage'), MyBids = pick(ownerMod, 'MyBids'), MyNames = pick(ownerMod, 'MyNames')
 const CertificatePage = pick(ownerMod, 'CertificatePage'), ProfilePage = pick(ownerMod, 'ProfilePage'), WatchlistPage = pick(ownerMod, 'WatchlistPage')
 const MyRequests = pick(reqMod, 'MyRequests'), NewRequest = pick(reqMod, 'NewRequest'), RequestDetail = pick(reqMod, 'RequestDetail')
+const NativeDash = pick(() => import('./pages/native/NativeScreens'), 'NativeDash'), NativeAuctions = pick(() => import('./pages/native/NativeScreens'), 'NativeAuctions')
+const NativeServices = pick(() => import('./pages/native/NativeScreens'), 'NativeServices'), NativeWallet = pick(() => import('./pages/native/NativeScreens'), 'NativeWallet'), NativeAccount = pick(() => import('./pages/native/NativeScreens'), 'NativeAccount')
 const SellPage = pick(() => import('./pages/owner/Sell'), 'SellPage')
 const InvestPage = pick(() => import('./pages/owner/Invest'), 'InvestPage')
 const MyTickets = pick(() => import('./pages/owner/Tickets'), 'MyTickets')
@@ -187,7 +189,7 @@ function AppRoutes() {
         <Routes key={lang}>
           <Route element={<PublicShell />}>
             <Route index element={IS_NATIVE ? <NativeHome /> : <Home />} />
-            <Route path="auctions" element={<Auctions />} />
+            <Route path="auctions" element={IS_NATIVE ? <NativeAuctions /> : <Auctions />} />
             <Route path="auctions/:id" element={<AuctionDetail />} />
             <Route path="names" element={<ReservedNames />} />
             <Route path="events" element={<Events />} />
@@ -203,24 +205,25 @@ function AppRoutes() {
             <Route path="about" element={<About />} />
             <Route path="invest" element={<Invest />} />
             <Route path="market" element={<Market />} />
-            <Route path="services" element={<PublicServices />} />
+            <Route path="services" element={IS_NATIVE ? <NativeServices /> : <PublicServices />} />
             <Route path="login" element={<Login />} />
             <Route path="signup" element={<Signup />} />
           </Route>
           <Route path="dashboard" element={<Guard roles={['owner']}><Shell nav={OWNER_NAV} title={tr('لوحة التحكم', 'Dashboard')} /></Guard>}>
-            <Route index element={<DashHome />} />
+            <Route index element={IS_NATIVE ? <NativeDash /> : <DashHome />} />
             <Route path="requests" element={<MyRequests />} />
             <Route path="requests/new" element={<NewRequest />} />
             <Route path="requests/:id" element={<RequestDetail />} />
             <Route path="bids" element={<MyBids />} />
             <Route path="names" element={<MyNames />} />
             <Route path="camels" element={<MyCamelsPage />} />
-            <Route path="services" element={<ServicesPage />} />
+            <Route path="services" element={IS_NATIVE ? <NativeServices /> : <ServicesPage />} />
+            <Route path="account" element={IS_NATIVE ? <NativeAccount /> : <Navigate to="/dashboard/profile" replace />} />
             <Route path="transfers" element={<TransfersPage />} />
             <Route path="names/:id/certificate" element={<CertificatePage />} />
             <Route path="certificates" element={<CertificatesPage />} />
             <Route path="certificates/:number" element={<CertificateView />} />
-            <Route path="wallet" element={<WalletPage />} />
+            <Route path="wallet" element={IS_NATIVE ? <NativeWallet /> : <WalletPage />} />
             <Route path="invoices" element={<MyInvoices />} />
             <Route path="invoices/:id" element={<InvoicePage />} />
             <Route path="violations" element={<MyViolationsPage />} />
