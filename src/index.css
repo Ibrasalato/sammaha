@@ -129,6 +129,8 @@ html.native input, html.native textarea, html.native [contenteditable] { -webkit
 /* ───── the app's own layout: fixed top bar, fixed tab bar, the page scrolls between them ───── */
 html.native .app-root { display: flex; min-height: 100dvh; flex-direction: column; background: linear-gradient(180deg, #E4F1E9 0, #EEF4F0 220px, #F4F5F7 420px) no-repeat, #F4F5F7; }
 html.native .app-top { position: sticky; top: 0; z-index: 30; background: rgba(228,241,233,.92); backdrop-filter: blur(10px); color: #092F27; padding-top: env(safe-area-inset-top); }
+html.native .app-top::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 80' fill='%23006B4A'><path d='M10 50c2-9 6-14 12-15 3-8 9-12 15-10 3 1 5 4 5 8 6 2 11 5 16 9 7-1 14 0 20 3 3-9 9-14 16-13 5 1 8 5 9 10 3 3 6 6 10 7l5-6 7 2-2 9c-4 4-10 5-16 4l-1 22h-8l-3-22H78l-2 22h-8l-2-22H44l-3 22h-8l-2-22c-8 0-15-2-19-8z' opacity='.55'/></svg>") no-repeat 38% 30px / 170px auto; opacity: .24; }
+html.native .app-top > * { position: relative; }
 html.native .app-main { flex: 1; padding: 14px 14px calc(84px + env(safe-area-inset-bottom)); min-width: 0; }
 html.native .app-main h1 { font-size: 22px; line-height: 1.35; }
 html.native .app-iconbtn { display: grid; height: 40px; width: 40px; place-items: center; border-radius: 9999px; background: #fff; color: #00513B; box-shadow: 0 1px 3px rgba(9,47,39,.12); }
@@ -201,3 +203,11 @@ html.native .app-timer { background: #FDECEE; border: 1px solid #F3C4CB; border-
 html.native #bid { background: transparent; border: 0; box-shadow: none; overflow: visible; }
 html.native #bid > div:first-child { padding: 0; }
 html.native #bid > div + div { border-radius: 16px; border: 1px solid #DFE3E8; background: #fff; margin-top: 10px; }
+
+/* design pass 2: compact app cards */
+html.native .app-stat.sm { flex-direction: column; padding: 8px 6px; gap: 1px; border-radius: 14px; font-size: 12px; }
+html.native .app-alert { display: flex; align-items: center; gap: 12px; border-radius: 16px; padding: 11px 12px; }
+html.native .app-fab-ghost { display: none; }
+html.native .app-select { appearance: none; background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235B6675' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>") no-repeat left 12px center / 18px; }
+html.native .app-filterbtn { display: grid; height: 46px; width: 46px; flex: none; place-items: center; border: 1px solid #DFE3E8; border-radius: 14px; background: #fff; color: #00513B; }
+html.native .app-wallet .plus { display: grid; height: 40px; width: 40px; place-items: center; border-radius: 12px; background: #fff; color: #00513B; }

@@ -5,7 +5,7 @@ import { InvoiceStatus } from '../../components/InvoiceStatus'
 import { PayModal } from '../../components/PayModal'
 import { ClosedPage, useClosed } from '../../components/SettingsUi'
 import { Empty, Loading } from '../../components/ui'
-import { NAME_TYPES, RULES, TYPE_CLS, TYPE_HINT, TYPE_LABEL } from '../../lib/config'
+import { NAME_TYPES, RULES, TYPE_HINT, TYPE_LABEL } from '../../lib/config'
 import { date, num, sar } from '../../lib/format'
 import { tr } from '../../lib/i18n'
 import { localizeServerText as L } from '../../lib/serverText'
@@ -41,43 +41,36 @@ export function NativeNewRequest() {
   }
   if (closed && !created) return <ClosedPage intake="requests" title={tr('طلب شعار جديد', 'New name request')} back="/dashboard/services" />
 
-  const labels = [tr('النوع', 'Type'), tr('الأسماء', 'Names'), tr('التأكيد', 'Confirm')]
+  const labels = [tr('البيانات', 'Details'), tr('المراجعة', 'Review'), tr('التأكيد', 'Confirm')]
   return (
     <div>
       <ol className="mb-4 flex items-center justify-between px-2" aria-label={tr('خطوات الطلب', 'Request steps')}>
         {labels.map((l, i) => (
           <li key={l} className="flex flex-1 flex-col items-center gap-1 text-[12.5px] font-bold" aria-current={step === i + 1 ? 'step' : undefined}>
-            <span className={`grid h-8 w-8 place-items-center rounded-full border-2 ${step > i + 1 ? 'border-ok bg-ok text-paper' : step === i + 1 ? 'border-pine bg-pine text-paper' : 'border-line bg-paper text-muted'}`}>{step > i + 1 ? '✓' : i + 1}</span>
+            <span className={`grid h-8 w-8 place-items-center rounded-full border-2 ${step > i + 1 ? 'border-ok bg-ok text-paper' : step === i + 1 ? 'border-pine bg-pine text-paper' : 'border-line bg-[#E9ECF0] text-muted'}`}>{step > i + 1 ? '✓' : i + 1}</span>
             <span className={step === i + 1 ? 'text-pine' : 'text-muted'}>{l}</span>
           </li>
         ))}
       </ol>
 
       {step === 1 && (
-        <section className="space-y-2.5">
-          <h1>{tr('نوع الشعار', 'Name type')}</h1>
-          <p className="text-[14px] text-muted">{tr('اختر نوع الاسم الذي تريد تسجيله.', 'Choose the kind of name you want to register.')}</p>
-          {NAME_TYPES.map((t) => (
-            <button key={t} type="button" onClick={() => setType(t)} aria-pressed={type === t}
-              className={`flex w-full items-center gap-3 rounded-2xl border-2 p-4 text-start ${type === t ? TYPE_CLS[t].card : 'border-line bg-paper'}`}>
-              <span className={`h-3 w-3 rounded-full ${TYPE_CLS[t].dot}`} />
-              <span className="flex-1"><b className="block text-[19px]">{TYPE_LABEL[t]}</b><span className="text-[13px] text-muted">{TYPE_HINT[t]}</span></span>
-              {type === t && <Icon name="check" className="h-5 w-5 text-pine" />}
-            </button>
-          ))}
-        </section>
-      )}
-
-      {step === 2 && type && (
-        <section className="space-y-3">
-          <h1>{tr('الأسماء المقترحة', 'Proposed names')}</h1>
-          <p className="text-[13.5px] leading-6 text-muted">{tr('اكتب ثلاثة أسماء بالترتيب الذي تفضّله. نتحقق من كل اسم أثناء الكتابة.', 'Write three names in order of preference. Each is checked as you type.')}</p>
-          {names.map((n, i) => {
+        <section className="app-card space-y-3">
+          <h1 className="!text-[19px]">{tr('بيانات الاسم', 'Name details')}</h1>
+          <div>
+            <label className="label" htmlFor="ntype">{tr('فئة الاسم', 'Name category')} <span className="text-bad">*</span></label>
+            <select id="ntype" className="field app-select" value={type ?? ''} onChange={(e) => setType((e.target.value || null) as NameType | null)}>
+              <option value="">{tr('اختر الفئة', 'Choose a category')}</option>
+              {NAME_TYPES.map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
+            </select>
+            {type && <p className="mt-1 text-[12.5px] text-muted">{TYPE_HINT[type]}</p>}
+          </div>
+          {type && <p className="text-[13px] leading-6 text-muted">{tr('اكتب ثلاثة أسماء بالترتيب الذي تفضّله. نتحقق من كل اسم أثناء الكتابة.', 'Write three names in order of preference. Each is checked as you type.')}</p>}
+          {type && names.map((n, i) => {
             const c = checks[i]
             return (
               <div key={i}>
-                <label className="label" htmlFor={`n${i}`}>{tr(`الاسم ${['الأول', 'الثاني', 'الثالث'][i]}`, `${['First', 'Second', 'Third'][i]} name`)}</label>
-                <input id={`n${i}`} className={`field text-[19px] font-extrabold ${c && VERDICT_STYLE[c.verdict] === 'text-bad' ? 'border-bad' : ''}`} value={n} maxLength={30} onChange={(e) => setNames(names.map((x, j) => (j === i ? e.target.value : x)))} />
+                <label className="label" htmlFor={`n${i}`}>{tr(`الاسم المراد تسجيله (${['الأول', 'الثاني', 'الثالث'][i]})`, `Name to register (${['first', 'second', 'third'][i]})`)} <span className="text-bad">*</span></label>
+                <input id={`n${i}`} className={`field text-[18px] font-extrabold ${c && VERDICT_STYLE[c.verdict] === 'text-bad' ? 'border-bad' : ''}`} placeholder={tr('أدخل الاسم', 'Enter the name')} value={n} maxLength={30} onChange={(e) => setNames(names.map((x, j) => (j === i ? e.target.value : x)))} />
                 {c && <p className={`mt-1 text-[13.5px] font-semibold ${VERDICT_STYLE[c.verdict]}`}>{L(c.message ?? '')}{c.verdict === 'similar' && c.hits.some((h) => h.name) && <span className="font-normal text-muted"> ({c.hits.filter((h) => h.name).slice(0, 3).map((h) => h.name).join(tr('، ', ', '))})</span>}</p>}
               </div>
             )
@@ -85,13 +78,19 @@ export function NativeNewRequest() {
         </section>
       )}
 
-      {step === 3 && type && (
+      {step === 2 && type && (
         <section className="space-y-3">
-          <h1>{tr('مراجعة الطلب', 'Review your request')}</h1>
+          <h1 className="!text-[19px]">{tr('مراجعة الطلب', 'Review your request')}</h1>
           <div className="app-card">
-            <div className="flex items-center justify-between"><span className="text-muted">{tr('نوع الشعار', 'Type')}</span><b>{TYPE_LABEL[type]}</b></div>
+            <div className="flex items-center justify-between"><span className="text-muted">{tr('فئة الاسم', 'Category')}</span><b>{TYPE_LABEL[type]}</b></div>
             <ul className="mt-3 divide-y divide-line/70">{names.map((n, i) => <li key={i} className="flex items-center justify-between py-2.5"><span className="text-[13px] text-muted">{i + 1}</span><b className="text-[19px]">{n}</b></li>)}</ul>
           </div>
+        </section>
+      )}
+
+      {step === 3 && type && (
+        <section className="space-y-3">
+          <h1 className="!text-[19px]">{tr('تأكيد الطلب', 'Confirm the request')}</h1>
           <div className="rounded-2xl border border-gold/50 bg-gold-soft p-4 text-[14px] leading-7">
             <b className="block text-[16px]">{tr('ضمان المزاد', 'Auction guarantee')} {sar(RULES.depositAmount)}</b>
             {tr('يُعاد إلى محفظتك إن رُفض الطلب أو أُلغي أو رسا الاسم على غيرك. وإن رسا عليك تسدّد قيمته خلال المهلة ثم يُعاد ضمانك.', 'Returned to your wallet if the request is declined or cancelled, or the name goes to someone else. If you win, you pay its price within the deadline and the guarantee is returned.')}
@@ -102,7 +101,7 @@ export function NativeNewRequest() {
       <div className="mt-5 flex gap-2.5">
         {step > 1 && <button className="btn-ghost flex-1" onClick={() => setStep(step - 1)}>{tr('السابق', 'Back')}</button>}
         {step < 3
-          ? <button className="btn-primary flex-[2]" disabled={step === 1 ? !type : !complete || blocked} onClick={() => setStep(step + 1)}>{tr('التالي', 'Next')}</button>
+          ? <button className="btn-primary flex-[2]" disabled={step === 1 ? !type || !complete || blocked : false} onClick={() => setStep(step + 1)}>{tr('التالي', 'Next')} <Icon name="arrow" className="h-4 w-4 ltr:rotate-0 rtl:rotate-180" /></button>
           : <button className="btn-gold flex-[2]" disabled={busy} onClick={submit}>{busy ? tr('جارٍ الإرسال…', 'Sending…') : tr('رفع الطلب وسداد الضمان', 'Submit and pay guarantee')}</button>}
       </div>
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../../components/dash'
+import { Sheet } from '../../components/AppChrome'
 import { useFines } from '../../components/Fines'
 import { ProfileCompletion } from '../owner/Profile'
 import { useClosed } from '../../components/SettingsUi'
@@ -38,38 +39,37 @@ export function AuctionTile({ a, mark, mine, watching, onWatch }: { a: Auction; 
   const price = a.finalPrice ?? a.currentPrice
   const urgent = phase === 'live' && Date.parse(a.endsAt) - Date.now() < 3600_000
   return (
-    <div className={`app-card !p-3.5 ${a.paused ? 'opacity-80' : ''}`}>
-      <Link to={`/auctions/${a.id}`} className="block">
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1 text-start">
-            <div className="flex items-center gap-2">
-              {onWatch && (
-                <button type="button" className="shrink-0 text-muted" aria-pressed={!!watching} aria-label={tr('تابع المزاد', 'Watch')} onClick={(e) => { e.preventDefault(); onWatch() }}>
-                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill={watching ? '#00513B' : 'none'} stroke={watching ? '#00513B' : 'currentColor'} strokeWidth="2"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
-                </button>
-              )}
-              <b className="truncate text-[21px] font-extrabold leading-tight">{a.name}</b>
-            </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5"><TypePill type={a.type} /><MarkPill m={mark ?? (a.isLeader && !ended ? 'leading' : null)} />{a.cancelled && <span className="pill bg-bad/10 text-bad">{tr('ملغى', 'Cancelled')}</span>}{a.paused && <span className="pill bg-info-soft text-info-deep">{tr('متوقف مؤقتًا', 'Paused')}</span>}</div>
+    <Link to={`/auctions/${a.id}`} className={`app-card !p-3.5 block ${a.paused ? 'opacity-80' : ''}`}>
+      <div className="flex items-stretch gap-2.5">
+        <div className="min-w-0 flex-1 text-start">
+          <div className="flex items-center gap-2">
+            {onWatch && (
+              <button type="button" className="shrink-0 text-muted" aria-pressed={!!watching} aria-label={tr('تابع المزاد', 'Watch')} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWatch() }}>
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill={watching ? '#00513B' : 'none'} stroke={watching ? '#00513B' : 'currentColor'} strokeWidth="2"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
+              </button>
+            )}
+            <b className="truncate text-[22px] font-extrabold leading-tight">{a.name}</b>
           </div>
-          <div className="shrink-0 text-end">
-            <span className="block text-[12px] text-muted">{ended ? tr('سعر الترسية', 'Hammer price') : mine ? tr('مزايدتي', 'My bid') : a.bidCount ? tr('أعلى مزايدة', 'Top bid') : tr('السعر الافتتاحي', 'Opening price')}</span>
-            <span className="num block text-[22px] font-extrabold leading-tight">{sar(mine ?? price)}</span>
+          <div className="mt-3 text-[12px] text-muted">{ended ? tr('سعر الترسية', 'Hammer price') : mine ? tr('مزايدتي', 'My bid') : a.bidCount ? tr('أعلى مزايدة', 'Top bid') : tr('السعر الافتتاحي', 'Opening price')}</div>
+          <span className="num block text-[24px] font-extrabold leading-tight">{sar(mine ?? price)}</span>
+        </div>
+        <div className="flex w-[48%] shrink-0 flex-col items-stretch justify-between gap-2 text-[12.5px]">
+          <div className="flex flex-wrap items-center justify-end gap-1.5"><TypePill type={a.type} /><MarkPill m={mark ?? (a.isLeader && !ended ? 'leading' : null)} />{a.cancelled && <span className="pill bg-bad/10 text-bad">{tr('ملغى', 'Cancelled')}</span>}{a.paused && <span className="pill bg-info-soft text-info-deep">{tr('متوقف مؤقتًا', 'Paused')}</span>}</div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1 text-muted"><Icon name="gavel" className="h-4 w-4" /><span className="num">{num(a.bidCount)}</span> {tr('مزايدة', 'bids')}</span>
+            <span className={`flex items-center gap-1 font-bold ${urgent ? 'text-bad' : 'text-muted'}`}>
+              <Icon name="clock" className="h-4 w-4" />
+              {phase === 'live' && !a.paused && <Countdown to={a.endsAt} />}
+              {phase === 'scheduled' && <Countdown to={a.startsAt} />}
+              {a.paused && <span>{tr('متوقف', 'Paused')}</span>}
+              {ended && <span>{date(a.endsAt)}</span>}
+            </span>
           </div>
+          {phase === 'live' && !a.paused ? <span className="app-outline !min-h-[34px] !text-[13.5px]">{tr('زايد الآن', 'Bid now')}</span> : <span />}
         </div>
-        <div className="mt-3 flex items-center justify-between gap-2 text-[13px]">
-          <span className="flex items-center gap-1.5 text-muted"><Icon name="gavel" className="h-4 w-4" /><span className="num">{num(a.bidCount)}</span> {tr('مزايدة', 'bids')}</span>
-          <span className={`flex items-center gap-1.5 font-bold ${urgent ? 'text-bad' : 'text-muted'}`}>
-            <Icon name="clock" className="h-4 w-4" />
-            {phase === 'live' && !a.paused && <Countdown to={a.endsAt} />}
-            {phase === 'scheduled' && <><span className="font-medium">{tr('يبدأ بعد', 'Starts in')}</span><Countdown to={a.startsAt} /></>}
-            {a.paused && <span>{tr('متوقف مؤقتًا', 'Paused')}</span>}
-            {ended && <span>{date(a.endsAt)}</span>}
-          </span>
-        </div>
-      </Link>
-      {phase === 'live' && !a.paused && <Link to={`/auctions/${a.id}`} className="app-outline mt-3">{tr('زايد الآن', 'Bid now')}</Link>}
-    </div>
+        <Icon name="arrow" className="h-4 w-4 shrink-0 self-center text-muted rtl:rotate-180" />
+      </div>
+    </Link>
   )
 }
 
@@ -89,6 +89,7 @@ export function NativeAuctions() {
   const [phase, setPhase] = useState<AuctionPhase | 'all'>('live')
   const [type, setType] = useState<NameType | 'all'>('all')
   const [q, setQ] = useState('')
+  const [filt, setFilt] = useState(false)
   const all = useLoad(() => api.listAuctions({ phase, type, q }), [phase, type, q], 15000)
   const bids = useLoad(() => (user?.role === 'owner' ? api.myBids() : Promise.resolve([])), [user?.id], 15000)
   const watch = useLoad(() => (user?.role === 'owner' ? api.myWatchlist() : Promise.resolve([])), [user?.id], 15000)
@@ -113,7 +114,7 @@ export function NativeAuctions() {
     <div>
       <h1 className="mb-3">{tr('المزادات', 'Auctions')}</h1>
       <div className="app-seg" role="tablist">
-        {([['all', tr('كل المزادات', 'All auctions')], ['mine', `${tr('مزايداتي', 'My bids')}${bids.data?.length ? ` (${num(bids.data.length)})` : ''}`], ['watch', tr('المتابعة', 'Watching')]] as ['all' | 'mine' | 'watch', string][]).map(([v, l]) => (
+        {([['all', tr('كل المزادات', 'All auctions')], ['mine', `${tr('مزايداتي', 'My bids')}${bids.data?.length ? ` (${num(bids.data.length)})` : ''}`], ...(tab === 'watch' ? [['watch', tr('المتابعة', 'Watching')]] : [])] as ['all' | 'mine' | 'watch', string][]).map(([v, l]) => (
           <button key={v} role="tab" aria-selected={tab === v} className={tab === v ? 'on' : ''} onClick={() => setTab(v)}>{l}</button>
         ))}
       </div>
@@ -122,9 +123,16 @@ export function NativeAuctions() {
         <Empty title={tr('سجّل الدخول لمتابعة مزايداتك', 'Sign in to follow your bids')}><button className="btn-primary" onClick={() => nav('/login')}>{tr('تسجيل الدخول', 'Sign in')}</button></Empty>
       ) : tab === 'all' ? (
         <>
-          <div className="app-search"><Icon name="list" className="h-[18px] w-[18px] text-muted" /><input type="search" placeholder={tr('ابحث عن اسم…', 'Search a name…')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={tr('ابحث عن اسم', 'Search a name')} /></div>
+          <div className="mb-2.5 flex items-center gap-2">
+            <button type="button" className="app-filterbtn" onClick={() => setFilt(true)} aria-label={tr('تصفية', 'Filter')}><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg></button>
+            <div className="app-search !mb-0 flex-1"><svg viewBox="0 0 24 24" className="h-[18px] w-[18px] text-muted" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg><input type="search" placeholder={tr('ابحث عن اسم…', 'Search a name…')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={tr('ابحث عن اسم', 'Search a name')} /></div>
+          </div>
           <Chips value={type} onChange={setType} options={[['all', tr('الكل', 'All')], ...NAME_TYPES.map((t) => [t, TYPE_LABEL[t]] as [NameType, string])]} />
-          <Chips value={phase} onChange={setPhase} options={[['live', tr('جارية', 'Live')], ['scheduled', tr('قادمة', 'Upcoming')], ['ended', tr('منتهية', 'Ended')], ['all', tr('الكل', 'All')]]} />
+          <Sheet open={filt} onClose={() => setFilt(false)} title={tr('تصفية المزادات', 'Filter auctions')}>
+            <p className="mb-2 text-[13px] font-bold text-muted">{tr('حالة المزاد', 'Auction status')}</p>
+            <Chips value={phase} onChange={(v) => { setPhase(v); setFilt(false) }} options={[['live', tr('جارية', 'Live')], ['scheduled', tr('قادمة', 'Upcoming')], ['ended', tr('منتهية', 'Ended')], ['all', tr('الكل', 'All')]]} />
+            {owner && <button type="button" className="btn-ghost mt-2 w-full" onClick={() => { setTab('watch'); setFilt(false) }}>{tr('عرض المزادات التي أتابعها', 'Show auctions I watch')}</button>}
+          </Sheet>
           {all.loading && !all.data ? <Loading /> : all.data?.length
             ? <div className="space-y-3">{all.data.map((a) => <AuctionTile key={a.id} a={a} mark={markOf(a)} mine={myBid.get(a.id)?.amount} watching={watched.has(a.id)} onWatch={owner ? () => void toggle(a.id) : undefined} />)}</div>
             : <Empty title={tr('لا توجد مزادات بهذه التصفية', 'No auctions match this filter')} />}
@@ -144,10 +152,10 @@ export function NativeAuctions() {
 
 function Alert({ to, tone = 'red', icon, title, aside }: { to: string; tone?: 'red' | 'gold'; icon: 'alert' | 'gavel' | 'receipt' | 'file' | 'lock'; title: string; aside?: string }) {
   return (
-    <Link to={to} className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 ${tone === 'red' ? 'border-bad/40 bg-[#FDECEE]' : 'border-gold/50 bg-gold-soft'}`}>
-      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${tone === 'red' ? 'bg-bad/10 text-bad' : 'bg-gold/20 text-gold-deep'}`}><Icon name={icon} className="h-[18px] w-[18px]" /></span>
-      <span className="min-w-0 flex-1 text-[14px] font-bold leading-6">{title}</span>
-      {aside && <span className="num shrink-0 text-[15px] font-extrabold">{aside}</span>}
+    <Link to={to} className={`app-alert border ${tone === 'red' ? 'border-bad/40 bg-[#FDECEE]' : 'border-gold/50 bg-gold-soft'}`}>
+      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${tone === 'red' ? 'bg-bad/10 text-bad' : 'bg-gold/20 text-gold-deep'}`}><Icon name={icon} className="h-5 w-5" /></span>
+      <span className="min-w-0 flex-1 text-start"><b className={`block text-[14.5px] leading-6 ${tone === 'red' ? 'text-bad' : 'text-gold-deep'}`}>{title}</b>{aside && <span className="num block text-[13px] text-muted">{aside}</span>}</span>
+      <Icon name="arrow" className="h-4 w-4 shrink-0 text-muted rtl:rotate-180" />
     </Link>
   )
 }
@@ -156,6 +164,7 @@ function Alert({ to, tone = 'red', icon, title, aside }: { to: string; tone?: 'r
 export function NativeDash() {
   const { user } = useApp()
   const requestsClosed = useClosed('requests')
+  const [showAll, setShowAll] = useState(false)
   const wallet = useLoad(() => api.myWallet(), [])
   const reqs = useLoad(() => api.myRequests(), [])
   const bids = useLoad(() => api.myBids(), [], 15000)
@@ -169,37 +178,45 @@ export function NativeDash() {
   const liveBids = bids.data?.filter((b) => phaseOf(b.auction) === 'live') ?? []
   const outbid = liveBids.filter((b) => !b.auction.isLeader)
   const pendingPay = reqs.data?.filter((r) => r.status === 'pending_payment') ?? []
-  const todo = unpaid.length + pendingPay.length + outbid.length + finesDue.length
+  const alerts: React.ReactNode[] = [
+    ...(ban.data ? [<Alert key="ban" to="/dashboard/profile" icon="lock" title={ban.data.endsOn ? tr(`حسابك محظور من المشاركة حتى ${date(ban.data.endsOn)}`, `Your account is barred until ${date(ban.data.endsOn)}`) : tr('حسابك محظور من المشاركة حتى إشعار آخر', 'Your account is barred until further notice')} />] : []),
+    ...outbid.map((b) => <Alert key={b.id} to={`/auctions/${b.auctionId}`} icon="alert" title={tr('لديك مزايدة تحتاج متابعة', 'A bid needs your attention')} aside={`${tr('تم تجاوزك على', 'Outbid on')} «${b.auction.name}» · ${sar(b.auction.currentPrice)}`} />),
+    ...unpaid.map((i) => <Alert key={i.id} to={`/dashboard/invoices/${i.id}`} tone="gold" icon="receipt" title={tr(`سدّد فاتورة «${i.name}»`, `Pay the invoice for «${i.name}»`)} aside={sar(i.amountDue)} />),
+    ...pendingPay.map((r) => <Alert key={r.id} to={`/dashboard/requests/${r.id}`} tone="gold" icon="file" title={tr(`الطلب ${r.number}: سدّد الضمان لإكماله`, `Request ${r.number}: pay the guarantee`)} />),
+    ...(finesDue.length ? [<Alert key="fines" to="/dashboard/violations" icon="alert" title={tr(`مخالفات وغرامات مستحقة (${finesDue.length})`, `Violations and fines due (${finesDue.length})`)} aside={sar(finesDue.reduce((t, f) => t + f.amount, 0))} />] : []),
+  ]
   const soon = (liveBids.length ? liveBids.map((b) => b.auction).sort((x, y) => Number(!!x.isLeader) - Number(!!y.isLeader) || Date.parse(x.endsAt) - Date.parse(y.endsAt)) : [...(live.data ?? [])].sort((a, b) => Date.parse(a.endsAt) - Date.parse(b.endsAt))).slice(0, 4)
 
   return (
     <div className="space-y-3.5">
       <div>
         <h1>{tr('أهلاً بك يا', 'Welcome,')} {user?.fullName.split(' ')[0] ?? ''}</h1>
-        <p className="text-[14px] text-muted">{todo ? tr(`لديك ${todo === 1 ? 'إجراء واحد' : todo === 2 ? 'إجراءان' : `${todo} إجراءات`} بانتظارك.`, `You have ${todo} pending ${todo === 1 ? 'action' : 'actions'}.`) : tr('تابع مزاداتك وطلب أسماء جديدة.', 'Follow your auctions and request new names.')}</p>
+        <p className="text-[14px] text-muted">{tr('تابع مزايداتك واطلب أسماء جديدة', 'Follow your bids and request new names')}</p>
       </div>
 
-      {ban.data && <Alert to="/dashboard/profile" icon="lock" title={ban.data.endsOn ? tr(`حسابك محظور من المشاركة حتى ${date(ban.data.endsOn)}`, `Your account is barred until ${date(ban.data.endsOn)}`) : tr('حسابك محظور من المشاركة حتى إشعار آخر', 'Your account is barred until further notice')} />}
-      {outbid.map((b) => <Alert key={b.id} to={`/auctions/${b.auctionId}`} icon="alert" title={tr(`تم تجاوز مزايدتك على «${b.auction.name}»`, `You were outbid on «${b.auction.name}»`)} aside={sar(b.auction.currentPrice)} />)}
-      {unpaid.map((i) => <Alert key={i.id} to={`/dashboard/invoices/${i.id}`} tone="gold" icon="receipt" title={tr(`سدّد فاتورة «${i.name}» لإصدار الشهادة`, `Pay the invoice for «${i.name}» to get the certificate`)} aside={sar(i.amountDue)} />)}
-      {pendingPay.map((r) => <Alert key={r.id} to={`/dashboard/requests/${r.id}`} tone="gold" icon="file" title={tr(`الطلب ${r.number}: سدّد الضمان لإكماله`, `Request ${r.number}: pay the guarantee to complete it`)} />)}
-      {!!finesDue.length && <Alert to="/dashboard/violations" icon="alert" title={tr(`مخالفات وغرامات مستحقة (${finesDue.length})`, `Violations and fines due (${finesDue.length})`)} aside={sar(finesDue.reduce((t, f) => t + f.amount, 0))} />}
+      {alerts.length > 0 && (
+        <div className="space-y-2">
+          {alerts.slice(0, showAll ? undefined : 1)}
+          {alerts.length > 1 && <button type="button" className="w-full py-1 text-center text-[13.5px] font-bold text-pine" onClick={() => setShowAll(!showAll)}>{showAll ? tr('إخفاء', 'Hide') : tr(alerts.length === 2 ? 'تنبيه آخر' : `${num(alerts.length - 1)} تنبيهات أخرى`, `${alerts.length - 1} more alerts`)}</button>}
+        </div>
+      )}
       <ProfileCompletion />
 
       <Link to="/dashboard/wallet" className="app-wallet">
-        <span className="min-w-0 flex-1"><span className="block text-[13px] text-paper/75">{tr('رصيد المحفظة', 'Wallet balance')}</span><span className="num block text-[28px] font-extrabold leading-tight">{wallet.data ? sar(wallet.data.balance) : '…'}</span></span>
-        <span className="grid h-11 w-11 place-items-center rounded-full bg-gold text-pine-deep"><Icon name="plus" className="h-5 w-5" /></span>
+        <Icon name="wallet" className="h-9 w-9 shrink-0 text-gold-light" />
+        <span className="min-w-0 flex-1 text-start"><span className="block text-[13px] text-paper/75">{tr('رصيد المحفظة', 'Wallet balance')}</span><span className="num block text-[28px] font-extrabold leading-tight">{wallet.data ? sar(wallet.data.balance) : '…'}</span></span>
+        <span className="plus"><Icon name="plus" className="h-5 w-5" /></span>
       </Link>
 
       <div className="grid grid-cols-2 gap-2.5">
-        <Link to="/dashboard/requests/new" className="app-stat !border-gold/60 !bg-gold-soft"><Icon name="tag" className="h-6 w-6 text-gold-deep" /><span className="!text-[14px] !text-gold-deep">{requestsClosed ? tr('طلب شعار (مغلق حاليًا)', 'New request (closed)') : tr('طلب شعار جديد', 'New name request')}</span></Link>
-        <Link to="/dashboard/names" className="app-stat"><Icon name="shield" className="h-6 w-6 text-pine" /><span className="!text-[14px]">{tr('أسمائي', 'My names')}</span><b className="num text-[20px]">{num(names.data?.length ?? 0)}</b></Link>
-        <Link to="/dashboard/requests" className="app-stat"><Icon name="file" className="h-6 w-6 text-pine" /><span className="!text-[14px]">{tr('طلبات قيد المراجعة', 'Under review')}</span><b className="num text-[20px]">{num(reqs.data?.filter((r) => r.status === 'under_review').length ?? 0)}</b></Link>
-        <Link to="/dashboard/invoices" className="app-stat"><Icon name="receipt" className="h-6 w-6 text-pine" /><span className="!text-[14px]">{tr('الفواتير', 'Invoices')}</span><b className="num text-[20px]">{num(unpaid.length)}</b></Link>
+        <Link to="/dashboard/requests/new" className="app-stat sm !border-gold/60 !bg-gold-soft"><Icon name="tag" className="h-6 w-6 text-gold-deep" /><span className="!text-[14px] !text-gold-deep">{requestsClosed ? tr('طلب شعار (مغلق حاليًا)', 'New request (closed)') : tr('طلب شعار جديد', 'New name request')}</span></Link>
+        <Link to="/dashboard/names" className="app-stat sm"><Icon name="shield" className="h-6 w-6 text-pine" /><span className="!text-[14px]">{tr('أسمائي', 'My names')}</span><b className="num text-[20px]">{num(names.data?.length ?? 0)}</b></Link>
+        <Link to="/dashboard/requests" className="app-stat sm"><Icon name="file" className="h-6 w-6 text-pine" /><span className="!text-[14px]">{tr('طلبات قيد المراجعة', 'Under review')}</span><b className="num text-[20px]">{num(reqs.data?.filter((r) => r.status === 'under_review').length ?? 0)}</b></Link>
+        <Link to="/dashboard/invoices" className="app-stat sm"><Icon name="receipt" className="h-6 w-6 text-pine" /><span className="!text-[14px]">{tr('الفواتير', 'Invoices')}</span><b className="num text-[20px]">{num(unpaid.length)}</b></Link>
       </div>
 
       <div className="flex items-center justify-between pt-1">
-        <h2 className="flex items-center gap-1.5 text-[18px]"><Icon name="clock" className="h-[18px] w-[18px] text-gold-deep" />{liveBids.length ? tr('مزايداتي الجارية', 'My live bids') : tr('مزادات قريبة من الانتهاء', 'Closing soon')}</h2>
+        <h2 className="flex items-center gap-1.5 text-[18px]"><Icon name="clock" className="h-[18px] w-[18px] text-gold-deep" />{liveBids.length ? tr('مزايداتي تحتاج دخلك', 'My bids need you') : tr('مزادات قريبة من الانتهاء', 'Closing soon')}</h2>
         <Link to="/auctions" className="text-[14px] font-bold text-pine">{tr('الكل', 'All')}</Link>
       </div>
       {soon.length ? (
@@ -225,7 +242,6 @@ import { LangSwitch } from '../../lib/i18n'
 import { Avatar } from '../../components/Avatar'
 import { ServiceCard, useServices } from '../../components/Services'
 import type { EService } from '../../components/Services'
-import { Sheet } from '../../components/AppChrome'
 import { BankAndRefunds } from '../owner/Bank'
 import { localizeServerText as LT } from '../../lib/serverText'
 
@@ -332,7 +348,7 @@ export function NativeAccount() {
         <Avatar name={user.fullName} src={user.avatarUrl} size={88} ring />
         <b className="mt-1 text-[20px]">{user.fullName}</b>
         <span className="text-[13px] text-muted">{tr('مالك إبل', 'Camel owner')}</span>
-        <span className="text-[13px] font-bold text-pine">{tr('عرض الملف الشخصي وتعديله', 'View and edit your profile')}</span>
+        
       </L2>
       <div className="grid grid-cols-4 gap-2">
         <L2 to="/dashboard/wallet" className="app-stat"><Icon name="wallet" className="h-5 w-5 text-pine" /><span>{tr('المحفظة', 'Wallet')}</span><b className="num text-[13px]">{wallet.data ? sar(wallet.data.balance) : '…'}</b></L2>
@@ -341,21 +357,13 @@ export function NativeAccount() {
         <L2 to="/dashboard/certificates" className="app-stat"><Icon name="file" className="h-5 w-5 text-pine" /><span>{tr('الشهادات', 'Certs')}</span><b className="num text-[15px]">{num(certs.data?.length ?? 0)}</b></L2>
       </div>
       <section className="app-card !p-0 overflow-hidden">
-        <MenuRow to="/dashboard/names" icon="tag" label={tr('أسمائي', 'My names')} />
+        <MenuRow to="/dashboard/settings" icon="shield" label={tr('الأمان وتغيير كلمة المرور', 'Security & password')} />
         <MenuRow to="/dashboard/camels" icon="shield" label={tr('إبلي', 'My camels')} />
-        <MenuRow to="/dashboard/certificates" icon="file" label={tr('شهاداتي', 'My certificates')} />
-        <MenuRow to="/dashboard/wallet" icon="wallet" label={tr('المحفظة', 'Wallet')} />
-        <MenuRow to="/dashboard/invoices" icon="receipt" label={tr('الفواتير', 'Invoices')} badge={unpaid} />
         <MenuRow to="/dashboard/violations" icon="alert" label={tr('المخالفات', 'Violations')} badge={due} />
         <MenuRow to="/dashboard/requests" icon="list" label={tr('طلباتي', 'My requests')} />
-      </section>
-      <section className="app-card !p-0 overflow-hidden">
         <MenuRow to="/dashboard/tickets" icon="users" label={tr('الشكاوى والاستفسارات', 'Complaints & enquiries')} badge={openTickets} />
-        <MenuRow to="/dashboard/settings" icon="settings" label={tr('الإعدادات والأمان والتفويض', 'Settings, security & delegation')} />
         <MenuRow to="/contact" icon="users" label={tr('المساعدة والدعم', 'Help & support')} />
-        <MenuRow to="/faq" icon="list" label={tr('الأسئلة الشائعة', 'FAQ')} />
-        <MenuRow to="/verify" icon="check" label={tr('التحقق من شهادة', 'Verify a certificate')} />
-        <MenuRow to="/names" icon="tag" label={tr('سجل الأسماء', 'Names registry')} />
+        <MenuRow to="/about" icon="list" label={tr('عن تطبيق سمّها', 'About Sammha')} />
       </section>
       <div className="flex gap-2"><LangSwitch className="btn-ghost flex-1" /></div>
       <button className="btn w-full border border-bad/40 bg-[#FDECEE] font-bold text-bad" onClick={async () => { await api.signOut(); setUser(null); nav('/') }}>{tr('تسجيل الخروج', 'Sign out')}</button>

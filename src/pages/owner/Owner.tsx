@@ -573,11 +573,11 @@ export function MyNames() {
 
   return (
     <>
-      <PageHead title={tr('أسمائي', 'My names')} sub={tr('الأسماء المسجلة باسمك. اربط كل اسم بشريحة إلكترونية قبل المشاركة في المهرجانات.', 'Names registered to you. Link each name to an electronic microchip before taking part in festivals.')} />
+      <PageHead title={IS_NATIVE ? `${tr('أسمائي المسجلة', 'My registered names')} (${num(data?.length ?? 0)})` : tr('أسمائي', 'My names')} sub={tr('الأسماء المسجلة باسمك. اربط كل اسم بشريحة إلكترونية قبل المشاركة في المهرجانات.', 'Names registered to you. Link each name to an electronic microchip before taking part in festivals.')} />
       {loading && !data ? <Loading /> : data?.length ? (
         <>
           <TableTools t={toolbar} placeholder={tr('بحث بالاسم', 'Search by name')}>
-            <span className="flex flex-wrap gap-2 sm:ms-1">
+            <span className={`flex flex-wrap gap-2 sm:ms-1 ${IS_NATIVE ? 'app-hide' : ''}`}>
               <button type="button" className="btn-ghost btn-sm" onClick={exportCsv}><Icon name="file" className="h-4 w-4" />{tr('تحميل التقرير', 'Download report')}</button>
               <button type="button" className="btn-ghost btn-sm hidden sm:inline-flex" onClick={() => printReport({ title: tr('تقرير أسمائي', 'My names report'), subtitle: `${user?.fullName ?? ''} · ${num(tf.list.length)} ${tr('اسم', 'names')}`, el: printRef.current, landscape: true })}>{tr('طباعة', 'Print')}</button>
             </span>
