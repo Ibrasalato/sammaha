@@ -10,6 +10,9 @@ import '@fontsource/tajawal/700.css'
 import '@fontsource/tajawal/800.css'
 import App from './App'
 import './index.css'
+import { initNative } from './lib/native'
+
+void initNative()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

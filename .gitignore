@@ -26,3 +26,18 @@ dist-ssr
 .env
 .env.local
 supabase/.temp
+
+# Capacitor (generated build output and copies of the web build)
+android/app/build
+android/build
+android/.gradle
+android/local.properties
+android/app/src/main/assets/public
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/capacitor-cordova-android-plugins/build
+ios/App/Pods
+ios/App/App/public
+ios/App/App/capacitor.config.json
+ios/App/build
+ios/DerivedData

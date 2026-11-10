@@ -1,0 +1,37 @@
+name: Android app (APK)
+
+# Builds the Sammha app (Capacitor around the web build) as an installable debug APK.
+# Run it from the Actions tab; the APK is attached to the run (artifact "sammha-debug-apk").
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npx vite build
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_OTP_HINT: ${{ vars.VITE_OTP_HINT }}
+          VITE_SITE_URL: ${{ vars.VITE_SITE_URL }}
+      - run: npx cap sync android
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sammha-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

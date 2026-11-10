@@ -1,4 +1,5 @@
 import { ApiError } from './api'
+import { IS_NATIVE, listenPaymentReturn, nativeReturnUrl, openInApp } from './native'
 import type { OtpChallenge, PayMethod, SammhaApi } from './api'
 import type { AppNotification, Auction, AuctionView, BankAccount, Invoice, LogoRequest, NameListing, User, Wallet, NameTransfer, Violation, Exemption } from './types'
 
@@ -151,7 +152,18 @@ function resetHub() {
 
 /** Card: Moyasar's hosted page (the webhook completes the action), or an immediate simulated charge in development. */
 async function card(purpose: 'topup' | 'deposit' | 'invoice' | 'bid_deposit' | 'listing' | 'transfer' | 'violation' | 'exemption', ref: string | null, amount = 0, method?: PayMethod) {
-  const r = await post<{ url?: string; simulated: boolean }>('/api/payments/card', { purpose, ref, amount, callback: location.href.replace(/[?&]payment=[a-z]+/, ''), method: method && method !== 'wallet' ? method : null })
+  // in the app the payment page returns through the public site's bridge, which opens the app again
+  const callback = IS_NATIVE ? nativeReturnUrl() : location.href.replace(/[?&]payment=[a-z]+/, '')
+  const r = await post<{ url?: string; simulated: boolean }>('/api/payments/card', { purpose, ref, amount, callback, method: method && method !== 'wallet' ? method : null })
+  if (r.url && IS_NATIVE) {
+    // wait for the owner to come back, then reload so balances and statuses are current
+    const back = new Promise<string>((res) => listenPaymentReturn(res))
+    await openInApp(r.url)
+    const state = await back
+    sessionStorage.setItem('sammha-payment', state)
+    location.reload()
+    await new Promise(() => {})
+  }
   if (r.url) { location.href = r.url; await new Promise(() => {}) }
 }
 

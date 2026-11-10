@@ -81,7 +81,9 @@ function RouteTitle() {
   // back from the payment page (HyperPay / Moyasar): say how it went
   const { search } = useLocation()
   useEffect(() => {
-    const r = new URLSearchParams(search).get('payment')
+    let r = new URLSearchParams(search).get('payment')
+    // the app reloads after the in-app payment page closes and leaves the result here
+    try { const n = sessionStorage.getItem('sammha-payment'); if (n) { sessionStorage.removeItem('sammha-payment'); r = n } } catch { /* ignore */ }
     if (r === 'paid') toast(tr('تم الدفع بنجاح', 'Payment successful'))
     else if (r === 'pending') toast(tr('الدفع قيد المعالجة لدى البنك، سيصلك إشعار عند اكتماله', 'The payment is being processed by the bank; you will be notified'), 'bad')
     else if (r === 'failed') toast(tr('لم تكتمل عملية الدفع، حاول مرة أخرى', 'The payment did not go through. Please try again'), 'bad')
