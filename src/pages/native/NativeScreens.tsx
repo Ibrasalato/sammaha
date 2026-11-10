@@ -31,40 +31,44 @@ function MarkPill({ m }: { m: Mark }) {
   return <span className={`pill ${x[0]}`}>{x[1]}</span>
 }
 
-/** One auction as a card: name, type, price, time and one clear button. */
+/** One auction as a compact card: name and type, price, bids and time, one small button. */
 export function AuctionTile({ a, mark, mine, watching, onWatch }: { a: Auction; mark?: Mark; mine?: number; watching?: boolean; onWatch?: () => void }) {
   const phase: AuctionPhase = a.paused ? 'live' : phaseOf(a)
   const ended = phase === 'ended'
   const price = a.finalPrice ?? a.currentPrice
+  const urgent = phase === 'live' && Date.parse(a.endsAt) - Date.now() < 3600_000
   return (
-    <div className={`app-card ${a.paused ? 'opacity-80' : ''}`}>
+    <div className={`app-card !p-3.5 ${a.paused ? 'opacity-80' : ''}`}>
       <Link to={`/auctions/${a.id}`} className="block">
-        <div className="flex items-start gap-2">
-          {onWatch && (
-            <button type="button" className="app-iconbtn !bg-stone text-pine" aria-pressed={!!watching} aria-label={tr('تابع المزاد', 'Watch')}
-              onClick={(e) => { e.preventDefault(); onWatch() }}>
-              <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill={watching ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
-            </button>
-          )}
+        <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1 text-start">
-            <b className="block truncate text-[22px] font-extrabold leading-tight">{a.name}</b>
+            <div className="flex items-center gap-2">
+              {onWatch && (
+                <button type="button" className="shrink-0 text-muted" aria-pressed={!!watching} aria-label={tr('تابع المزاد', 'Watch')} onClick={(e) => { e.preventDefault(); onWatch() }}>
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill={watching ? '#00513B' : 'none'} stroke={watching ? '#00513B' : 'currentColor'} strokeWidth="2"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
+                </button>
+              )}
+              <b className="truncate text-[21px] font-extrabold leading-tight">{a.name}</b>
+            </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5"><TypePill type={a.type} /><MarkPill m={mark ?? (a.isLeader && !ended ? 'leading' : null)} />{a.cancelled && <span className="pill bg-bad/10 text-bad">{tr('ملغى', 'Cancelled')}</span>}{a.paused && <span className="pill bg-info-soft text-info-deep">{tr('متوقف مؤقتًا', 'Paused')}</span>}</div>
           </div>
+          <div className="shrink-0 text-end">
+            <span className="block text-[12px] text-muted">{ended ? tr('سعر الترسية', 'Hammer price') : mine ? tr('مزايدتي', 'My bid') : a.bidCount ? tr('أعلى مزايدة', 'Top bid') : tr('السعر الافتتاحي', 'Opening price')}</span>
+            <span className="num block text-[22px] font-extrabold leading-tight">{sar(mine ?? price)}</span>
+          </div>
         </div>
-        <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-stone px-3 py-2.5 text-center">
-          <div><dt className="text-[12px] text-muted">{ended ? tr('سعر الترسية', 'Hammer price') : a.bidCount ? tr('أعلى مزايدة', 'Top bid') : tr('السعر الافتتاحي', 'Opening price')}</dt><dd className="num text-[19px] font-extrabold">{sar(price)}</dd></div>
-          <div><dt className="text-[12px] text-muted">{mine ? tr('مزايدتي', 'My bid') : tr('عدد المزايدات', 'Bids')}</dt><dd className="num text-[19px] font-extrabold">{mine ? sar(mine) : num(a.bidCount)}</dd></div>
-        </dl>
-        <div className="mt-2.5 flex items-center gap-1.5 text-[14px] font-bold text-muted">
-          <Icon name="clock" className="h-4 w-4" />
-          {phase === 'live' && !a.paused && <Countdown to={a.endsAt} />}
-          {phase === 'scheduled' && <><span className="font-medium">{tr('يبدأ بعد', 'Starts in')}</span><Countdown to={a.startsAt} /></>}
-          {a.paused && <span>{tr('المزاد متوقف مؤقتًا', 'Paused')}</span>}
-          {ended && <span>{date(a.endsAt)}</span>}
+        <div className="mt-3 flex items-center justify-between gap-2 text-[13px]">
+          <span className="flex items-center gap-1.5 text-muted"><Icon name="gavel" className="h-4 w-4" /><span className="num">{num(a.bidCount)}</span> {tr('مزايدة', 'bids')}</span>
+          <span className={`flex items-center gap-1.5 font-bold ${urgent ? 'text-bad' : 'text-muted'}`}>
+            <Icon name="clock" className="h-4 w-4" />
+            {phase === 'live' && !a.paused && <Countdown to={a.endsAt} />}
+            {phase === 'scheduled' && <><span className="font-medium">{tr('يبدأ بعد', 'Starts in')}</span><Countdown to={a.startsAt} /></>}
+            {a.paused && <span>{tr('متوقف مؤقتًا', 'Paused')}</span>}
+            {ended && <span>{date(a.endsAt)}</span>}
+          </span>
         </div>
       </Link>
-      {phase === 'live' && !a.paused && <Link to={`/auctions/${a.id}`} className="btn-primary mt-3 w-full">{tr('زايد الآن', 'Bid now')}</Link>}
-      {phase === 'scheduled' && <Link to={`/auctions/${a.id}`} className="btn-ghost mt-3 w-full">{tr('التفاصيل والمزايدة التلقائية', 'Details & auto-bid')}</Link>}
+      {phase === 'live' && !a.paused && <Link to={`/auctions/${a.id}`} className="app-outline mt-3">{tr('زايد الآن', 'Bid now')}</Link>}
     </div>
   )
 }
@@ -231,8 +235,7 @@ export function NativeServices() {
   const list = useServices()
   const [open, setOpen] = useState<EService | null>(null)
   const isOwner = user?.role === 'owner'
-  const main = list.filter((s) => s.key === 'mark' || s.key === 'resale' || s.key === 'transfer' || s.key === 'exemption')
-  const rest = list.filter((s) => !main.includes(s))
+  const main = list
   const Tile = ({ s, gold }: { s: EService; gold?: boolean }) => (
     <button type="button" onClick={() => setOpen(s)} className={`app-tile ${gold ? '!border-gold/60 !bg-gold-soft' : ''} ${s.open ? '' : 'opacity-70'}`}>
       <Icon name={s.icon} className={`h-7 w-7 ${gold ? 'text-gold-deep' : 'text-pine'}`} />
@@ -245,9 +248,7 @@ export function NativeServices() {
       <h1>{tr('الخدمات الإلكترونية', 'E-services')}</h1>
       <p className="mb-3 text-[14px] text-muted">{tr('أنجز معاملاتك بأسماء الإبل بسهولة وأمان.', 'Handle your camel-name transactions easily and safely.')}</p>
       <div className="grid grid-cols-2 gap-2.5">{main.map((s, i) => <Tile key={s.key} s={s} gold={i === 0} />)}</div>
-      {!!rest.length && <><h2 className="mb-2 mt-5 text-[17px]">{tr('خدمات أخرى', 'More services')}</h2>
-        <ul className="space-y-2">{rest.map((s) => <li key={s.key}><button type="button" onClick={() => setOpen(s)} className="app-row w-full text-start"><Icon name={s.icon} className="h-5 w-5 text-pine" /><span className="flex-1 font-bold">{s.title}</span><Icon name="arrow" className="h-4 w-4 text-muted rtl:rotate-180" /></button></li>)}</ul></>}
-      {isOwner && <div className="mt-5 grid grid-cols-2 gap-2.5"><L2 to="/dashboard/requests" className="app-row justify-center font-bold">{tr('طلباتي', 'My requests')}</L2><L2 to="/dashboard/transfers" className="app-row justify-center font-bold">{tr('عمليات النقل', 'Transfers')}</L2></div>}
+      {isOwner && <L2 to="/dashboard/requests" className="app-row mt-3"><Icon name="file" className="h-5 w-5 text-pine" /><span className="flex-1 font-bold">{tr('متابعة طلباتي', 'Track my requests')}</span><Icon name="arrow" className="h-4 w-4 text-muted rtl:rotate-180" /></L2>}
       <Sheet open={!!open} onClose={() => setOpen(null)} title={open?.title ?? ''}>
         {open && <ul><ServiceCard s={open} isOwner={isOwner} signedIn={!!user} /></ul>}
       </Sheet>

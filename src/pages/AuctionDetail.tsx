@@ -13,6 +13,7 @@ import { api, useApp, useLoad, useNow } from '../lib/store'
 import { usePageTitle } from '../lib/usePageTitle'
 import { Approx } from '../components/Region'
 import { IS_NATIVE } from '../lib/native'
+import { Icon } from '../components/dash'
 import { Sheet } from '../components/AppChrome'
 
 /** in the app the long sections fold away; on the website they are plain sections */
@@ -181,6 +182,7 @@ export default function AuctionDetail() {
 
           <aside ref={panel} id="bid" className="panel h-fit self-start overflow-hidden lg:sticky lg:top-6 lg:-mt-24 lg:shadow-lift">
             <div className="p-6">
+              <div className={IS_NATIVE ? 'app-pricecard' : ''}>
               <p className="text-sm text-muted">{priceLabel}</p>
               <div key={flash} className={`mt-1 flex items-baseline gap-2 rounded-lg ${flash ? 'bid-flash' : ''}`}>
                 <span className="num text-5xl font-extrabold">{num(a.finalPrice ?? a.currentPrice)}</span><span className="text-muted">{cur()}</span><Approx v={a.finalPrice ?? a.currentPrice} className="text-[14px]" />
@@ -188,8 +190,9 @@ export default function AuctionDetail() {
               {a.leaderLabel && phase !== 'ended' && (
                 <p className={`mt-1 text-sm ${leading ? 'font-bold text-ok' : 'text-muted'}`}>{leading ? tr('أنت صاحب أعلى مزايدة', 'You hold the top bid') : `${tr('المتصدر:', 'Leading:')} ${a.leaderLabel}`}</p>
               )}
+              </div>
 
-              <div className="mt-4">
+              <div className={`mt-4 ${IS_NATIVE && phase === 'live' ? 'app-timer' : ''}`}>
                 {phase === 'live' && <><span className="mb-1.5 block text-sm text-muted">{tr('الوقت المتبقي', 'Time left')}</span><CountdownBoxes to={a.endsAt} tone={endsSoon ? 'urgent' : 'ink'} /></>}
                 {phase === 'scheduled' && <><span className="mb-1.5 block text-sm text-muted">{tr('يبدأ بعد', 'Starts in')}</span><CountdownBoxes to={a.startsAt} /></>}
                 {phase === 'paused' && (
@@ -314,6 +317,13 @@ export default function AuctionDetail() {
       {phase === 'live' && !ownInvest && (
         <div className="app-bidbar fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(0,0,0,.25)] backdrop-blur lg:hidden print:hidden">
           <div className="mx-auto flex max-w-xl items-center gap-3">
+            {IS_NATIVE ? (
+              user && needDeposit
+                ? <button className="btn-gold w-full" onClick={() => setPayingDeposit(true)}>{tr('ادفع الضمان للمشاركة', 'Pay the guarantee to take part')}</button>
+                : user
+                ? <button className="btn-primary w-full" disabled={busy || leading} onClick={() => tryBid(min)}><Icon name="gavel" className="h-5 w-5" />{leading ? tr('أنت المتصدر', 'You are leading') : tr(`زايد الآن · ${num(min)}`, `Bid now · ${num(min)}`)}</button>
+                : <Link to="/login" state={{ from: loc.pathname }} className="btn-primary w-full">{tr('سجّل للمزايدة', 'Sign in to bid')}</Link>
+            ) : <>
             <div className="min-w-0 flex-1">
               <div className="num text-[22px] font-extrabold leading-none">{num(a.currentPrice)} <span className="text-[13px] font-medium text-muted">{cur()}</span></div>
               <Countdown to={a.endsAt} className={`text-[13px] font-bold ${endsSoon ? 'text-bad' : 'text-muted'}`} />
@@ -324,6 +334,7 @@ export default function AuctionDetail() {
               ? <button className="btn-gold" disabled={busy || leading} onClick={() => tryBid(min)}>{leading ? tr('أنت المتصدر', 'Leading') : tr(`زايد ${num(min)}`, `Bid ${num(min)}`)}</button>
               : <Link to="/login" state={{ from: loc.pathname }} className="btn-gold">{tr('سجّل للمزايدة', 'Sign in to bid')}</Link>}
             <button className="btn-ghost btn-sm" onClick={() => panel.current?.scrollIntoView({ behavior: 'smooth' })} aria-label={tr('خيارات المزايدة', 'Bid options')}>⋯</button>
+            </>}
           </div>
         </div>
       )}

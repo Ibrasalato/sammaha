@@ -24,6 +24,8 @@ import { BankAndRefunds } from './Bank'
 import { tr } from '../../lib/i18n'
 import { localizeServerText as L } from '../../lib/serverText'
 import { Approx } from '../../components/Region'
+import { IS_NATIVE } from '../../lib/native'
+import { Sheet } from '../../components/AppChrome'
 import { InvoiceStatus } from '../../components/InvoiceStatus'
 import { LinkChipModal } from './Camels'
 
@@ -472,6 +474,7 @@ export function MyNames() {
   const [unlinking, setUnlinking] = useState<ReservedName | null>(null)
   const [unlinkBusy, setUnlinkBusy] = useState(false)
   const [logoFor, setLogoFor] = useState<ReservedName | null>(null)
+  const [sheetFor, setSheetFor] = useState<ReservedName | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
   async function unlink() {
     if (!unlinking?.camelId) return
@@ -619,8 +622,46 @@ export function MyNames() {
             </table>
           </div>
 
+          {/* the app: compact rows, the actions open in a sheet */}
+          {IS_NATIVE && (
+            <ul className="space-y-2.5">
+              {!tf.list.length && <li className="app-card py-6 text-center text-muted">{tr('لا توجد نتائج مطابقة.', 'No matching results.')}</li>}
+              {tf.list.map((n) => (
+                <li key={n.id}>
+                  <button type="button" className="app-row w-full text-start" onClick={() => setSheetFor(n)}>
+                    <Icon name="arrow" className="h-4 w-4 shrink-0 text-muted ltr:rotate-180" />
+                    <span className="min-w-0 flex-1">
+                      <b className="block truncate text-[20px] font-extrabold">{n.name}</b>
+                      <span className="mt-1 flex flex-wrap items-center gap-1.5"><TypeBadge type={n.type} />{statePills(n)}<span className="inline-flex items-center gap-1 text-[12.5px] font-bold text-ok"><Icon name="check" className="h-3.5 w-3.5" />{tr('مملوكة', 'Owned')}</span></span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {IS_NATIVE && (
+            <Sheet open={!!sheetFor} onClose={() => setSheetFor(null)} title={sheetFor?.name ?? ''}>
+              {sheetFor && (
+                <div className="space-y-3 pb-2">
+                  <dl className="grid grid-cols-2 gap-2 rounded-xl bg-stone p-3 text-[13.5px]">
+                    <div><dt className="text-[12px] text-muted">{tr('الفئة', 'Category')}</dt><dd className="mt-0.5"><TypeBadge type={sheetFor.type} /></dd></div>
+                    <div><dt className="text-[12px] text-muted">{tr('السعر', 'Price')}</dt><dd className="num mt-0.5 font-bold">{priceText(sheetFor)}</dd></div>
+                    <div><dt className="text-[12px] text-muted">{tr('تاريخ التملك', 'Acquired on')}</dt><dd className="mt-0.5">{date(sheetFor.acquiredAt)}</dd></div>
+                    <div><dt className="text-[12px] text-muted">{tr('الشريحة', 'Chip')}</dt><dd className="mt-0.5">{chipCell(sheetFor)}</dd></div>
+                  </dl>
+                  <ul className="overflow-hidden rounded-xl border border-line">
+                    {actionsOf(sheetFor).map((it) => {
+                      const cls = `flex w-full items-center gap-3 border-b border-line/70 px-4 py-3.5 text-start text-[15px] font-bold last:border-b-0 ${it.disabled ? 'opacity-50' : it.tone === 'bad' ? 'text-bad' : it.tone === 'gold' ? 'text-gold-deep' : ''}`
+                      const inner = <>{it.icon && <Icon name={it.icon} className="h-5 w-5" />}<span className="flex-1">{it.label}{it.disabledNote && <span className="block text-[12px] font-normal text-muted">{it.disabledNote}</span>}</span></>
+                      return <li key={it.key}>{it.to && !it.disabled ? <Link to={it.to} className={cls}>{inner}</Link> : <button type="button" disabled={it.disabled} className={cls} onClick={() => { const n = sheetFor; setSheetFor(null); it.onClick?.(); void n }}>{inner}</button>}</li>
+                    })}
+                  </ul>
+                </div>
+              )}
+            </Sheet>
+          )}
           {/* phones: one stacked row per name */}
-          <ul className="space-y-3 md:hidden">
+          <ul className={IS_NATIVE ? 'hidden' : 'space-y-3 md:hidden'}>
             {!tf.list.length && <li className="panel py-8 text-center text-muted">{tr('لا توجد نتائج مطابقة.', 'No matching results.')} <button type="button" className="font-bold text-pine underline" onClick={tf.reset}>{tr('مسح التصفية', 'Clear filters')}</button></li>}
             {tf.list.map((n) => (
               <li key={n.id} className={`panel overflow-hidden border-s-4 ${n.type === 'qaadan' ? 'border-s-qaadan' : n.type === 'bakkar' ? 'border-s-bakkar' : 'border-s-manqiya'}`}>

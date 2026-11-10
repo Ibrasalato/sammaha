@@ -195,3 +195,9 @@ html.native .app-fold h2 { display: none; }
 html.native .app-fold .panel { border: 0; box-shadow: none; border-radius: 0; }
 html.native .app-fold > section > h2.sec-title { display: none; }
 html.native .app-hide { display: none; }
+html.native .app-outline { display: flex; align-items: center; justify-content: center; min-height: 40px; border: 1.5px solid #00513B; border-radius: 9999px; color: #00513B; font-weight: 800; font-size: 14.5px; }
+html.native .app-pricecard { background: #FBF3DD; border: 1px solid #E8D7A8; border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; }
+html.native .app-timer { background: #FDECEE; border: 1px solid #F3C4CB; border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; }
+html.native #bid { background: transparent; border: 0; box-shadow: none; overflow: visible; }
+html.native #bid > div:first-child { padding: 0; }
+html.native #bid > div + div { border-radius: 16px; border: 1px solid #DFE3E8; background: #fff; margin-top: 10px; }
