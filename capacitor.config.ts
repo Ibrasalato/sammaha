@@ -8,7 +8,7 @@ const config: CapacitorConfig = {
   server: { androidScheme: 'https' },
   plugins: {
     SplashScreen: { launchShowDuration: 800, backgroundColor: '#00513B', showSpinner: false },
-    StatusBar: { style: 'DARK', backgroundColor: '#00513B', overlaysWebView: false },
+    StatusBar: { style: 'LIGHT', backgroundColor: '#E4F1E9' },
     Keyboard: { resize: 'body' },
   },
 }

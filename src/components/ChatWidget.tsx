@@ -133,8 +133,8 @@ export function ChatWidget() {
 
   function submit(e: FormEvent) { e.preventDefault(); ask(text) }
   // inside dashboards the button shrinks to an icon so it never covers form controls
-  // in the app the assistant button only shows on the main screens, so it never covers a form or an action button
-  const hideFab = IS_NATIVE && !/^\/(dashboard|dashboard\/services|auctions)?\/?$/.test(loc.pathname)
+  // in the app the assistant button only shows on the services and account screens, so it never covers a form or an action button
+  const hideFab = IS_NATIVE && !/^\/(dashboard\/services|dashboard\/account)\/?$/.test(loc.pathname)
   const compact = IS_NATIVE || /^\/(admin|dashboard)/.test(loc.pathname) || /^\/auctions\/[^/]+$/.test(loc.pathname)
   // on phones, stay above the dashboard tab bar and the auction bid bar
   const raised = compact || IS_NATIVE || /^\/auctions\/[^/]+$/.test(loc.pathname)

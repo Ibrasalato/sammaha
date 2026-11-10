@@ -161,7 +161,6 @@ export function NativeDash() {
   const bids = useLoad(() => api.myBids(), [], 15000)
   const invoices = useLoad(() => api.myInvoices(), [])
   const names = useLoad(() => api.myNames(), [])
-  const certs = useLoad(() => api.myCertificates(), [])
   const ban = useLoad(() => api.myBan(), [])
   const fines = useFines()
   const live = useLoad(() => api.listAuctions({ phase: 'live' }), [], 15000)
