@@ -1,3 +1,4 @@
+import { IS_NATIVE } from '../lib/native'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
@@ -134,7 +135,7 @@ export function ChatWidget() {
   // inside dashboards the button shrinks to an icon so it never covers form controls
   const compact = /^\/(admin|dashboard)/.test(loc.pathname) || /^\/auctions\/[^/]+$/.test(loc.pathname)
   // on phones, stay above the dashboard tab bar and the auction bid bar
-  const raised = compact || /^\/auctions\/[^/]+$/.test(loc.pathname)
+  const raised = compact || IS_NATIVE || /^\/auctions\/[^/]+$/.test(loc.pathname)
   const closeOnMobile = () => { if (window.innerWidth < 640) setOpen(false) }
 
   return (

@@ -1,7 +1,7 @@
 import { Capacitor } from '@capacitor/core'
 
 /** true inside the Android / iOS app (the Capacitor shell), false in a normal browser */
-export const IS_NATIVE = Capacitor.isNativePlatform()
+export const IS_NATIVE = Capacitor.isNativePlatform() || import.meta.env.VITE_FORCE_NATIVE === '1'
 
 /** the public site: card payments return through it, and it hands the owner back to the app (public/app-return.html) */
 const SITE = (import.meta.env.VITE_SITE_URL as string | undefined) ?? 'https://ibrasalato.github.io/sammaha/'

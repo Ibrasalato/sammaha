@@ -4,7 +4,9 @@ import { PageSkeleton } from './components/Skeleton'
 import { usePageTitle } from './lib/usePageTitle'
 import type { ReactNode } from 'react'
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { PublicLayout, Shell } from './components/Layout'
+import { PublicLayout, Shell as WebShell } from './components/Layout'
+import { NativeHome, NativePublicLayout, NativeShell } from './components/AppChrome'
+import { IS_NATIVE } from './lib/native'
 import type { NavItem } from './components/Layout'
 import { Loading } from './components/ui'
 import { LangProvider, tr, useLang } from './lib/i18n'
@@ -160,6 +162,9 @@ function Can({ perms, children }: { perms: Permission[]; children: ReactNode }) 
   )
 }
 
+const Shell = IS_NATIVE ? NativeShell : WebShell
+const PublicShell = IS_NATIVE ? NativePublicLayout : PublicLayout
+
 export default function App() {
   return (
     <LangProvider>
@@ -180,8 +185,8 @@ function AppRoutes() {
   const { lang } = useLang()
   return (
         <Routes key={lang}>
-          <Route element={<PublicLayout />}>
-            <Route index element={<Home />} />
+          <Route element={<PublicShell />}>
+            <Route index element={IS_NATIVE ? <NativeHome /> : <Home />} />
             <Route path="auctions" element={<Auctions />} />
             <Route path="auctions/:id" element={<AuctionDetail />} />
             <Route path="names" element={<ReservedNames />} />
