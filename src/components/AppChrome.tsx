@@ -108,7 +108,7 @@ function OwnerTabs() {
     <>
       <Tab to="/dashboard" label={tr('الرئيسية', 'Home')} icon="home" end />
       <Tab to="/auctions" label={tr('المزادات', 'Auctions')} icon="gavel" />
-      <Tab to="/dashboard/services" label={tr('الخدمات', 'Services')} icon="grid" also={['/dashboard/requests', '/dashboard/invest', '/dashboard/sell', '/dashboard/transfers', '/dashboard/exemptions']} />
+      <Tab to="/dashboard/services" label={tr('الخدمات', 'Services')} icon="layers" also={['/dashboard/requests', '/dashboard/invest', '/dashboard/sell', '/dashboard/transfers', '/dashboard/exemptions']} />
       <Tab to="/dashboard/account" label={tr('حسابي', 'Account')} icon="user" also={['/dashboard/profile', '/dashboard/wallet', '/dashboard/invoices', '/dashboard/violations', '/dashboard/tickets', '/dashboard/names', '/dashboard/camels', '/dashboard/certificates', '/dashboard/settings', '/dashboard/watchlist', '/dashboard/bids']} />
     </>
   )
@@ -208,19 +208,21 @@ export function NativePublicLayout() {
   const title = titles.find(([re]) => re.test(pathname))?.[1] ?? tr('سمّها', 'Sammha')
   const acct = user ? (user.role === 'owner' ? '/dashboard' : '/admin') : '/login'
   return (
-    <div className="app-root">
-      {/^\/auctions\/[^/]+$/.test(pathname) ? (
+    <div className={`app-root ${/^\/auctions\/[^/]+$/.test(pathname) ? 'no-tabs' : ''}`}>
+      {pathname === '/auctions' ? (
+        <header className="app-top"><div className="h-2" /></header>
+      ) : /^\/auctions\/[^/]+$/.test(pathname) ? (
         <header className="app-top">
           <div className="flex h-14 items-center gap-2 px-3.5">
-            <button className="app-iconbtn" onClick={() => navigate(-1)} aria-label={tr('رجوع', 'Back')}><Icon name="arrow" className="h-5 w-5 ltr:rotate-180" /></button>
+            <button className="grid h-10 w-10 place-items-center text-ink" onClick={() => navigate(-1)} aria-label={tr('رجوع', 'Back')}><Icon name="arrow" className="h-5 w-5 ltr:rotate-180" /></button>
             <span className="min-w-0 flex-1 truncate text-center text-[19px] font-extrabold">{title}</span>
-            <button className="app-iconbtn" aria-label={tr('مشاركة', 'Share')} onClick={() => void shareLink(pathname)}><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v13M7 8l5-5 5 5M5 13v6a2 2 0 002 2h10a2 2 0 002-2v-6" /></svg></button>
+            <button className="grid h-10 w-10 place-items-center text-ink" aria-label={tr('مشاركة', 'Share')} onClick={() => void shareLink(pathname)}><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v13M7 8l5-5 5 5M5 13v6a2 2 0 002 2h10a2 2 0 002-2v-6" /></svg></button>
           </div>
         </header>
       ) : <TopBar title={title} back={deep} start={user ? <Link to={user.role === 'owner' ? '/dashboard/account' : '/admin/account'} aria-label={tr('حسابي', 'My account')}><Avatar name={user.fullName} src={user.avatarUrl} size={40} ring /></Link> : <Link to="/" aria-label={tr('الرئيسية', 'Home')}><Logo className="h-9" /></Link>}>{user ? <NotificationBell /> : <LangSwitch className="app-pill" />}</TopBar>}
       <SiteBanner />
       <main className="app-main"><Outlet /></main>
-      <nav className="app-tabs" aria-label={tr('التنقل السريع', 'Quick navigation')}>
+      {!/^\/auctions\/[^/]+$/.test(pathname) && <nav className="app-tabs" aria-label={tr('التنقل السريع', 'Quick navigation')}>
         {user?.role === 'owner' ? <OwnerTabs /> : <>
           <Tab to="/" label={tr('الرئيسية', 'Home')} icon="home" end />
           <Tab to="/auctions" label={tr('المزادات', 'Auctions')} icon="gavel" />
@@ -228,7 +230,7 @@ export function NativePublicLayout() {
           <Tab to="/services" label={tr('الخدمات', 'Services')} icon="list" />
           <Tab to={acct} label={user ? tr('حسابي', 'Account') : tr('دخول', 'Sign in')} icon={user ? 'users' : 'lock'} also={['/login', '/signup']} />
         </>}
-      </nav>
+      </nav>}
     </div>
   )
 }

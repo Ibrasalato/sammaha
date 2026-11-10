@@ -7,7 +7,7 @@ import { useFines } from '../../components/Fines'
 import { ProfileCompletion } from '../owner/Profile'
 import { useClosed } from '../../components/SettingsUi'
 import { Countdown, Empty, Loading } from '../../components/ui'
-import { NAME_TYPES, TYPE_CLS, TYPE_LABEL } from '../../lib/config'
+import { TYPE_CLS, TYPE_LABEL } from '../../lib/config'
 import { phaseOf } from '../../lib/demoApi'
 import { date, num, sar } from '../../lib/format'
 import { tr } from '../../lib/i18n'
@@ -148,12 +148,12 @@ export function NativeAuctions() {
       ) : tab === 'all' ? (
         <>
           <div className="mb-2.5 flex items-center gap-2">
-            <div className="app-search !mb-0 flex-1"><input type="search" placeholder={tr('البحث عن اسم', 'Search a name')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={tr('البحث عن اسم', 'Search a name')} /><svg viewBox="0 0 24 24" className="h-5 w-5 text-ink/70" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg></div>
+            <div className="app-search !mb-0 flex-1"><svg viewBox="0 0 24 24" className="h-5 w-5 text-ink/70" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg><input type="search" placeholder={tr('البحث عن اسم', 'Search a name')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={tr('البحث عن اسم', 'Search a name')} /></div>
             <button type="button" className="app-filterbtn" onClick={() => setFilt(true)} aria-label={tr('تصفية', 'Filter')}><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg></button>
           </div>
           <div className="app-chips">
             <button type="button" className="app-chip !inline-flex items-center gap-1" onClick={() => setSortOpen(true)}>{tr('ترتيب', 'Sort')}<svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4" /></svg></button>
-            {([['all', tr('الكل', 'All')], ...NAME_TYPES.map((t) => [t, TYPE_LABEL[t]] as [NameType, string])] as [NameType | 'all', string][]).map(([v, l]) => <button key={v} type="button" aria-pressed={v === type} className={`app-chip ${v === type ? 'on' : ''}`} onClick={() => setType(v)}>{l}</button>)}
+            {([['all', tr('الكل', 'All')], ...(['bakkar', 'qaadan', 'manqiya'] as NameType[]).map((t) => [t, TYPE_LABEL[t]] as [NameType, string])] as [NameType | 'all', string][]).map(([v, l]) => <button key={v} type="button" aria-pressed={v === type} className={`app-chip ${v === type ? 'on' : ''}`} onClick={() => setType(v)}>{l}</button>)}
           </div>
           <Sheet open={sortOpen} onClose={() => setSortOpen(false)} title={tr('ترتيب المزادات', 'Sort auctions')}>
             <ul className="app-list mb-2">{SORTS().map(([k, l]) => <li key={k}><button type="button" className={`flex w-full items-center justify-between px-4 py-3.5 text-start text-[15px] font-bold ${sort === k ? 'text-pine' : ''}`} onClick={() => { setSort(k); setSortOpen(false) }}>{l}{sort === k && <Icon name="check" className="h-5 w-5" />}</button></li>)}</ul>

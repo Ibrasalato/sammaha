@@ -44,6 +44,8 @@ jobs:
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      # the archive is built unsigned; the export signs it with Apple's cloud-managed distribution certificate,
+      # so the runner never creates a new certificate (the account's certificate limit)
       - name: Archive
         working-directory: ios/App
         run: |
@@ -51,12 +53,8 @@ jobs:
             -project App.xcodeproj -scheme App -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGNING_ALLOWED=NO \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}"
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}

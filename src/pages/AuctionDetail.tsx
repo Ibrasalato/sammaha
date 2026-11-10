@@ -147,8 +147,8 @@ export default function AuctionDetail() {
       )}
       {myLast && (
         <div className="flex items-center gap-3 rounded-2xl border border-ok/25 bg-[#F1F8F4] px-4 py-2.5">
-          <span className="min-w-0 flex-1"><b className="block text-[14.5px]">{tr('مزايدتك الأخيرة:', 'Your last bid:')} <span className="num">{sar(myLast.amount)}</span></b><span className="text-[12.5px] text-muted">{ago(myLast.createdAt)}</span></span>
-          {user && <Avatar name={user.fullName} src={user.avatarUrl} size={40} />}
+          {user && <Avatar name={user.fullName} src={user.avatarUrl} size={44} />}
+          <span className="min-w-0 flex-1 text-center"><b className="block text-[15px]">{tr('مزايدتك الأخيرة:', 'Your last bid:')} <span className="num">{sar(myLast.amount)}</span></b><span className="text-[12.5px] text-muted">{ago(myLast.createdAt)}</span></span>
         </div>
       )}
       <section className="app-card !p-0 overflow-hidden">
@@ -264,7 +264,7 @@ export default function AuctionDetail() {
             </section></Fold>
           </div>
 
-          <aside ref={panel} id="bid" className="panel h-fit self-start overflow-hidden lg:sticky lg:top-6 lg:-mt-24 lg:shadow-lift">
+          <aside ref={panel} id="bid" className={`${IS_NATIVE ? 'app-hide' : ''} panel h-fit self-start overflow-hidden lg:sticky lg:top-6 lg:-mt-24 lg:shadow-lift`}>
             <div className="p-6">
               <div className={IS_NATIVE ? 'app-hide' : ''}>
               <p className="text-sm text-muted">{priceLabel}</p>
