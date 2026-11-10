@@ -6,9 +6,9 @@ import { Skeleton } from '../components/Skeleton'
 import { PriceChart } from '../components/PriceChart'
 import { CountdownBoxes } from '../components/AuctionCard'
 import { PayModal } from '../components/PayModal'
-import { RULES, TYPE_HINT } from '../lib/config'
+import { RULES, TYPE_CLS, TYPE_HINT, TYPE_LABEL } from '../lib/config'
 import { phaseOf } from '../lib/demoApi'
-import { cur, dateTimeRef, num, sar, time } from '../lib/format'
+import { cur, date, dateTimeRef, humanLeft, num, sar, time } from '../lib/format'
 import { api, useApp, useLoad, useNow } from '../lib/store'
 import { usePageTitle } from '../lib/usePageTitle'
 import { Approx } from '../components/Region'
@@ -96,9 +96,43 @@ export default function AuctionDetail() {
 
   const priceLabel = phase === 'ended' ? tr('سعر الترسية', 'Hammer price') : a.bidCount ? tr('أعلى مزايدة', 'Top bid') : tr('السعر الافتتاحي', 'Opening price')
 
+  const nativeTop = IS_NATIVE && (
+    <div className="space-y-2.5 px-3.5 pt-1">
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="min-w-0 truncate text-[28px] font-extrabold">{a.name}</h1>
+        <span className="flex items-center gap-2">
+          {user && <button onClick={watch} disabled={busy} aria-pressed={!!mine?.watching} aria-label={tr('تابع المزاد', 'Watch')} className={`grid h-9 w-9 place-items-center rounded-full border ${mine?.watching ? 'border-gold bg-gold text-pine-deep' : 'border-line bg-paper text-muted'}`}><Heart on={!!mine?.watching} /></button>}
+          <span className={`spill !px-3 !py-1 !text-[13px] ${TYPE_CLS[a.type].dot}`}>{TYPE_LABEL[a.type]}</span>
+        </span>
+      </div>
+      <div className="flex items-center gap-3 rounded-2xl border border-[#E8D7A8] bg-[#FBF3DD] px-4 py-4">
+        <span className="min-w-0 flex-1 text-center"><span className="block text-[13px] text-muted">{priceLabel}</span><span key={flash} className={`num block text-[32px] font-extrabold leading-tight ${flash ? 'bid-flash' : ''}`}>{sar(a.finalPrice ?? a.currentPrice)}</span>{a.leaderLabel && phase !== 'ended' && <span className={`block text-[12.5px] ${leading ? 'font-bold text-ok' : 'text-muted'}`}>{leading ? tr('أنت صاحب أعلى مزايدة', 'You hold the top bid') : `${tr('المتصدر:', 'Leading:')} ${a.leaderLabel}`}</span>}</span>
+        <Icon name="gavel" className="h-10 w-10 shrink-0 text-gold-deep" />
+      </div>
+      {(phase === 'live' || phase === 'scheduled') && (
+        <div className="flex items-center gap-3 rounded-2xl border border-[#F3C4CB] bg-[#FDECEE] px-4 py-3">
+          <span className="min-w-0 flex-1 text-center"><span className="block text-[13px] text-muted">{phase === 'live' ? tr('ينتهي خلال', 'Ends in') : tr('يبدأ بعد', 'Starts in')}</span><b className="block text-[19px] text-bad">{Date.parse(phase === 'live' ? a.endsAt : a.startsAt) - now < 3600_000 ? <Countdown to={phase === 'live' ? a.endsAt : a.startsAt} /> : humanLeft(Date.parse(phase === 'live' ? a.endsAt : a.startsAt) - now)}</b></span>
+          <Icon name="clock" className="h-8 w-8 shrink-0 text-bad" />
+        </div>
+      )}
+      <dl className="app-list text-[14px]">
+        {([[tr('فئة الاسم', 'Category'), TYPE_LABEL[a.type]], [tr('زيادة المزاد', 'Minimum raise'), sar(a.minIncrement)], [tr('السعر الافتتاحي', 'Opening price'), sar(a.openingPrice)], [tr('تاريخ البدء', 'Starts'), date(a.startsAt)], [tr('تاريخ الانتهاء', 'Ends'), date(a.endsAt)]] as [string, string][]).map(([l, v]) => (
+          <div key={l} className="flex items-center justify-between px-4 py-2.5"><dt className="text-muted">{l}</dt><dd className="num font-bold">{v}</dd></div>
+        ))}
+      </dl>
+      <details className="app-fold">
+        <summary>{tr('آخر المزايدات', 'Latest bids')} ({num(data.bids.length)})</summary>
+        {data.bids.length ? <ul className="divide-y divide-line/70 border-t border-line">{data.bids.slice(0, 10).map((b, i) => (
+          <li key={b.id} className="flex items-center justify-between px-4 py-2.5 text-[14px]"><span>{user && b.mine ? tr('أنت', 'You') : b.bidderLabel}{i === 0 && <span className="pill ms-2 bg-gold text-pine-deep">{phase === 'ended' ? tr('الفائز', 'Winner') : tr('الأعلى', 'Top')}</span>}<span className="block text-[12px] text-muted">{time(b.createdAt)}</span></span><b className="num">{sar(b.amount)}</b></li>
+        ))}</ul> : <p className="border-t border-line px-4 py-3 text-[14px] text-muted">{tr(`لا توجد مزايدات بعد. أول مزايدة تبدأ من ${sar(min)}.`, `No bids yet. The first bid starts at ${sar(min)}.`)}</p>}
+      </details>
+    </div>
+  )
+
   return (
     <>
-      <div className="hero-field text-paper">
+      {nativeTop}
+      <div className={`hero-field text-paper ${IS_NATIVE ? 'app-hide' : ''}`}>
         <div className="wrap py-8 sm:py-10">
           <nav className="text-[14px] text-paper/60" aria-label={tr('مسار الصفحة', 'Breadcrumb')}><Link to="/" className="hover:text-paper">{tr('الرئيسية', 'Home')}</Link> / <Link to="/auctions" className="hover:text-paper">{tr('المزادات', 'Auctions')}</Link> / <span className="text-paper">{a.name}</span></nav>
           <div className="mt-6 flex flex-col items-start gap-6 sm:flex-row sm:items-center">
@@ -127,7 +161,7 @@ export default function AuctionDetail() {
           </div>
         )}
         <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
-          <div className="min-w-0 space-y-8">
+          <div className={`min-w-0 space-y-8 ${IS_NATIVE ? 'app-hide' : ''}`}>
             <Fold title={tr('تطور السعر', 'Price history')}><section className="panel p-5 sm:p-6">
               <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
                 <h2 className="text-lg">{tr('تطور السعر', 'Price history')}</h2>
@@ -182,7 +216,7 @@ export default function AuctionDetail() {
 
           <aside ref={panel} id="bid" className="panel h-fit self-start overflow-hidden lg:sticky lg:top-6 lg:-mt-24 lg:shadow-lift">
             <div className="p-6">
-              <div className={IS_NATIVE ? 'app-pricecard' : ''}>
+              <div className={IS_NATIVE ? 'app-hide' : ''}>
               <p className="text-sm text-muted">{priceLabel}</p>
               <div key={flash} className={`mt-1 flex items-baseline gap-2 rounded-lg ${flash ? 'bid-flash' : ''}`}>
                 <span className="num text-5xl font-extrabold">{num(a.finalPrice ?? a.currentPrice)}</span><span className="text-muted">{cur()}</span><Approx v={a.finalPrice ?? a.currentPrice} className="text-[14px]" />
@@ -192,7 +226,7 @@ export default function AuctionDetail() {
               )}
               </div>
 
-              <div className={`mt-4 ${IS_NATIVE && phase === 'live' ? 'app-timer' : ''}`}>
+              <div className={`mt-4 ${IS_NATIVE ? 'app-hide' : ''}`}>
                 {phase === 'live' && <><span className="mb-1.5 block text-sm text-muted">{tr('الوقت المتبقي', 'Time left')}</span><CountdownBoxes to={a.endsAt} tone={endsSoon ? 'urgent' : 'ink'} /></>}
                 {phase === 'scheduled' && <><span className="mb-1.5 block text-sm text-muted">{tr('يبدأ بعد', 'Starts in')}</span><CountdownBoxes to={a.startsAt} /></>}
                 {phase === 'paused' && (
@@ -321,7 +355,7 @@ export default function AuctionDetail() {
               user && needDeposit
                 ? <button className="btn-gold w-full" onClick={() => setPayingDeposit(true)}>{tr('ادفع الضمان للمشاركة', 'Pay the guarantee to take part')}</button>
                 : user
-                ? <button className="btn-primary w-full" disabled={busy || leading} onClick={() => tryBid(min)}><Icon name="gavel" className="h-5 w-5" />{leading ? tr('أنت المتصدر', 'You are leading') : tr(`زايد الآن · ${num(min)}`, `Bid now · ${num(min)}`)}</button>
+                ? <button className="btn-primary w-full" disabled={busy || leading} onClick={() => tryBid(min)}><Icon name="gavel" className="h-5 w-5" />{leading ? tr('أنت المتصدر', 'You are leading') : tr('زايد الآن', 'Bid now')}</button>
                 : <Link to="/login" state={{ from: loc.pathname }} className="btn-primary w-full">{tr('سجّل للمزايدة', 'Sign in to bid')}</Link>
             ) : <>
             <div className="min-w-0 flex-1">

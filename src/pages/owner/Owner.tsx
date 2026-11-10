@@ -573,7 +573,7 @@ export function MyNames() {
 
   return (
     <>
-      <PageHead title={IS_NATIVE ? `${tr('أسمائي المسجلة', 'My registered names')} (${num(data?.length ?? 0)})` : tr('أسمائي', 'My names')} sub={tr('الأسماء المسجلة باسمك. اربط كل اسم بشريحة إلكترونية قبل المشاركة في المهرجانات.', 'Names registered to you. Link each name to an electronic microchip before taking part in festivals.')} />
+      {!IS_NATIVE && <PageHead title={tr('أسمائي', 'My names')} sub={tr('الأسماء المسجلة باسمك. اربط كل اسم بشريحة إلكترونية قبل المشاركة في المهرجانات.', 'Names registered to you. Link each name to an electronic microchip before taking part in festivals.')} />}
       {loading && !data ? <Loading /> : data?.length ? (
         <>
           <TableTools t={toolbar} placeholder={tr('بحث بالاسم', 'Search by name')}>
@@ -632,7 +632,7 @@ export function MyNames() {
                     <Icon name="arrow" className="h-4 w-4 shrink-0 text-muted ltr:rotate-180" />
                     <span className="min-w-0 flex-1">
                       <b className="block truncate text-[20px] font-extrabold">{n.name}</b>
-                      <span className="mt-1 flex flex-wrap items-center gap-1.5"><TypeBadge type={n.type} />{statePills(n)}<span className="inline-flex items-center gap-1 text-[12.5px] font-bold text-ok"><Icon name="check" className="h-3.5 w-3.5" />{tr('مملوكة', 'Owned')}</span></span>
+                      <span className="mt-1 flex flex-wrap items-center gap-1.5"><span className={`spill ${TYPE_CLS[n.type].dot}`}>{TYPE_LABEL[n.type]}</span>{statePills(n)}<span className="inline-flex items-center gap-1 text-[12.5px] font-bold text-ok"><Icon name="check" className="h-3.5 w-3.5" />{tr('مملوكة', 'Owned')}</span></span>
                     </span>
                   </button>
                 </li>

@@ -69,9 +69,9 @@ function TopBar({ title, back, start, children }: { title: string; back?: boolea
     <header className="app-top">
       <div className="flex h-14 items-center gap-2 px-3.5">
         <span className="flex shrink-0 items-center">{start}</span>
-        <span className={`min-w-0 flex-1 truncate text-[19px] font-extrabold ${back ? 'text-start' : ''}`} aria-label={title}>{back ? title : ''}</span>
+        <span className="min-w-0 flex-1 truncate text-center text-[19px] font-extrabold" aria-label={title}>{back ? title : ''}</span>
         {back
-          ? <button className="app-iconbtn" onClick={() => nav(-1)} aria-label={tr('رجوع', 'Back')}><Icon name="arrow" className="h-5 w-5 ltr:rotate-180" /></button>
+          ? <button className="app-iconbtn" onClick={() => nav(-1)} aria-label={tr('رجوع', 'Back')}><Icon name="arrow" className="h-5 w-5 rtl:rotate-180" /></button>
           : <span className="flex items-center gap-2">{children}</span>}
       </div>
     </header>
@@ -84,8 +84,8 @@ function OwnerTabs() {
     <>
       <Tab to="/dashboard" label={tr('الرئيسية', 'Home')} icon="home" end />
       <Tab to="/auctions" label={tr('المزادات', 'Auctions')} icon="gavel" />
-      <Tab to="/dashboard/services" label={tr('الخدمات', 'Services')} icon="list" also={['/dashboard/requests', '/dashboard/invest', '/dashboard/sell', '/dashboard/transfers', '/dashboard/exemptions']} />
-      <Tab to="/dashboard/account" label={tr('حسابي', 'Account')} icon="users" also={['/dashboard/profile', '/dashboard/wallet', '/dashboard/invoices', '/dashboard/violations', '/dashboard/tickets', '/dashboard/names', '/dashboard/camels', '/dashboard/certificates', '/dashboard/settings', '/dashboard/watchlist', '/dashboard/bids']} />
+      <Tab to="/dashboard/services" label={tr('الخدمات', 'Services')} icon="grid" also={['/dashboard/requests', '/dashboard/invest', '/dashboard/sell', '/dashboard/transfers', '/dashboard/exemptions']} />
+      <Tab to="/dashboard/account" label={tr('حسابي', 'Account')} icon="user" also={['/dashboard/profile', '/dashboard/wallet', '/dashboard/invoices', '/dashboard/violations', '/dashboard/tickets', '/dashboard/names', '/dashboard/camels', '/dashboard/certificates', '/dashboard/settings', '/dashboard/watchlist', '/dashboard/bids']} />
     </>
   )
 }
@@ -97,6 +97,7 @@ const SUB_TITLES = (): [RegExp, string][] => [
   [/^\/dashboard\/invoices\/[^/]+/, tr('الفاتورة', 'Invoice')], [/^\/dashboard\/certificates\/[^/]+/, tr('الشهادة', 'Certificate')], [/^\/dashboard\/exemptions/, tr('استثناء المشاركة', 'Exemption')],
   [/^\/dashboard\/account/, tr('حسابي', 'My account')], [/^\/dashboard\/profile/, tr('الملف الشخصي', 'Profile')], [/^\/dashboard\/invest/, tr('استثمار الاسم', 'Name investment')], [/^\/dashboard\/sell/, tr('إعادة بيع', 'Resell a name')],
   [/^\/dashboard\/transfers/, tr('نقل ملكية', 'Ownership transfer')], [/^\/dashboard\/watchlist/, tr('المتابعة', 'Watchlist')], [/^\/dashboard\/bids/, tr('مزايداتي', 'My bids')],
+  [/^\/dashboard\/names$/, tr('أسمائي المسجلة', 'My registered names')], [/^\/dashboard\/wallet/, tr('المحفظة', 'Wallet')],
   [/^\/dashboard\/names\/[^/]+\/certificate/, tr('شهادة الاسم', 'Name certificate')],
 ]
 function pageTitle(pathname: string, nav: NavItem[], fallback: string) {
@@ -166,7 +167,7 @@ export function NativePublicLayout() {
   useEffect(() => { window.scrollTo({ top: 0 }) }, [pathname])
   const deep = !DEPTH_ROOTS.has(pathname)
   const titles: [RegExp, string][] = [
-    [/^\/auctions/, tr('المزادات', 'Auctions')], [/^\/names/, tr('سجل الأسماء', 'Registry')], [/^\/services/, tr('الخدمات', 'Services')], [/^\/events/, tr('المواعيد', 'Calendar')],
+    [/^\/auctions\/[^/]+/, tr('تفاصيل المزاد', 'Auction details')], [/^\/auctions/, tr('المزادات', 'Auctions')], [/^\/names/, tr('سجل الأسماء', 'Registry')], [/^\/services/, tr('الخدمات', 'Services')], [/^\/events/, tr('المواعيد', 'Calendar')],
     [/^\/verify/, tr('التحقق من شهادة', 'Verify a certificate')], [/^\/login/, tr('تسجيل الدخول', 'Sign in')], [/^\/signup/, tr('حساب جديد', 'Create account')], [/^\/market/, tr('سوق الأسماء', 'Name market')],
     [/^\/(faq|terms|privacy|refund|contact|about|invest)/, tr('سمّها', 'Sammha')],
   ]
@@ -174,7 +175,7 @@ export function NativePublicLayout() {
   const acct = user ? (user.role === 'owner' ? '/dashboard' : '/admin') : '/login'
   return (
     <div className="app-root">
-      <TopBar title={title} back={deep} start={<Link to="/" aria-label={tr('الرئيسية', 'Home')}><Logo className="h-9" /></Link>}><LangSwitch className="app-pill" /></TopBar>
+      <TopBar title={title} back={deep} start={user ? <Link to={user.role === 'owner' ? '/dashboard/account' : '/admin/account'} aria-label={tr('حسابي', 'My account')}><Avatar name={user.fullName} src={user.avatarUrl} size={40} ring /></Link> : <Link to="/" aria-label={tr('الرئيسية', 'Home')}><Logo className="h-9" /></Link>}>{user ? <NotificationBell /> : <LangSwitch className="app-pill" />}</TopBar>
       <SiteBanner />
       <main className="app-main"><Outlet /></main>
       <nav className="app-tabs" aria-label={tr('التنقل السريع', 'Quick navigation')}>

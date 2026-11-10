@@ -8,7 +8,7 @@ import { useClosed } from '../../components/SettingsUi'
 import { Countdown, Empty, Loading } from '../../components/ui'
 import { NAME_TYPES, TYPE_CLS, TYPE_LABEL } from '../../lib/config'
 import { phaseOf } from '../../lib/demoApi'
-import { date, humanLeft, num, sar } from '../../lib/format'
+import { date, num, sar } from '../../lib/format'
 import { tr } from '../../lib/i18n'
 import { api, useApp, useLoad } from '../../lib/store'
 import type { Auction, AuctionPhase, NameType } from '../../lib/types'
@@ -18,7 +18,7 @@ import type { Auction, AuctionPhase, NameType } from '../../lib/types'
 type Mark = 'leading' | 'outbid' | 'won' | 'lost' | null
 
 function TypePill({ type }: { type: NameType }) {
-  return <span className={`pill ${TYPE_CLS[type].pill}`}><span className={`h-2 w-2 rounded-full ${TYPE_CLS[type].dot}`} />{TYPE_LABEL[type]}</span>
+  return <span className={`spill ${TYPE_CLS[type].dot}`}>{TYPE_LABEL[type]}</span>
 }
 
 function MarkPill({ m }: { m: Mark }) {
@@ -112,7 +112,7 @@ export function NativeAuctions() {
 
   return (
     <div>
-      <h1 className="mb-3">{tr('المزادات', 'Auctions')}</h1>
+      <h1 className="mb-3 text-center">{tr('المزادات', 'Auctions')}</h1>
       <div className="app-seg" role="tablist">
         {([['all', tr('كل المزادات', 'All auctions')], ['mine', `${tr('مزايداتي', 'My bids')}${bids.data?.length ? ` (${num(bids.data.length)})` : ''}`], ...(tab === 'watch' ? [['watch', tr('المتابعة', 'Watching')]] : [])] as ['all' | 'mine' | 'watch', string][]).map(([v, l]) => (
           <button key={v} role="tab" aria-selected={tab === v} className={tab === v ? 'on' : ''} onClick={() => setTab(v)}>{l}</button>
@@ -223,9 +223,10 @@ export function NativeDash() {
         <ul className="space-y-2.5">
           {soon.map((a) => (
             <li key={a.id}>
-              <Link to={`/auctions/${a.id}`} className="app-row">
-                <span className="min-w-0 flex-1 text-start"><b className="block truncate text-[17px]">{a.name}</b><span className="flex items-center gap-2 text-[13px] text-muted"><TypePill type={a.type} /><span>{tr('ينتهي خلال', 'Ends in')} {humanLeft(Date.parse(a.endsAt) - Date.now())}</span></span></span>
-                <span className="text-end"><span className="num block text-[17px] font-extrabold">{sar(a.currentPrice)}</span><span className="text-[12px] text-muted">{a.isLeader ? tr('أنت المتصدر', 'You lead') : tr('أعلى مزايدة', 'top bid')}</span></span>
+              <Link to={`/auctions/${a.id}`} className="app-row !py-2.5">
+                <span className="min-w-0 flex-1 text-start"><b className="block truncate text-[18px]">{a.name}</b><span className="num block text-[16px] font-extrabold">{sar(a.currentPrice)}</span></span>
+                <span className="flex flex-col items-end gap-1"><TypePill type={a.type} /><span className={`flex items-center gap-1 text-[12.5px] font-bold ${Date.parse(a.endsAt) - Date.now() < 3600_000 ? 'text-bad' : 'text-muted'}`}><Icon name="clock" className="h-3.5 w-3.5" /><Countdown to={a.endsAt} /></span></span>
+                <Icon name="arrow" className="h-4 w-4 shrink-0 text-muted rtl:rotate-180" />
               </Link>
             </li>
           ))}
@@ -253,15 +254,15 @@ export function NativeServices() {
   const main = list
   const Tile = ({ s, gold }: { s: EService; gold?: boolean }) => (
     <button type="button" onClick={() => setOpen(s)} className={`app-tile ${gold ? '!border-gold/60 !bg-gold-soft' : ''} ${s.open ? '' : 'opacity-70'}`}>
-      <Icon name={s.icon} className={`h-7 w-7 ${gold ? 'text-gold-deep' : 'text-pine'}`} />
-      <span>{s.title}</span>
+      <Icon name={s.icon} className={`h-8 w-8 ${gold ? 'text-gold-deep' : 'text-pine'}`} />
+      <span className="text-[15px]">{s.title}</span>
       {!s.open && <span className="text-[11px] font-medium text-muted">{s.soon ? tr('قريبًا', 'Soon') : tr('مغلقة', 'Closed')}</span>}
     </button>
   )
   return (
     <div>
-      <h1>{tr('الخدمات الإلكترونية', 'E-services')}</h1>
-      <p className="mb-3 text-[14px] text-muted">{tr('أنجز معاملاتك بأسماء الإبل بسهولة وأمان.', 'Handle your camel-name transactions easily and safely.')}</p>
+      <h1 className="text-center">{tr('الخدمات', 'Services')}</h1>
+      <p className="mb-4 text-center text-[14px] text-muted">{tr('أنجز معاملاتك بأسماء الإبل بسهولة وأمان.', 'Handle your camel-name transactions easily and safely.')}</p>
       <div className="grid grid-cols-2 gap-2.5">{main.map((s, i) => <Tile key={s.key} s={s} gold={i === 0} />)}</div>
       {isOwner && <L2 to="/dashboard/requests" className="app-row mt-3"><Icon name="file" className="h-5 w-5 text-pine" /><span className="flex-1 font-bold">{tr('متابعة طلباتي', 'Track my requests')}</span><Icon name="arrow" className="h-4 w-4 text-muted rtl:rotate-180" /></L2>}
       <Sheet open={!!open} onClose={() => setOpen(null)} title={open?.title ?? ''}>
@@ -282,23 +283,20 @@ export function NativeWallet() {
   return (
     <div className="space-y-4">
       <section className="rounded-2xl bg-gradient-to-br from-pine to-pine-deep p-5 text-paper">
-        <div className="flex items-center justify-between"><span className="text-[13px] text-paper/75">{tr('رصيد المحفظة', 'Wallet balance')}</span><Icon name="wallet" className="h-5 w-5 text-gold-light" /></div>
-        <p className="num mt-1 text-[34px] font-extrabold leading-tight">{data ? sar(data.balance) : '…'}</p>
+        <div className="flex items-center gap-3"><span className="min-w-0 flex-1 text-start"><span className="block text-[13px] text-paper/75">{tr('رصيد المحفظة', 'Wallet balance')}</span><span className="num block text-[32px] font-extrabold leading-tight">{data ? sar(data.balance) : '…'}</span></span><Icon name="wallet" className="h-10 w-10 shrink-0 text-gold-light" /></div>
       </section>
       <div className="grid grid-cols-3 gap-2.5">
         <button className="app-tile" onClick={() => setTop(true)}><Icon name="plus" className="h-6 w-6 text-pine" /><span>{tr('شحن الرصيد', 'Top up')}</span></button>
         <button className="app-tile" onClick={() => document.getElementById('wallet-bank')?.scrollIntoView({ behavior: 'smooth' })}><Icon name="arrow" className="h-6 w-6 text-pine" /><span>{tr('سحب الرصيد', 'Withdraw')}</span></button>
         <button className="app-tile" onClick={() => document.getElementById('wallet-txs')?.scrollIntoView({ behavior: 'smooth' })}><Icon name="file" className="h-6 w-6 text-pine" /><span>{tr('كشف الحركات', 'Statement')}</span></button>
       </div>
-      <p className="text-[13px] leading-6 text-muted">{tr('رصيد المحفظة لسداد الضمانات والفواتير، ويمكنك طلب استرداده إلى حسابك البنكي.', 'The wallet pays guarantees and invoices; you can ask to refund it to your bank account.')}</p>
-      <h2 id="wallet-txs" className="text-[18px]">{tr('آخر العمليات', 'Recent activity')}</h2>
+      <h2 id="wallet-txs" className="text-[18px]">{tr('آخر التعاملات', 'Recent transactions')}</h2>
       {loading && !data ? <Loading /> : data?.txs.length ? (
-        <ul className="space-y-2">
+        <ul className="app-list">
           {data.txs.map((t) => (
-            <li key={t.id} className="app-row">
-              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${t.amount > 0 ? 'bg-[#E2F0E8] text-ok' : 'bg-stone text-muted'}`}><Icon name={t.amount > 0 ? 'plus' : 'receipt'} className="h-[18px] w-[18px]" /></span>
-              <span className="min-w-0 flex-1 text-start"><b className="block truncate text-[15px]">{K[t.kind] ?? t.kind}</b><span className="block truncate text-[12.5px] text-muted">{LT(t.note ?? '')} · {date(t.createdAt)}</span></span>
-              <span className={`num shrink-0 text-[16px] font-extrabold ${t.amount > 0 ? 'text-ok' : ''}`}>{t.amount > 0 ? '+' : '−'}{sar(Math.abs(t.amount))}</span>
+            <li key={t.id} className="flex items-center gap-3 px-4 py-3">
+              <span className="min-w-0 flex-1 text-start"><b className="block truncate text-[15px]">{K[t.kind] ?? t.kind}</b><span className="block truncate text-[12.5px] text-muted">{date(t.createdAt)}{t.note ? ` · ${LT(t.note)}` : ''}</span></span>
+              <span className={`num shrink-0 text-[16px] font-extrabold ${t.amount > 0 ? 'text-ok' : 'text-bad'}`}>{sar(Math.abs(t.amount))}</span>
             </li>
           ))}
         </ul>
@@ -345,7 +343,7 @@ export function NativeAccount() {
   return (
     <div className="space-y-3.5">
       <L2 to="/dashboard/profile" className="flex flex-col items-center gap-1 text-center">
-        <Avatar name={user.fullName} src={user.avatarUrl} size={88} ring />
+        <span className="relative"><Avatar name={user.fullName} src={user.avatarUrl} size={88} ring /><span className="absolute bottom-0 end-0 grid h-7 w-7 place-items-center rounded-full border-2 border-paper bg-ok text-paper"><Icon name="check" className="h-4 w-4" /></span></span>
         <b className="mt-1 text-[20px]">{user.fullName}</b>
         <span className="text-[13px] text-muted">{tr('مالك إبل', 'Camel owner')}</span>
         
@@ -365,8 +363,8 @@ export function NativeAccount() {
         <MenuRow to="/contact" icon="users" label={tr('المساعدة والدعم', 'Help & support')} />
         <MenuRow to="/about" icon="list" label={tr('عن تطبيق سمّها', 'About Sammha')} />
       </section>
-      <div className="flex gap-2"><LangSwitch className="btn-ghost flex-1" /></div>
-      <button className="btn w-full border border-bad/40 bg-[#FDECEE] font-bold text-bad" onClick={async () => { await api.signOut(); setUser(null); nav('/') }}>{tr('تسجيل الخروج', 'Sign out')}</button>
+      <LangSwitch className="btn-ghost w-full" />
+      <button className="flex w-full items-center justify-center gap-2 rounded-2xl border border-bad/30 bg-[#FDECEE] py-3 font-bold text-bad" onClick={async () => { await api.signOut(); setUser(null); nav('/') }}>{tr('تسجيل الخروج', 'Sign out')}</button>
       <nav className="flex flex-wrap justify-center gap-x-4 gap-y-1 pt-1 text-[12.5px] text-muted"><L2 to="/terms">{tr('الشروط', 'Terms')}</L2><L2 to="/privacy">{tr('الخصوصية', 'Privacy')}</L2><L2 to="/refund">{tr('الاسترداد', 'Refunds')}</L2></nav>
     </div>
   )
