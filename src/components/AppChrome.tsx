@@ -92,7 +92,16 @@ function OwnerTabs() {
 
 const DEPTH_ROOTS = new Set(['/', '/auctions', '/names', '/services', '/events', '/dashboard', '/dashboard/services', '/dashboard/bids', '/dashboard/account', '/admin', '/login', '/signup'])
 
+const SUB_TITLES = (): [RegExp, string][] => [
+  [/^\/dashboard\/requests\/new/, tr('طلب شعار جديد', 'New name request')], [/^\/dashboard\/requests\/[^/]+/, tr('تفاصيل الطلب', 'Request details')], [/^\/dashboard\/requests/, tr('طلباتي', 'My requests')],
+  [/^\/dashboard\/invoices\/[^/]+/, tr('الفاتورة', 'Invoice')], [/^\/dashboard\/certificates\/[^/]+/, tr('الشهادة', 'Certificate')], [/^\/dashboard\/exemptions/, tr('استثناء المشاركة', 'Exemption')],
+  [/^\/dashboard\/account/, tr('حسابي', 'My account')], [/^\/dashboard\/profile/, tr('الملف الشخصي', 'Profile')], [/^\/dashboard\/invest/, tr('استثمار الاسم', 'Name investment')], [/^\/dashboard\/sell/, tr('إعادة بيع', 'Resell a name')],
+  [/^\/dashboard\/transfers/, tr('نقل ملكية', 'Ownership transfer')], [/^\/dashboard\/watchlist/, tr('المتابعة', 'Watchlist')], [/^\/dashboard\/bids/, tr('مزايداتي', 'My bids')],
+  [/^\/dashboard\/names\/[^/]+\/certificate/, tr('شهادة الاسم', 'Name certificate')],
+]
 function pageTitle(pathname: string, nav: NavItem[], fallback: string) {
+  const sub = SUB_TITLES().find(([re]) => re.test(pathname))
+  if (sub) return sub[1]
   const hit = [...nav].sort((a, b) => b.to.length - a.to.length).find((n) => pathname === n.to || pathname.startsWith(n.to + '/'))
   return hit?.label ?? fallback
 }

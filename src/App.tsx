@@ -42,6 +42,7 @@ const InvoicePage = pick(ownerMod, 'InvoicePage'), MyBids = pick(ownerMod, 'MyBi
 const CertificatePage = pick(ownerMod, 'CertificatePage'), ProfilePage = pick(ownerMod, 'ProfilePage'), WatchlistPage = pick(ownerMod, 'WatchlistPage')
 const MyRequests = pick(reqMod, 'MyRequests'), NewRequest = pick(reqMod, 'NewRequest'), RequestDetail = pick(reqMod, 'RequestDetail')
 const NativeDash = pick(() => import('./pages/native/NativeScreens'), 'NativeDash'), NativeAuctions = pick(() => import('./pages/native/NativeScreens'), 'NativeAuctions')
+const NativeNewRequest = pick(() => import('./pages/native/NativeScreens2'), 'NativeNewRequest'), NativeInvoices = pick(() => import('./pages/native/NativeScreens2'), 'NativeInvoices')
 const NativeServices = pick(() => import('./pages/native/NativeScreens'), 'NativeServices'), NativeWallet = pick(() => import('./pages/native/NativeScreens'), 'NativeWallet'), NativeAccount = pick(() => import('./pages/native/NativeScreens'), 'NativeAccount')
 const SellPage = pick(() => import('./pages/owner/Sell'), 'SellPage')
 const InvestPage = pick(() => import('./pages/owner/Invest'), 'InvestPage')
@@ -212,7 +213,7 @@ function AppRoutes() {
           <Route path="dashboard" element={<Guard roles={['owner']}><Shell nav={OWNER_NAV} title={tr('لوحة التحكم', 'Dashboard')} /></Guard>}>
             <Route index element={IS_NATIVE ? <NativeDash /> : <DashHome />} />
             <Route path="requests" element={<MyRequests />} />
-            <Route path="requests/new" element={<NewRequest />} />
+            <Route path="requests/new" element={IS_NATIVE ? <NativeNewRequest /> : <NewRequest />} />
             <Route path="requests/:id" element={<RequestDetail />} />
             <Route path="bids" element={<MyBids />} />
             <Route path="names" element={<MyNames />} />
@@ -224,7 +225,7 @@ function AppRoutes() {
             <Route path="certificates" element={<CertificatesPage />} />
             <Route path="certificates/:number" element={<CertificateView />} />
             <Route path="wallet" element={IS_NATIVE ? <NativeWallet /> : <WalletPage />} />
-            <Route path="invoices" element={<MyInvoices />} />
+            <Route path="invoices" element={IS_NATIVE ? <NativeInvoices /> : <MyInvoices />} />
             <Route path="invoices/:id" element={<InvoicePage />} />
             <Route path="violations" element={<MyViolationsPage />} />
             <Route path="exemptions" element={<MyExemptionsPage />} />

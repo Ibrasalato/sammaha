@@ -133,6 +133,8 @@ export function ChatWidget() {
 
   function submit(e: FormEvent) { e.preventDefault(); ask(text) }
   // inside dashboards the button shrinks to an icon so it never covers form controls
+  // in the app the assistant button only shows on the main screens, so it never covers a form or an action button
+  const hideFab = IS_NATIVE && !/^\/(dashboard|dashboard\/services|dashboard\/account|auctions)?\/?$/.test(loc.pathname)
   const compact = IS_NATIVE || /^\/(admin|dashboard)/.test(loc.pathname) || /^\/auctions\/[^/]+$/.test(loc.pathname)
   // on phones, stay above the dashboard tab bar and the auction bid bar
   const raised = compact || IS_NATIVE || /^\/auctions\/[^/]+$/.test(loc.pathname)
@@ -203,7 +205,7 @@ export function ChatWidget() {
       )}
 
       <button onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label={open ? tr('إغلاق المساعد', 'Close assistant') : tr('افتح مساعد سمّها', 'Open Sammha assistant')}
-        className={`group fixed end-5 z-50 flex h-14 ${raised ? 'bottom-24 lg:bottom-5' : 'bottom-5'} items-center justify-center gap-2 rounded-full bg-pine text-paper ${compact ? 'w-14' : 'ps-4 pe-5'} shadow-[0_12px_30px_-8px_rgba(15,59,36,.6)] ring-2 ring-gold/70 transition hover:bg-pine-3`}>
+        className={`${hideFab ? '!hidden' : ''} group fixed end-5 z-50 flex h-14 ${raised ? 'bottom-24 lg:bottom-5' : 'bottom-5'} items-center justify-center gap-2 rounded-full bg-pine text-paper ${compact ? 'w-14' : 'ps-4 pe-5'} shadow-[0_12px_30px_-8px_rgba(15,59,36,.6)] ring-2 ring-gold/70 transition hover:bg-pine-3`}>
         {open ? (
           <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
         ) : (

@@ -182,7 +182,7 @@ export function MyRequests() {
   )
 }
 
-const VERDICT_STYLE: Record<NameCheck['verdict'], string> = {
+export const VERDICT_STYLE: Record<NameCheck['verdict'], string> = {
   available: 'text-ok',
   similar: 'text-warn',
   exact: 'text-bad',
