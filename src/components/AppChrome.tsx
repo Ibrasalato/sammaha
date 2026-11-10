@@ -12,6 +12,30 @@ import { SiteBanner } from './SettingsUi'
 import { useStaffIdle } from './StaffIdle'
 import { Countdown } from './ui'
 import { num } from '../lib/format'
+import { followed, watchTick } from '../lib/follow'
+import type { Auction } from '../lib/types'
+
+/** while the app runs: checks followed auctions and the owner's bids, raises outbid/result alerts and refreshes the live activity */
+function useFollowMonitor(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return
+    let stop = false
+    const tick = async () => {
+      try {
+        const bids = await api.myBids()
+        const items: { a: Auction; myBid?: number }[] = bids.map((b) => ({ a: b.auction, myBid: b.amount }))
+        const have = new Set(bids.map((b) => b.auctionId))
+        for (const id of Object.keys(followed()).filter((x) => !have.has(x))) {
+          try { items.push({ a: (await api.getAuction(id)).auction }) } catch { /* gone */ }
+        }
+        if (!stop) watchTick(items)
+      } catch { /* signed out or offline */ }
+    }
+    void tick()
+    const t = setInterval(tick, 15_000)
+    return () => { stop = true; clearInterval(t) }
+  }, [enabled])
+}
 
 /* ───────── the mobile app's own chrome (used only inside the Capacitor app) ───────── */
 
@@ -115,6 +139,7 @@ export function NativeShell({ nav, title }: { nav: NavItem[]; title: string }) {
   const [more, setMore] = useState(false)
   const scroller = useRef<HTMLElement>(null)
   useStaffIdle()
+  useFollowMonitor(user?.role === 'owner')
   useCardTables()
   useEffect(() => { setMore(false); window.scrollTo({ top: 0 }) }, [pathname])
   const tabs = nav.slice(0, 4)
@@ -160,9 +185,18 @@ export function NativeShell({ nav, title }: { nav: NavItem[]; title: string }) {
 }
 
 /** Public screens in the app: auctions, registry, services, account. */
+async function shareLink(path: string) {
+  const site = ((import.meta.env.VITE_SITE_URL as string | undefined) ?? 'https://sammha.ico.org.sa/').replace(/\/?$/, '/')
+  const url = `${site}#${path}`
+  try { if (navigator.share) { await navigator.share({ title: tr('مزاد على سمّها', 'An auction on Sammha'), url }); return } } catch { return }
+  try { await navigator.clipboard.writeText(url) } catch { /* no clipboard */ }
+}
+
 export function NativePublicLayout() {
   const { user } = useApp()
+  const navigate = useNavigate()
   const { pathname } = useLocation()
+  useFollowMonitor(user?.role === 'owner')
   useCardTables()
   useEffect(() => { window.scrollTo({ top: 0 }) }, [pathname])
   const deep = !DEPTH_ROOTS.has(pathname)
@@ -175,7 +209,15 @@ export function NativePublicLayout() {
   const acct = user ? (user.role === 'owner' ? '/dashboard' : '/admin') : '/login'
   return (
     <div className="app-root">
-      <TopBar title={title} back={deep} start={user ? <Link to={user.role === 'owner' ? '/dashboard/account' : '/admin/account'} aria-label={tr('حسابي', 'My account')}><Avatar name={user.fullName} src={user.avatarUrl} size={40} ring /></Link> : <Link to="/" aria-label={tr('الرئيسية', 'Home')}><Logo className="h-9" /></Link>}>{user ? <NotificationBell /> : <LangSwitch className="app-pill" />}</TopBar>
+      {/^\/auctions\/[^/]+$/.test(pathname) ? (
+        <header className="app-top">
+          <div className="flex h-14 items-center gap-2 px-3.5">
+            <button className="app-iconbtn" onClick={() => navigate(-1)} aria-label={tr('رجوع', 'Back')}><Icon name="arrow" className="h-5 w-5 ltr:rotate-180" /></button>
+            <span className="min-w-0 flex-1 truncate text-center text-[19px] font-extrabold">{title}</span>
+            <button className="app-iconbtn" aria-label={tr('مشاركة', 'Share')} onClick={() => void shareLink(pathname)}><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v13M7 8l5-5 5 5M5 13v6a2 2 0 002 2h10a2 2 0 002-2v-6" /></svg></button>
+          </div>
+        </header>
+      ) : <TopBar title={title} back={deep} start={user ? <Link to={user.role === 'owner' ? '/dashboard/account' : '/admin/account'} aria-label={tr('حسابي', 'My account')}><Avatar name={user.fullName} src={user.avatarUrl} size={40} ring /></Link> : <Link to="/" aria-label={tr('الرئيسية', 'Home')}><Logo className="h-9" /></Link>}>{user ? <NotificationBell /> : <LangSwitch className="app-pill" />}</TopBar>}
       <SiteBanner />
       <main className="app-main"><Outlet /></main>
       <nav className="app-tabs" aria-label={tr('التنقل السريع', 'Quick navigation')}>

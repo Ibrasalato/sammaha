@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../../components/dash'
 import { Sheet } from '../../components/AppChrome'
+import { FollowBell } from '../../components/Follow'
 import { useFines } from '../../components/Fines'
 import { ProfileCompletion } from '../owner/Profile'
 import { useClosed } from '../../components/SettingsUi'
@@ -21,54 +22,64 @@ function TypePill({ type }: { type: NameType }) {
   return <span className={`spill ${TYPE_CLS[type].dot}`}>{TYPE_LABEL[type]}</span>
 }
 
-function MarkPill({ m }: { m: Mark }) {
-  if (!m) return null
-  const x = {
-    leading: ['bg-[#E2F0E8] text-ok', tr('أنت المتصدر', 'You are leading')],
-    outbid: ['bg-bad/10 text-bad', tr('تم تجاوزك', 'Outbid')],
-    won: ['bg-gold-soft text-gold-deep', tr('فزت بالمزاد', 'You won')],
-    lost: ['bg-stone-deep text-muted', tr('لم يرسُ عليك', 'Not won')],
-  }[m]
-  return <span className={`pill ${x[0]}`}>{x[1]}</span>
+export function SoftPill({ type, big }: { type: NameType; big?: boolean }) {
+  return <span className={`pill ${TYPE_CLS[type].pill} ${big ? '!px-3 !text-[13.5px]' : ''}`}>{TYPE_LABEL[type]}</span>
+}
+export function Crown({ className = 'h-4 w-4' }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" aria-hidden><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>
+}
+function Bookmark({ on }: { on: boolean }) {
+  return <svg viewBox="0 0 24 24" className="h-5 w-5" fill={on ? '#B98A2E' : 'none'} stroke={on ? '#B98A2E' : 'currentColor'} strokeWidth="1.9" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
+}
+export function TimerPill({ a, phase }: { a: Auction; phase: AuctionPhase }) {
+  const left = Date.parse(phase === 'scheduled' ? a.startsAt : a.endsAt) - Date.now()
+  const urgent = phase === 'live' && left < 3600_000
+  return (
+    <span className={`flex h-10 items-center justify-center gap-1.5 rounded-xl px-2 text-[15px] font-extrabold ${phase === 'ended' ? 'bg-stone text-muted' : urgent ? 'bg-[#FDECEE] text-bad' : 'bg-info-soft text-info-deep'}`}>
+      <Icon name="clock" className="h-[18px] w-[18px]" />
+      {a.paused ? tr('متوقف', 'Paused') : phase === 'live' ? <Countdown to={a.endsAt} /> : phase === 'scheduled' ? <><span className="text-[12px] font-bold">{tr('يبدأ', 'Starts')}</span><Countdown to={a.startsAt} /></> : <span className="text-[13px]">{tr('انتهى', 'Ended')}</span>}
+    </span>
+  )
 }
 
-/** One auction as a compact card: name and type, price, bids and time, one small button. */
+/** One auction as a card: name and type, price, bookmark and bell, time left and the bid button; my position when I bid. */
 export function AuctionTile({ a, mark, mine, watching, onWatch }: { a: Auction; mark?: Mark; mine?: number; watching?: boolean; onWatch?: () => void }) {
   const phase: AuctionPhase = a.paused ? 'live' : phaseOf(a)
   const ended = phase === 'ended'
   const price = a.finalPrice ?? a.currentPrice
-  const urgent = phase === 'live' && Date.parse(a.endsAt) - Date.now() < 3600_000
+  const m = mark ?? (a.isLeader && !ended ? 'leading' : null)
   return (
-    <Link to={`/auctions/${a.id}`} className={`app-card !p-3.5 block ${a.paused ? 'opacity-80' : ''}`}>
-      <div className="flex items-stretch gap-2.5">
-        <div className="min-w-0 flex-1 text-start">
-          <div className="flex items-center gap-2">
+    <Link to={`/auctions/${a.id}`} className={`app-card block !p-3.5 ${m === 'leading' ? '!border-2 !border-ok/50' : m === 'outbid' ? '!border-2 !border-bad/40' : ''} ${a.paused ? 'opacity-80' : ''}`}>
+      <div className="grid grid-cols-2">
+        <div className="min-w-0 border-e border-line/80 pe-3 text-start">
+          <SoftPill type={a.type} />
+          <b className="mt-1 block truncate text-[23px] font-extrabold leading-tight">{a.name}</b>
+          <span className="text-[13px] text-muted"><span className="num">{num(a.bidCount)}</span> {tr('مزايدات', 'bids')}</span>
+        </div>
+        <div className="min-w-0 ps-3 text-end">
+          <div className="flex items-center justify-end gap-1">
+            <FollowBell a={a} myBid={mine} />
             {onWatch && (
-              <button type="button" className="shrink-0 text-muted" aria-pressed={!!watching} aria-label={tr('تابع المزاد', 'Watch')} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWatch() }}>
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill={watching ? '#00513B' : 'none'} stroke={watching ? '#00513B' : 'currentColor'} strokeWidth="2"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
-              </button>
+              <button type="button" className="grid h-9 w-9 place-items-center text-muted" aria-pressed={!!watching} aria-label={tr('احفظ في المتابعة', 'Save')} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWatch() }}><Bookmark on={!!watching} /></button>
             )}
-            <b className="truncate text-[22px] font-extrabold leading-tight">{a.name}</b>
           </div>
-          <div className="mt-3 text-[12px] text-muted">{ended ? tr('سعر الترسية', 'Hammer price') : mine ? tr('مزايدتي', 'My bid') : a.bidCount ? tr('أعلى مزايدة', 'Top bid') : tr('السعر الافتتاحي', 'Opening price')}</div>
-          <span className="num block text-[24px] font-extrabold leading-tight">{sar(mine ?? price)}</span>
+          <span className="num block text-[24px] font-extrabold leading-tight">{sar(price)}</span>
+          <span className="text-[12.5px] text-muted">{ended ? tr('سعر الترسية', 'Hammer price') : a.bidCount ? tr('أعلى مزايدة', 'Top bid') : tr('السعر الافتتاحي', 'Opening price')}</span>
         </div>
-        <div className="flex w-[48%] shrink-0 flex-col items-stretch justify-between gap-2 text-[12.5px]">
-          <div className="flex flex-wrap items-center justify-end gap-1.5"><TypePill type={a.type} /><MarkPill m={mark ?? (a.isLeader && !ended ? 'leading' : null)} />{a.cancelled && <span className="pill bg-bad/10 text-bad">{tr('ملغى', 'Cancelled')}</span>}{a.paused && <span className="pill bg-info-soft text-info-deep">{tr('متوقف مؤقتًا', 'Paused')}</span>}</div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1 text-muted"><Icon name="gavel" className="h-4 w-4" /><span className="num">{num(a.bidCount)}</span> {tr('مزايدة', 'bids')}</span>
-            <span className={`flex items-center gap-1 font-bold ${urgent ? 'text-bad' : 'text-muted'}`}>
-              <Icon name="clock" className="h-4 w-4" />
-              {phase === 'live' && !a.paused && <Countdown to={a.endsAt} />}
-              {phase === 'scheduled' && <Countdown to={a.startsAt} />}
-              {a.paused && <span>{tr('متوقف', 'Paused')}</span>}
-              {ended && <span>{date(a.endsAt)}</span>}
-            </span>
-          </div>
-          {phase === 'live' && !a.paused ? <span className="app-outline !min-h-[34px] !text-[13.5px]">{tr('زايد الآن', 'Bid now')}</span> : <span />}
-        </div>
-        <Icon name="arrow" className="h-4 w-4 shrink-0 self-center text-muted rtl:rotate-180" />
       </div>
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <TimerPill a={a} phase={phase} />
+        {phase === 'live' && !a.paused ? <span className="flex h-10 items-center justify-center rounded-xl bg-pine text-[16px] font-extrabold text-paper shadow-sm">{tr('زايد الآن', 'Bid now')}</span>
+          : <span className="flex h-10 items-center justify-center rounded-xl border border-line text-[14px] font-bold text-muted">{phase === 'scheduled' ? tr('قريبًا', 'Soon') : tr('عرض النتيجة', 'See result')}</span>}
+      </div>
+      {mine !== undefined && m && (
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-stone/70 px-2.5 py-2">
+          <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[12.5px] font-extrabold ${m === 'leading' ? 'border-ok/40 bg-[#E2F0E8] text-ok' : m === 'outbid' ? 'border-bad/30 bg-bad/10 text-bad' : m === 'won' ? 'border-gold/50 bg-gold-soft text-gold-deep' : 'border-line text-muted'}`}>
+            {m === 'leading' ? <><Crown className="h-3.5 w-3.5" />{tr('أنت متصدر حاليًا', 'You are leading')}</> : m === 'outbid' ? tr('تم تجاوز مزايدتك', 'You were outbid') : m === 'won' ? tr('فزت بالمزاد', 'You won') : tr('لم يرسُ عليك', 'Not won')}
+          </span>
+          <span className="text-[12.5px] text-muted">{tr('مزايدتك الأخيرة:', 'Your last bid:')} <b className="num text-ink">{sar(mine)}</b></span>
+        </div>
+      )}
     </Link>
   )
 }
@@ -81,6 +92,17 @@ function Chips<T extends string>({ value, onChange, options }: { value: T; onCha
   )
 }
 
+type SortKey = 'ending' | 'price' | 'bids' | 'new'
+const SORTS = (): [SortKey, string][] => [['ending', tr('ينتهي قريبًا', 'Ending soon')], ['price', tr('الأعلى سعرًا', 'Highest price')], ['bids', tr('الأكثر مزايدات', 'Most bids')], ['new', tr('الأحدث', 'Newest')]]
+function sortAuctions(list: Auction[], k: SortKey) {
+  const x = [...list]
+  if (k === 'ending') x.sort((a, b) => Date.parse(a.endsAt) - Date.parse(b.endsAt))
+  if (k === 'price') x.sort((a, b) => b.currentPrice - a.currentPrice)
+  if (k === 'bids') x.sort((a, b) => b.bidCount - a.bidCount)
+  if (k === 'new') x.sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt))
+  return x
+}
+
 /** «المزادات»: all auctions / my bids / watchlist, in one screen. */
 export function NativeAuctions() {
   const { user } = useApp()
@@ -90,6 +112,8 @@ export function NativeAuctions() {
   const [type, setType] = useState<NameType | 'all'>('all')
   const [q, setQ] = useState('')
   const [filt, setFilt] = useState(false)
+  const [sortOpen, setSortOpen] = useState(false)
+  const [sort, setSort] = useState<SortKey>('ending')
   const all = useLoad(() => api.listAuctions({ phase, type, q }), [phase, type, q], 15000)
   const bids = useLoad(() => (user?.role === 'owner' ? api.myBids() : Promise.resolve([])), [user?.id], 15000)
   const watch = useLoad(() => (user?.role === 'owner' ? api.myWatchlist() : Promise.resolve([])), [user?.id], 15000)
@@ -112,9 +136,9 @@ export function NativeAuctions() {
 
   return (
     <div>
-      <h1 className="mb-3 text-center">{tr('المزادات', 'Auctions')}</h1>
+      <h1 className="sr-only">{tr('المزادات', 'Auctions')}</h1>
       <div className="app-seg" role="tablist">
-        {([['all', tr('كل المزادات', 'All auctions')], ['mine', `${tr('مزايداتي', 'My bids')}${bids.data?.length ? ` (${num(bids.data.length)})` : ''}`], ...(tab === 'watch' ? [['watch', tr('المتابعة', 'Watching')]] : [])] as ['all' | 'mine' | 'watch', string][]).map(([v, l]) => (
+        {([['all', `${tr('كل المزادات', 'All auctions')}${all.data ? ` (${num(all.data.length)})` : ''}`], ['mine', `${tr('مزايداتي', 'My bids')}${bids.data?.length ? ` (${num(bids.data.length)})` : ''}`], ...(tab === 'watch' ? [['watch', tr('المتابعة', 'Watching')]] : [])] as ['all' | 'mine' | 'watch', string][]).map(([v, l]) => (
           <button key={v} role="tab" aria-selected={tab === v} className={tab === v ? 'on' : ''} onClick={() => setTab(v)}>{l}</button>
         ))}
       </div>
@@ -124,17 +148,23 @@ export function NativeAuctions() {
       ) : tab === 'all' ? (
         <>
           <div className="mb-2.5 flex items-center gap-2">
+            <div className="app-search !mb-0 flex-1"><input type="search" placeholder={tr('البحث عن اسم', 'Search a name')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={tr('البحث عن اسم', 'Search a name')} /><svg viewBox="0 0 24 24" className="h-5 w-5 text-ink/70" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg></div>
             <button type="button" className="app-filterbtn" onClick={() => setFilt(true)} aria-label={tr('تصفية', 'Filter')}><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg></button>
-            <div className="app-search !mb-0 flex-1"><svg viewBox="0 0 24 24" className="h-[18px] w-[18px] text-muted" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg><input type="search" placeholder={tr('ابحث عن اسم…', 'Search a name…')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={tr('ابحث عن اسم', 'Search a name')} /></div>
           </div>
-          <Chips value={type} onChange={setType} options={[['all', tr('الكل', 'All')], ...NAME_TYPES.map((t) => [t, TYPE_LABEL[t]] as [NameType, string])]} />
+          <div className="app-chips">
+            <button type="button" className="app-chip !inline-flex items-center gap-1" onClick={() => setSortOpen(true)}>{tr('ترتيب', 'Sort')}<svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4" /></svg></button>
+            {([['all', tr('الكل', 'All')], ...NAME_TYPES.map((t) => [t, TYPE_LABEL[t]] as [NameType, string])] as [NameType | 'all', string][]).map(([v, l]) => <button key={v} type="button" aria-pressed={v === type} className={`app-chip ${v === type ? 'on' : ''}`} onClick={() => setType(v)}>{l}</button>)}
+          </div>
+          <Sheet open={sortOpen} onClose={() => setSortOpen(false)} title={tr('ترتيب المزادات', 'Sort auctions')}>
+            <ul className="app-list mb-2">{SORTS().map(([k, l]) => <li key={k}><button type="button" className={`flex w-full items-center justify-between px-4 py-3.5 text-start text-[15px] font-bold ${sort === k ? 'text-pine' : ''}`} onClick={() => { setSort(k); setSortOpen(false) }}>{l}{sort === k && <Icon name="check" className="h-5 w-5" />}</button></li>)}</ul>
+          </Sheet>
           <Sheet open={filt} onClose={() => setFilt(false)} title={tr('تصفية المزادات', 'Filter auctions')}>
             <p className="mb-2 text-[13px] font-bold text-muted">{tr('حالة المزاد', 'Auction status')}</p>
             <Chips value={phase} onChange={(v) => { setPhase(v); setFilt(false) }} options={[['live', tr('جارية', 'Live')], ['scheduled', tr('قادمة', 'Upcoming')], ['ended', tr('منتهية', 'Ended')], ['all', tr('الكل', 'All')]]} />
             {owner && <button type="button" className="btn-ghost mt-2 w-full" onClick={() => { setTab('watch'); setFilt(false) }}>{tr('عرض المزادات التي أتابعها', 'Show auctions I watch')}</button>}
           </Sheet>
           {all.loading && !all.data ? <Loading /> : all.data?.length
-            ? <div className="space-y-3">{all.data.map((a) => <AuctionTile key={a.id} a={a} mark={markOf(a)} mine={myBid.get(a.id)?.amount} watching={watched.has(a.id)} onWatch={owner ? () => void toggle(a.id) : undefined} />)}</div>
+            ? <div className="space-y-3">{sortAuctions(all.data, sort).map((a) => <AuctionTile key={a.id} a={a} mark={markOf(a)} mine={myBid.get(a.id)?.amount} watching={watched.has(a.id)} onWatch={owner ? () => void toggle(a.id) : undefined} />)}</div>
             : <Empty title={tr('لا توجد مزادات بهذه التصفية', 'No auctions match this filter')} />}
         </>
       ) : tab === 'mine' ? (

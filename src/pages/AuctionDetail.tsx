@@ -15,6 +15,8 @@ import { Approx } from '../components/Region'
 import { IS_NATIVE } from '../lib/native'
 import { Icon } from '../components/dash'
 import { Sheet } from '../components/AppChrome'
+import { FollowBell } from '../components/Follow'
+import { Avatar } from '../components/Avatar'
 
 /** in the app the long sections fold away; on the website they are plain sections */
 function Fold({ title, open, children }: { title: string; open?: boolean; children: React.ReactNode }) {
@@ -40,6 +42,7 @@ export default function AuctionDetail() {
   const [autoMax, setAutoMax] = useState('')
   const [confirm, setConfirm] = useState<number | null>(null)
   const [ask, setAsk] = useState<number | null>(null)
+  const [dtab, setDtab] = useState<'bids' | 'info'>('bids')
   const [busy, setBusy] = useState(false)
   const [payingDeposit, setPayingDeposit] = useState(false)
   const [flash, setFlash] = useState(0)
@@ -96,36 +99,83 @@ export default function AuctionDetail() {
 
   const priceLabel = phase === 'ended' ? tr('سعر الترسية', 'Hammer price') : a.bidCount ? tr('أعلى مزايدة', 'Top bid') : tr('السعر الافتتاحي', 'Opening price')
 
+  const myLast = data.bids.find((b) => b.mine)
+  const ago = (iso: string) => {
+    const m = Math.max(0, Math.round((now - Date.parse(iso)) / 60_000))
+    if (m < 1) return tr('الآن', 'just now')
+    if (m < 60) return tr(`منذ ${num(m)} ${m <= 10 ? 'دقائق' : 'دقيقة'}`, `${m} min ago`)
+    const h = Math.round(m / 60)
+    if (h < 24) return tr(`منذ ${num(h)} ${h <= 10 ? 'ساعات' : 'ساعة'}`, `${h} h ago`)
+    return date(iso)
+  }
+  const crown = <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" aria-hidden><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>
   const nativeTop = IS_NATIVE && (
     <div className="space-y-2.5 px-3.5 pt-1">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="min-w-0 truncate text-[28px] font-extrabold">{a.name}</h1>
-        <span className="flex items-center gap-2">
-          {user && <button onClick={watch} disabled={busy} aria-pressed={!!mine?.watching} aria-label={tr('تابع المزاد', 'Watch')} className={`grid h-9 w-9 place-items-center rounded-full border ${mine?.watching ? 'border-gold bg-gold text-pine-deep' : 'border-line bg-paper text-muted'}`}><Heart on={!!mine?.watching} /></button>}
-          <span className={`spill !px-3 !py-1 !text-[13px] ${TYPE_CLS[a.type].dot}`}>{TYPE_LABEL[a.type]}</span>
-        </span>
-      </div>
-      <div className="flex items-center gap-3 rounded-2xl border border-[#E8D7A8] bg-[#FBF3DD] px-4 py-4">
-        <span className="min-w-0 flex-1 text-center"><span className="block text-[13px] text-muted">{priceLabel}</span><span key={flash} className={`num block text-[32px] font-extrabold leading-tight ${flash ? 'bid-flash' : ''}`}>{sar(a.finalPrice ?? a.currentPrice)}</span>{a.leaderLabel && phase !== 'ended' && <span className={`block text-[12.5px] ${leading ? 'font-bold text-ok' : 'text-muted'}`}>{leading ? tr('أنت صاحب أعلى مزايدة', 'You hold the top bid') : `${tr('المتصدر:', 'Leading:')} ${a.leaderLabel}`}</span>}</span>
-        <Icon name="gavel" className="h-10 w-10 shrink-0 text-gold-deep" />
-      </div>
-      {(phase === 'live' || phase === 'scheduled') && (
-        <div className="flex items-center gap-3 rounded-2xl border border-[#F3C4CB] bg-[#FDECEE] px-4 py-3">
-          <span className="min-w-0 flex-1 text-center"><span className="block text-[13px] text-muted">{phase === 'live' ? tr('ينتهي خلال', 'Ends in') : tr('يبدأ بعد', 'Starts in')}</span><b className="block text-[19px] text-bad">{Date.parse(phase === 'live' ? a.endsAt : a.startsAt) - now < 3600_000 ? <Countdown to={phase === 'live' ? a.endsAt : a.startsAt} /> : humanLeft(Date.parse(phase === 'live' ? a.endsAt : a.startsAt) - now)}</b></span>
-          <Icon name="clock" className="h-8 w-8 shrink-0 text-bad" />
+      <section className="app-card !p-3">
+        <div className="flex items-start justify-between">
+          <span className={`pill ${TYPE_CLS[a.type].pill} !px-3 !text-[13.5px]`}>{TYPE_LABEL[a.type]}</span>
+          <span className="flex items-center gap-1.5">
+            <FollowBell a={a} myBid={myLast?.amount} size="lg" />
+            {user && <button onClick={watch} disabled={busy} aria-pressed={!!mine?.watching} aria-label={tr('احفظ في المتابعة', 'Save')} className="grid h-11 w-11 place-items-center rounded-xl border border-line text-muted"><svg viewBox="0 0 24 24" className="h-5 w-5" fill={mine?.watching ? '#B98A2E' : 'none'} stroke={mine?.watching ? '#B98A2E' : 'currentColor'} strokeWidth="1.9" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg></button>}
+          </span>
+        </div>
+        <h1 className="-mt-1 text-center text-[32px] font-extrabold leading-tight">{a.name}</h1>
+        {a.number && <p className="num text-center text-[14px] text-muted">{tr('مزاد رقم', 'Auction')} #{a.number}</p>}
+        {leading && phase !== 'ended' && <p className="mt-2 flex justify-center"><span className="inline-flex items-center gap-1.5 rounded-full border border-ok/40 bg-[#E2F0E8] px-4 py-1 text-[14px] font-extrabold text-ok">{tr('أنت المتصدر حاليًا', 'You are leading')}{crown}</span></p>}
+        {a.isWinner && phase === 'ended' && <p className="mt-2 flex justify-center"><span className="inline-flex items-center gap-1.5 rounded-full border border-gold/50 bg-gold-soft px-4 py-1 text-[14px] font-extrabold text-gold-deep">{tr('فزت بالمزاد', 'You won')}{crown}</span></p>}
+        <div className="mt-3 grid grid-cols-2 border-t border-line/80 pt-3">
+          <div className="flex items-center justify-center gap-2 border-e border-line/80">
+            <Icon name="coins" className="h-7 w-7 text-gold-deep" />
+            <span className="text-center"><b key={flash} className={`num block text-[22px] font-extrabold leading-tight ${flash ? 'bid-flash' : ''}`}>{sar(a.finalPrice ?? a.currentPrice)}</b><span className="text-[12.5px] text-muted">{priceLabel}</span></span>
+          </div>
+          <div className="text-center"><b className="num block text-[22px] font-extrabold leading-tight">{num(a.bidCount)}</b><span className="text-[12.5px] text-muted">{tr('مزايدات', 'bids')}</span></div>
+        </div>
+      </section>
+      {phase === 'live' && (
+        <div className="flex items-center gap-2 rounded-2xl bg-[#E9F4EE] px-4 py-3">
+          <svg viewBox="0 0 24 24" className="h-5 w-5 text-pine" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8M14 7h7v7" /></svg>
+          <span className="flex-1 text-[14px] font-bold">{tr('قيمة المزايدة التالية', 'Next bid')}</span>
+          <b className="num text-[22px] font-extrabold text-pine">{sar(min)}</b>
         </div>
       )}
-      <dl className="app-list text-[14px]">
-        {([[tr('فئة الاسم', 'Category'), TYPE_LABEL[a.type]], [tr('زيادة المزاد', 'Minimum raise'), sar(a.minIncrement)], [tr('السعر الافتتاحي', 'Opening price'), sar(a.openingPrice)], [tr('تاريخ البدء', 'Starts'), date(a.startsAt)], [tr('تاريخ الانتهاء', 'Ends'), date(a.endsAt)]] as [string, string][]).map(([l, v]) => (
-          <div key={l} className="flex items-center justify-between px-4 py-2.5"><dt className="text-muted">{l}</dt><dd className="num font-bold">{v}</dd></div>
-        ))}
-      </dl>
-      <details className="app-fold">
-        <summary>{tr('آخر المزايدات', 'Latest bids')} ({num(data.bids.length)})</summary>
-        {data.bids.length ? <ul className="divide-y divide-line/70 border-t border-line">{data.bids.slice(0, 10).map((b, i) => (
-          <li key={b.id} className="flex items-center justify-between px-4 py-2.5 text-[14px]"><span>{user && b.mine ? tr('أنت', 'You') : b.bidderLabel}{i === 0 && <span className="pill ms-2 bg-gold text-pine-deep">{phase === 'ended' ? tr('الفائز', 'Winner') : tr('الأعلى', 'Top')}</span>}<span className="block text-[12px] text-muted">{time(b.createdAt)}</span></span><b className="num">{sar(b.amount)}</b></li>
-        ))}</ul> : <p className="border-t border-line px-4 py-3 text-[14px] text-muted">{tr(`لا توجد مزايدات بعد. أول مزايدة تبدأ من ${sar(min)}.`, `No bids yet. The first bid starts at ${sar(min)}.`)}</p>}
-      </details>
+      {(phase === 'live' || phase === 'scheduled') && (
+        <div className="flex items-center gap-2 rounded-2xl bg-[#FDECEE] px-4 py-3">
+          <Icon name="clock" className="h-5 w-5 text-bad" />
+          <span className="flex-1 text-[14px] font-bold">{phase === 'live' ? tr('الوقت المتبقي', 'Time left') : tr('يبدأ بعد', 'Starts in')}</span>
+          <b className="num text-[24px] font-extrabold text-bad">{Date.parse(phase === 'live' ? a.endsAt : a.startsAt) - now < 86_400_000 ? <Countdown to={phase === 'live' ? a.endsAt : a.startsAt} /> : humanLeft(Date.parse(phase === 'live' ? a.endsAt : a.startsAt) - now)}</b>
+        </div>
+      )}
+      {myLast && (
+        <div className="flex items-center gap-3 rounded-2xl border border-ok/25 bg-[#F1F8F4] px-4 py-2.5">
+          <span className="min-w-0 flex-1"><b className="block text-[14.5px]">{tr('مزايدتك الأخيرة:', 'Your last bid:')} <span className="num">{sar(myLast.amount)}</span></b><span className="text-[12.5px] text-muted">{ago(myLast.createdAt)}</span></span>
+          {user && <Avatar name={user.fullName} src={user.avatarUrl} size={40} />}
+        </div>
+      )}
+      <section className="app-card !p-0 overflow-hidden">
+        <div className="grid grid-cols-2 border-b border-line text-[15px] font-extrabold" role="tablist">
+          <button role="tab" aria-selected={dtab === 'info'} onClick={() => setDtab('info')} className={`py-3 ${dtab === 'info' ? 'border-b-[3px] border-pine text-pine' : 'text-muted'}`}>{tr('تفاصيل المزاد', 'Details')}</button>
+          <button role="tab" aria-selected={dtab === 'bids'} onClick={() => setDtab('bids')} className={`py-3 ${dtab === 'bids' ? 'border-b-[3px] border-pine text-pine' : 'text-muted'}`}>{tr('سجل المزايدات', 'Bid history')} ({num(data.bids.length)})</button>
+        </div>
+        {dtab === 'bids' ? (
+          data.bids.length ? <ul className="divide-y divide-line/70">{data.bids.slice(0, 20).map((b, i) => (
+            <li key={b.id} className={`flex items-center gap-2 px-4 py-2.5 text-[14px] ${i === 0 ? 'bg-[#E9F4EE]' : ''}`}>
+              <Icon name="users" className="h-[18px] w-[18px] text-muted" />
+              <span className="min-w-0 flex-1 truncate font-bold">{user && b.mine ? tr('أنت', 'You') : b.bidderLabel}{b.auto && <span className="ms-1 text-[11.5px] font-normal text-muted">({tr('تلقائية', 'auto')})</span>}</span>
+              <span className="text-[12.5px] text-muted">{ago(b.createdAt)}</span>
+              <b className="num w-24 text-end">{sar(b.amount)}</b>
+            </li>
+          ))}</ul> : <p className="px-4 py-4 text-[14px] text-muted">{tr(`لا توجد مزايدات بعد. أول مزايدة تبدأ من ${sar(min)}.`, `No bids yet. The first bid starts at ${sar(min)}.`)}</p>
+        ) : (
+          <>
+            <dl className="divide-y divide-line/70 text-[14px]">
+              {([[tr('فئة الاسم', 'Category'), TYPE_LABEL[a.type]], [tr('السعر الافتتاحي', 'Opening price'), sar(a.openingPrice)], [tr('أقل زيادة', 'Minimum raise'), sar(a.minIncrement)], [tr('بداية المزاد', 'Starts'), dateTimeRef(a.startsAt)], [tr('نهاية المزاد', 'Ends'), dateTimeRef(a.endsAt)]] as [string, string][]).map(([l, v]) => (
+                <div key={l} className="flex items-center justify-between gap-3 px-4 py-2.5"><dt className="text-muted">{l}</dt><dd className="num text-end font-bold">{v}</dd></div>
+              ))}
+            </dl>
+            <p className="border-t border-line/70 px-4 py-3 text-[13px] leading-6 text-muted">{tr(`يرسو الاسم على أعلى مزايد عند انتهاء الوقت. يسدّد الفائز الفاتورة خلال ${deadline} ساعة ثم يُعاد ضمانه.`, `The name goes to the highest bidder. The winner pays within ${deadline} hours, then the guarantee is returned.`)}</p>
+          </>
+        )}
+      </section>
     </div>
   )
 

@@ -33,6 +33,10 @@ jobs:
           VITE_OTP_HINT: ${{ vars.VITE_OTP_HINT }}
           VITE_SITE_URL: ${{ vars.VITE_SITE_URL }}
       - run: npx cap sync ios
+      - name: Add the Live Activity extension
+        run: |
+          ruby -e "require 'xcodeproj'" 2>/dev/null || sudo gem install xcodeproj --no-document
+          ruby ios/scripts/add_live_activity.rb
       - name: Write the App Store Connect key
         run: |
           mkdir -p "$RUNNER_TEMP/keys"

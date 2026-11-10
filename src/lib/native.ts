@@ -48,8 +48,18 @@ export async function initNative() {
         Browser.close().catch(() => {})
         onPayment?.(u.searchParams.get('state') ?? 'pending')
       }
+      // sammha://auctions/<id> — tapped on the lock-screen live activity
+      if (u.protocol === 'sammha:' && u.host === 'auctions') location.hash = `#/auctions${u.pathname}`
+
     } catch { /* ignore */ }
   })
+  // a tapped alert opens its auction
+  import('@capacitor/local-notifications').then(({ LocalNotifications }) => {
+    LocalNotifications.addListener('localNotificationActionPerformed', (e) => {
+      const url = (e.notification.extra as { url?: string } | undefined)?.url
+      if (url) location.hash = `#${url}`
+    }).catch(() => {})
+  }).catch(() => {})
   // the owner closed the payment page by hand: treat it as not completed, the webhook still settles real payments
   Browser.addListener('browserFinished', () => onPayment?.('closed'))
   await SplashScreen.hide().catch(() => {})
