@@ -80,7 +80,7 @@ export function FollowBell({ a, myBid, size = 'md', tone = 'box' }: { a: Auction
     <>
       <button type="button" aria-pressed={!!cur} aria-label={cur ? tr('أنت تتابع هذا المزاد', 'Following') : tr('تابع المزاد بالتنبيهات', 'Follow with alerts')}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true) }}
-        className={`grid ${tone === 'gold' ? 'h-8 w-8' : box} shrink-0 place-items-center rounded-xl transition ${cur ? (tone === 'gold' ? 'text-[#F2A900]' : 'bg-pine-soft text-pine ring-1 ring-pine/25') : 'text-ink/70'}`}>
+        className={`grid ${tone === 'gold' ? 'h-7 w-7' : box} shrink-0 place-items-center rounded-xl transition ${cur ? (tone === 'gold' ? 'text-[#F2A900]' : 'bg-pine-soft text-pine ring-1 ring-pine/25') : 'text-ink/70'}`}>
         <BellIcon on={!!cur} className={size === 'lg' ? 'h-6 w-6' : 'h-5 w-5'} />
       </button>
       {open && createPortal(<span onClick={(e) => { e.stopPropagation() }}><FollowSheet a={a} open onClose={() => setOpen(false)} myBid={myBid} /></span>, document.body)}
