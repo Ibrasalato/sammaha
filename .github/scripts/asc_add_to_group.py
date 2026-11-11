@@ -42,5 +42,9 @@ groups = call('GET', f'/apps/{app}/betaGroups?limit=50')['data']
 group = next((g for g in groups if g['attributes']['name'] == os.environ['GROUP_NAME']), None)
 if not group:
     sys.exit('beta group not found: ' + os.environ['GROUP_NAME'])
+print('group', json.dumps(group['attributes']))
+if group['attributes'].get('hasAccessToAllBuilds'):
+    print(f"group {os.environ['GROUP_NAME']} already gets every build: build {number} is available to its testers")
+    sys.exit(0)
 call('POST', f"/betaGroups/{group['id']}/relationships/builds", {'data': [{'type': 'builds', 'id': build}]})
 print(f"build {number} added to group {os.environ['GROUP_NAME']}")
