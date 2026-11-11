@@ -85,3 +85,11 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+  group:
+    needs: testflight
+    uses: ./.github/workflows/testflight-distribute.yml
+    with:
+      build: ${{ github.run_number }}
+      group: test
+    secrets: inherit

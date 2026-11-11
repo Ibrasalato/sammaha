@@ -1,0 +1,39 @@
+name: TestFlight group (add a build)
+
+# Adds an uploaded build to the internal TestFlight group once Apple finishes processing it.
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: Build number (the run number of "iOS app (TestFlight)")
+        required: true
+      group:
+        description: TestFlight group name
+        default: test
+  workflow_call:
+    inputs:
+      build: { type: string, required: true }
+      group: { type: string, default: test }
+    secrets:
+      ASC_KEY_ID: { required: true }
+      ASC_ISSUER_ID: { required: true }
+      ASC_KEY_P8: { required: true }
+
+permissions:
+  contents: read
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install pyjwt cryptography
+      - run: python3 .github/scripts/asc_add_to_group.py
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          BUNDLE_ID: sa.org.ico.sammha
+          BUILD_NUMBER: ${{ inputs.build }}
+          GROUP_NAME: ${{ inputs.group }}
