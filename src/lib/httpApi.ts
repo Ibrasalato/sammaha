@@ -193,6 +193,11 @@ export const httpApi: SammhaApi = {
     resetHub()
     if (s) await fetch(`${BASE}/api/auth/signout`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.token}` }, body: JSON.stringify({ refreshToken: s.refreshToken }) }).catch(() => {})
   },
+  async deleteMyAccount() {
+    await post('/api/auth/delete-account')
+    saveSession(null)
+    resetHub()
+  },
   async signOutEverywhere() {
     const s = session
     if (s) await post('/api/auth/signout', { refreshToken: s.refreshToken, everywhere: true }).catch(() => {})

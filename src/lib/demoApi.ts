@@ -1499,6 +1499,13 @@ const rawApi: SammhaApi = {
 
   signOut: async () => { setSession(null) },
   signOutEverywhere: () => tx((db) => { const u = me(db); u.stamp = (u.stamp ?? 0) + 1; setSession(null) }),
+  deleteMyAccount: () => tx((db) => {
+    const u = me(db)
+    if (balanceOf(db, u.id) > 0) throw new ApiError('اطلب استرداد رصيد محفظتك أولًا، ثم احذف الحساب.')
+    u.stamp = (u.stamp ?? 0) + 1
+    ;(u as { deletedAt?: string }).deletedAt = new Date().toISOString()
+    setSession(null)
+  }),
 
   stats: () => tx((db) => ({
     live: db.auctions.filter((a) => phaseOf(a) === 'live').length,

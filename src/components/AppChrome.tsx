@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { LangSwitch, tr } from '../lib/i18n'
@@ -13,6 +13,60 @@ import { useStaffIdle } from './StaffIdle'
 import { Countdown } from './ui'
 import { num } from '../lib/format'
 import { followed, watchTick } from '../lib/follow'
+import { Capacitor } from '@capacitor/core'
+import { haptic, lockEnabled, verifyOwner } from '../lib/device'
+
+/** pull down at the top of a screen to reload it (the screen remounts and fetches again) */
+function usePullRefresh(onRefresh: () => void) {
+  const [pull, setPull] = useState(0)
+  useEffect(() => {
+    let y0: number | null = null, d = 0
+    const start = (e: TouchEvent) => { y0 = window.scrollY <= 0 && !document.querySelector('[role=dialog]') ? e.touches[0].clientY : null; d = 0 }
+    const move = (e: TouchEvent) => { if (y0 === null) return; d = Math.max(0, e.touches[0].clientY - y0); setPull(Math.min(d, 110)) }
+    const end = () => { if (y0 !== null && d > 80) { void haptic('tap'); onRefresh() } y0 = null; d = 0; setPull(0) }
+    window.addEventListener('touchstart', start, { passive: true })
+    window.addEventListener('touchmove', move, { passive: true })
+    window.addEventListener('touchend', end)
+    return () => { window.removeEventListener('touchstart', start); window.removeEventListener('touchmove', move); window.removeEventListener('touchend', end) }
+  }, [onRefresh])
+  return pull
+}
+function PullHint({ pull }: { pull: number }) {
+  if (pull < 12) return null
+  return (
+    <div className="pointer-events-none fixed inset-x-0 z-[35] flex justify-center" style={{ top: `calc(env(safe-area-inset-top) + ${Math.min(pull, 90) * 0.6}px)` }} aria-hidden>
+      <span className={`grid h-9 w-9 place-items-center rounded-full bg-paper text-pine shadow-md ${pull > 80 ? 'ring-2 ring-pine/30' : ''}`}>
+        <svg viewBox="0 0 24 24" className="h-5 w-5" style={{ transform: `rotate(${pull * 3}deg)` }} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M20 12a8 8 0 11-2.34-5.66M20 4v4h-4" /></svg>
+      </span>
+    </div>
+  )
+}
+
+/** «قفل التطبيق»: Face ID when the app opens or comes back after half a minute away */
+let openedOnce = false
+function AppLock({ active }: { active: boolean }) {
+  const real = Capacitor.isNativePlatform()
+  const [locked, setLocked] = useState(() => { const l = real && active && lockEnabled() && !openedOnce; if (active) openedOnce = true; return l })
+  useEffect(() => {
+    if (!real) return
+    let away = 0
+    const sub = import('@capacitor/app').then(({ App }) => App.addListener('appStateChange', ({ isActive }) => {
+      if (!isActive) away = Date.now()
+      else if (active && lockEnabled() && away && Date.now() - away > 30_000) setLocked(true)
+    }))
+    return () => { void sub.then((h) => h.remove()) }
+  }, [real, active])
+  const unlock = async () => { if (await verifyOwner(tr('افتح سمّها', 'Unlock Sammha'))) setLocked(false) }
+  useEffect(() => { if (locked) void unlock() }, [locked]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!locked) return null
+  return (
+    <div className="fixed inset-0 z-[90] flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-pine to-pine-deep px-8 text-center text-paper">
+      <Logo className="h-20 brightness-0 invert" />
+      <p className="text-[16px] text-paper/85">{tr('التطبيق مقفل لحماية حسابك', 'The app is locked to protect your account')}</p>
+      <button className="btn-gold min-w-[200px]" onClick={() => void unlock()}>{tr('افتح بـ Face ID', 'Unlock with Face ID')}</button>
+    </div>
+  )
+}
 import type { Auction } from '../lib/types'
 
 /** while the app runs: checks followed auctions and the owner's bids, raises outbid/result alerts and refreshes the live activity */
@@ -140,6 +194,8 @@ export function NativeShell({ nav, title }: { nav: NavItem[]; title: string }) {
   const scroller = useRef<HTMLElement>(null)
   useStaffIdle()
   useFollowMonitor(user?.role === 'owner')
+  const [rk, setRk] = useState(0)
+  const pull = usePullRefresh(useCallback(() => setRk((k) => k + 1), []))
   useCardTables()
   useEffect(() => { setMore(false); window.scrollTo({ top: 0 }) }, [pathname])
   const tabs = nav.slice(0, 4)
@@ -158,7 +214,9 @@ export function NativeShell({ nav, title }: { nav: NavItem[]; title: string }) {
           <button className="font-bold text-pine underline" onClick={async () => { try { setUser(await api.stopActing()); navigate('/dashboard/settings?tab=delegation') } catch { setUser(null); navigate('/') } }}>{tr('العودة إلى حسابي', 'Back to my account')}</button>
         </div>
       )}
-      <main ref={scroller} className="app-main"><Outlet /></main>
+      <main ref={scroller} className="app-main"><Outlet key={rk} /></main>
+      <PullHint pull={pull} />
+      <AppLock active={user?.role === 'owner'} />
       <nav className="app-tabs" aria-label={tr('التنقل السريع', 'Quick navigation')}>
         {user?.role === 'owner' ? <OwnerTabs /> : <>
           {tabs.map((n) => <Tab key={n.to} to={n.to} label={n.short ?? n.label} icon={n.icon} end={n.end} also={n.also} />)}
@@ -197,6 +255,8 @@ export function NativePublicLayout() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   useFollowMonitor(user?.role === 'owner')
+  const [prk, setPrk] = useState(0)
+  const ppull = usePullRefresh(useCallback(() => setPrk((k) => k + 1), []))
   useCardTables()
   useEffect(() => { window.scrollTo({ top: 0 }) }, [pathname])
   const deep = !DEPTH_ROOTS.has(pathname)
@@ -213,7 +273,7 @@ export function NativePublicLayout() {
       {pathname === '/auctions' ? (
         <header className="app-top plain"><div className="h-1.5" /></header>
       ) : /^\/auctions\/[^/]+$/.test(pathname) ? (
-        <header className="app-top">
+        <header className="app-top deep">
           <div className="flex h-14 items-center gap-2 px-3.5">
             <button className="grid h-10 w-10 place-items-center text-ink" onClick={() => navigate(-1)} aria-label={tr('رجوع', 'Back')}><svg viewBox="0 0 24 24" className="h-6 w-6 ltr:rotate-180" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg></button>
             <span className="min-w-0 flex-1 truncate text-center text-[19px] font-extrabold">{title}</span>
@@ -222,7 +282,9 @@ export function NativePublicLayout() {
         </header>
       ) : <TopBar title={title} back={deep} start={user ? <Link to={user.role === 'owner' ? '/dashboard/account' : '/admin/account'} aria-label={tr('حسابي', 'My account')}><Avatar name={user.fullName} src={user.avatarUrl} size={40} ring /></Link> : <Link to="/" aria-label={tr('الرئيسية', 'Home')}><Logo className="h-9" /></Link>}>{user ? <NotificationBell /> : <LangSwitch className="app-pill" />}</TopBar>}
       <SiteBanner />
-      <main className="app-main"><Outlet /></main>
+      <main className="app-main"><Outlet key={prk} /></main>
+      <PullHint pull={ppull} />
+      <AppLock active={user?.role === 'owner'} />
       {!/^\/auctions\/[^/]+$/.test(pathname) && <nav className="app-tabs" aria-label={tr('التنقل السريع', 'Quick navigation')}>
         {user?.role === 'owner' ? <OwnerTabs /> : <>
           <Tab to="/" label={tr('الرئيسية', 'Home')} icon="home" end />

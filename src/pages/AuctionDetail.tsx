@@ -16,6 +16,7 @@ import { IS_NATIVE } from '../lib/native'
 import { Icon } from '../components/dash'
 import { Sheet } from '../components/AppChrome'
 import { FollowBell } from '../components/Follow'
+import { BIG_BID, haptic, lockEnabled, verifyOwner } from '../lib/device'
 import { Avatar } from '../components/Avatar'
 
 /** in the app the long sections fold away; on the website they are plain sections */
@@ -81,9 +82,9 @@ export default function AuctionDetail() {
   }
   async function bid(value: number) {
     // a jump of more than double the current price asks once more
-    if (value > a!.currentPrice * 2 && value - a!.currentPrice > 500 && confirm !== value) { setConfirm(value); return }
+    if (!IS_NATIVE && value > a!.currentPrice * 2 && value - a!.currentPrice > 500 && confirm !== value) { setConfirm(value); return }
     const r = await run(api.placeBid(a!.id, value), () => tr(`تمت مزايدتك بمبلغ ${sar(value)}`, `Your bid of ${sar(value)} was placed`))
-    if (r) { setData(r); setAmount('') }
+    if (r) { setData(r); setAmount(''); void haptic('success') }
   }
   // in the app every bid is confirmed once in a sheet, so a stray tap never places one
   const tryBid = (v: number) => { if (IS_NATIVE) setAsk(v); else void bid(v) }
@@ -387,9 +388,30 @@ export default function AuctionDetail() {
                 <div key={l} className="flex items-center justify-between px-4 py-3"><dt className="text-[14px] text-muted">{l}</dt><dd className="num font-bold">{v}</dd></div>
               ))}
             </dl>
-            <div className="flex items-center justify-between rounded-xl border-2 border-gold/60 bg-gold-soft px-4 py-3"><span className="text-[14px] font-bold text-gold-deep">{tr('مزايدتك الجديدة', 'Your new bid')}</span><b className="num text-[24px]">{sar(ask)}</b></div>
+            <div className="rounded-xl border-2 border-gold/60 bg-gold-soft px-3 py-3">
+              <span className="block text-center text-[13.5px] font-bold text-gold-deep">{tr('مزايدتك الجديدة', 'Your new bid')}</span>
+              <div className="mt-1 flex items-center gap-2">
+                <button type="button" aria-label={tr('أنقص', 'Less')} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-paper text-[22px] font-bold text-pine shadow-sm disabled:opacity-40" disabled={ask - a.minIncrement < min} onClick={() => { void haptic('tap'); setAsk(ask - a.minIncrement) }}>−</button>
+                <input className="num min-w-0 flex-1 bg-transparent text-center text-[26px] font-extrabold outline-none" inputMode="numeric" value={String(ask)} onChange={(e) => setAsk(Number(e.target.value.replace(/[^\d]/g, '')) || 0)} aria-label={tr('مبلغ المزايدة', 'Bid amount')} />
+                <button type="button" aria-label={tr('زد', 'More')} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-pine text-[22px] font-bold text-paper shadow-sm" onClick={() => { void haptic('tap'); setAsk(ask + a.minIncrement) }}>+</button>
+              </div>
+              <div className="mt-2 flex justify-center gap-2">{[1, 2, 5].map((k) => <button key={k} type="button" className="rounded-full border border-gold/50 bg-paper px-3 py-1 text-[12.5px] font-bold" onClick={() => setAsk(a.currentPrice + a.minIncrement * k)}>+{num(a.minIncrement * k)}</button>)}</div>
+            </div>
             {ask < min && <p className="text-[13.5px] font-bold text-bad">{tr(`أقل مزايدة مسموحة ${sar(min)}.`, `The minimum bid is ${sar(min)}.`)}</p>}
-            <button className="btn-primary w-full" disabled={busy || ask < min} onClick={() => { const v = ask; setAsk(null); void bid(v) }}>{tr('تأكيد المزايدة', 'Confirm bid')}</button>
+            <button className="btn-primary w-full" disabled={busy || ask < min} onClick={async () => {
+              const v = ask
+              if (v >= BIG_BID && lockEnabled() && !(await verifyOwner(tr(`تأكيد مزايدة بمبلغ ${sar(v)}`, `Confirm a bid of ${sar(v)}`)))) return
+              setAsk(null); void bid(v)
+            }}>{tr('تأكيد المزايدة', 'Confirm bid')}</button>
+            <details className="rounded-xl border border-line px-3 py-2">
+              <summary className="cursor-pointer text-[14px] font-bold text-pine">{mine?.autoMax ? tr(`المزايدة التلقائية مفعّلة حتى ${sar(mine.autoMax)}`, `Auto-bid on up to ${sar(mine.autoMax)}`) : tr('مزايدة تلقائية', 'Auto-bid')}</summary>
+              <p className="mt-1 text-[12.5px] leading-6 text-muted">{tr('حدد أقصى مبلغ، ونزايد عنك بأقل زيادة كلما تجاوزك أحد حتى هذا الحد.', 'Set a ceiling; we bid the minimum raise for you whenever you are outbid, up to it.')}</p>
+              <div className="mt-2 flex gap-2">
+                <input className="field num" inputMode="numeric" placeholder={tr(`الحد الأقصى، ${num(min)} أو أكثر`, `Ceiling, ${num(min)} or more`)} value={autoMax} onChange={(e) => setAutoMax(e.target.value.replace(/[^\d]/g, ''))} aria-label={tr('الحد الأقصى', 'Ceiling')} />
+                <button className="btn-primary shrink-0" disabled={busy || !autoMax} onClick={() => { setAsk(null); void auto() }}>{mine?.autoMax ? tr('تحديث', 'Update') : tr('تفعيل', 'Set')}</button>
+              </div>
+              {mine?.autoMax ? <button className="mt-2 text-[13px] font-bold text-bad" disabled={busy} onClick={async () => { setAsk(null); const r = await run(api.cancelAutoBid(a.id), () => tr('أُوقفت المزايدة التلقائية', 'Auto-bid stopped')); if (r) setData(r) }}>{tr('إيقاف المزايدة التلقائية', 'Stop auto-bid')}</button> : null}
+            </details>
             <button className="btn-ghost w-full" onClick={() => setAsk(null)}>{tr('إلغاء', 'Cancel')}</button>
           </div>
         )}

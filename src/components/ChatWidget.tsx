@@ -91,6 +91,8 @@ export function ChatWidget() {
   const { user } = useApp()
   const loc = useLocation()
   const [open, setOpen] = useState(false)
+  // the app opens the assistant from «حسابي» (no floating button there)
+  useEffect(() => { const f = () => setOpen(true); window.addEventListener('sammha:chat', f); return () => window.removeEventListener('sammha:chat', f) }, [])
   const [log, setLog] = useState<Msg[]>(loadLog)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)

@@ -119,7 +119,7 @@ export function watchTick(items: { a: Auction; myBid?: number }[]) {
     const ended = Date.parse(a.endsAt) <= Date.now()
     const prev = seen.get(a.id)
     if (prev && p) {
-      if (p.outbid && myBid && prev.leader && !a.isLeader && !ended) void notifyNow(tr(`تم تجاوز مزايدتك على «${a.name}»`, `You were outbid on «${a.name}»`), tr(`أعلى مزايدة الآن ${sar(a.currentPrice)}. زايد للعودة إلى الصدارة.`, `Top bid is now ${sar(a.currentPrice)}.`), `/auctions/${a.id}`)
+      if (p.outbid && myBid && prev.leader && !a.isLeader && !ended) void import('./device').then((d) => d.haptic('warning')), void notifyNow(tr(`تم تجاوز مزايدتك على «${a.name}»`, `You were outbid on «${a.name}»`), tr(`أعلى مزايدة الآن ${sar(a.currentPrice)}. زايد للعودة إلى الصدارة.`, `Top bid is now ${sar(a.currentPrice)}.`), `/auctions/${a.id}`)
       if (p.result && !prev.ended && ended && myBid) void notifyNow(a.isWinner ? tr(`مبروك! رسا عليك «${a.name}»`, `You won «${a.name}»`) : tr(`انتهى مزاد «${a.name}»`, `«${a.name}» has ended`), a.isWinner ? tr('سدّد الفاتورة خلال المهلة لإصدار الشهادة.', 'Pay the invoice within the deadline.') : tr('لم يرسُ المزاد عليك هذه المرة.', 'You did not win this time.'), `/auctions/${a.id}`)
     }
     if (p?.live && (!prev || prev.price !== a.currentPrice || prev.leader !== !!a.isLeader || prev.ended !== ended)) void liveUpdate(a, myBid)

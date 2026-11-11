@@ -79,5 +79,7 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>يستخدم سمّها Face ID لفتح التطبيق وتأكيد المزايدات الكبيرة وحذف الحساب.</string>
 </dict>
 </plist>

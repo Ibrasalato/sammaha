@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../../components/dash'
 import type { IconName } from '../../components/dash'
 import { Sheet } from '../../components/AppChrome'
+import { BIG_BID, biometricAvailable, haptic, lockEnabled, setLockEnabled, verifyOwner } from '../../lib/device'
 import { FollowBell } from '../../components/Follow'
 import { useFines } from '../../components/Fines'
 import { ProfileCompletion } from '../owner/Profile'
@@ -406,7 +407,12 @@ function MenuRow({ to, icon, label, badge }: { to: string; icon: IconName; label
 
 /** «حسابي»: the owner's profile card and every other screen one tap away. */
 export function NativeAccount() {
-  const { user, setUser } = useApp()
+  const { user, setUser, toast } = useApp()
+  const [del, setDel] = useState(false)
+  const [delBusy, setDelBusy] = useState(false)
+  const [bio, setBio] = useState(false)
+  const [lock, setLock] = useState(lockEnabled())
+  useEffect(() => { void biometricAvailable().then(setBio) }, [])
   const nav = useNavigate()
   const invoices = useLoad(() => api.myInvoices(), [])
   const fines = useFines()
@@ -438,6 +444,17 @@ export function NativeAccount() {
         <MenuRow to="/dashboard/violations" icon="alert" label={tr('المخالفات', 'Violations')} badge={due} />
         <MenuRow to="/dashboard/requests" icon="list" label={tr('طلباتي', 'My requests')} />
         <MenuRow to="/dashboard/tickets" icon="users" label={tr('الشكاوى والاستفسارات', 'Complaints & enquiries')} badge={openTickets} />
+        <button type="button" className="flex w-full items-center gap-3 border-b border-line/70 px-4 py-3.5 text-start active:bg-pine-soft" onClick={() => window.dispatchEvent(new Event('sammha:chat'))}>
+          <svg viewBox="0 0 24 24" className="h-5 w-5 text-pine" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z" /><path d="M8.5 11h.01M12 11h.01M15.5 11h.01" /></svg>
+          <span className="flex-1 text-[15px] font-bold">{tr('مساعد سمّها', 'Sammha assistant')}</span><Chevron />
+        </button>
+        {bio && (
+          <button type="button" className="flex w-full items-center gap-3 border-b border-line/70 px-4 py-3.5 text-start" onClick={async () => { const on = !lock; if (on && !(await verifyOwner(tr('تفعيل قفل التطبيق', 'Turn on app lock')))) return; setLockEnabled(on); setLock(on); void haptic('success') }} aria-pressed={lock}>
+            <Icon name="lock" className="h-5 w-5 text-pine" />
+            <span className="flex-1"><b className="block text-[15px]">{tr('قفل التطبيق بـ Face ID', 'Lock the app with Face ID')}</b><span className="text-[12.5px] text-muted">{tr(`عند فتح التطبيق وقبل المزايدات من ${num(BIG_BID)} ريال`, `On opening and before bids from ${num(BIG_BID)} SAR`)}</span></span>
+            <span className={`relative inline-block h-7 w-12 shrink-0 rounded-full transition ${lock ? 'bg-pine' : 'bg-line'}`}><span className={`absolute top-0.5 h-6 w-6 rounded-full bg-paper shadow transition-all ${lock ? 'start-[22px]' : 'start-0.5'}`} /></span>
+          </button>
+        )}
         <MenuRow to="/contact" icon="users" label={tr('المساعدة والدعم', 'Help & support')} />
         <MenuRow to="/about" icon="list" label={tr('عن تطبيق سمّها', 'About Sammha')} />
       </section>
@@ -451,6 +468,16 @@ export function NativeAccount() {
         <MenuRow to="/faq" icon="list" label={tr('الأسئلة الشائعة', 'FAQ')} />
       </section>
       <LangSwitch className="btn-ghost w-full" />
+      <button type="button" className="w-full py-1 text-center text-[13.5px] font-bold text-muted underline" onClick={() => setDel(true)}>{tr('حذف الحساب', 'Delete account')}</button>
+      <Sheet open={del} onClose={() => setDel(false)} title={tr('حذف الحساب', 'Delete account')}>
+        <p className="text-[14.5px] leading-7">{tr('سيُغلق حسابك ولن تتمكن من الدخول به. تبقى أسماؤك المسجلة وفواتيرك محفوظة في سجل المنظمة كما يقتضي النظام. اطلب استرداد رصيد المحفظة قبل الحذف.', 'Your account will be closed and you will not be able to sign in. Your registered names and invoices stay in the organization registry as required. Refund your wallet balance before deleting.')}</p>
+        <button className="btn mt-4 w-full bg-bad font-bold text-paper" disabled={delBusy} onClick={async () => {
+          if (!(await verifyOwner(tr('تأكيد حذف الحساب', 'Confirm account deletion')))) return
+          setDelBusy(true)
+          try { await api.deleteMyAccount(); setUser(null); nav('/') } catch (e) { toast((e as Error).message, 'bad') } finally { setDelBusy(false) }
+        }}>{delBusy ? '…' : tr('احذف حسابي نهائيًا', 'Delete my account')}</button>
+        <button className="btn-ghost mt-2 w-full" onClick={() => setDel(false)}>{tr('تراجع', 'Back')}</button>
+      </Sheet>
       <button className="flex w-full items-center justify-center gap-2 rounded-2xl border border-bad/30 bg-[#FDECEE] py-3 font-bold text-bad" onClick={async () => { await api.signOut(); setUser(null); nav('/') }}>{tr('تسجيل الخروج', 'Sign out')}</button>
       <p className="num text-center text-[12px] text-muted">{tr('الإصدار', 'Version')} 1.0 ({import.meta.env.VITE_BUILD ?? 'dev'})</p>
       <nav className="flex flex-wrap justify-center gap-x-4 gap-y-1 pt-1 text-[12.5px] text-muted"><L2 to="/terms">{tr('الشروط', 'Terms')}</L2><L2 to="/privacy">{tr('الخصوصية', 'Privacy')}</L2><L2 to="/refund">{tr('الاسترداد', 'Refunds')}</L2></nav>

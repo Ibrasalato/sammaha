@@ -57,6 +57,8 @@ export interface SammhaApi {
   signOut(): Promise<void>
   /** ends this account's sessions on every device, this one included */
   signOutEverywhere(): Promise<void>
+  /** the owner closes their account (App Store rule): blocked while money or names are pending */
+  deleteMyAccount(): Promise<void>
 
   // public
   stats(): Promise<PublicStats>
