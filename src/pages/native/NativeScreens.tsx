@@ -35,7 +35,7 @@ export function TimerPill({ a, phase }: { a: Auction; phase: AuctionPhase }) {
   const left = Date.parse(phase === 'scheduled' ? a.startsAt : a.endsAt) - Date.now()
   const urgent = phase === 'live' && left < 3600_000
   return (
-    <span className={`flex h-10 items-center justify-center gap-1.5 rounded-xl px-2 text-[15px] font-extrabold ${phase === 'ended' ? 'bg-stone text-muted' : urgent ? 'bg-[#FDECEE] text-bad' : 'bg-info-soft text-info-deep'}`}>
+    <span className={`flex h-9 items-center justify-center gap-1.5 rounded-xl px-2 text-[15px] font-extrabold ${phase === 'ended' ? 'bg-stone text-muted' : urgent ? 'bg-[#FDECEE] text-bad' : 'bg-info-soft text-info-deep'}`}>
       <Icon name="clock" className="h-[18px] w-[18px]" />
       {a.paused ? tr('متوقف', 'Paused') : phase === 'live' ? <Countdown to={a.endsAt} /> : phase === 'scheduled' ? <><span className="text-[12px] font-bold">{tr('يبدأ', 'Starts')}</span><Countdown to={a.startsAt} /></> : <span className="text-[13px]">{tr('انتهى', 'Ended')}</span>}
     </span>
@@ -49,31 +49,31 @@ export function AuctionTile({ a, mark, mine, watching, onWatch }: { a: Auction; 
   const price = a.finalPrice ?? a.currentPrice
   const m = mark ?? (a.isLeader && !ended ? 'leading' : null)
   return (
-    <Link to={`/auctions/${a.id}`} className={`app-card block !p-3.5 ${m === 'leading' ? '!border-2 !border-ok/50' : m === 'outbid' ? '!border-2 !border-bad/40' : ''} ${a.paused ? 'opacity-80' : ''}`}>
+    <Link to={`/auctions/${a.id}`} className={`app-card block !px-3.5 !py-3 ${m === 'leading' ? '!border-[1.5px] !border-ok/50' : m === 'outbid' ? '!border-[1.5px] !border-bad/40' : ''} ${a.paused ? 'opacity-80' : ''}`}>
       <div className="grid grid-cols-2">
         <div className="min-w-0 border-e border-line/80 pe-3 text-start">
           <SoftPill type={a.type} />
-          <b className="mt-1 block truncate text-[23px] font-extrabold leading-tight">{a.name}</b>
+          <b className="mt-0.5 block truncate text-[21px] font-extrabold leading-tight">{a.name}</b>
           <span className="text-[13px] text-muted"><span className="num">{num(a.bidCount)}</span> {tr('مزايدات', 'bids')}</span>
         </div>
         <div className="min-w-0 ps-3 text-end">
-          <div className="flex items-center justify-end gap-1">
+          <div className="-mt-1 flex items-center justify-end gap-0.5">
             <FollowBell a={a} myBid={mine} />
             {onWatch && (
               <button type="button" className="grid h-9 w-9 place-items-center text-muted" aria-pressed={!!watching} aria-label={tr('احفظ في المتابعة', 'Save')} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWatch() }}><Bookmark on={!!watching} /></button>
             )}
           </div>
-          <span className="num block text-[24px] font-extrabold leading-tight">{sar(price)}</span>
+          <span className="num -mt-1 block text-[21px] font-extrabold leading-tight">{sar(price)}</span>
           <span className="text-[12.5px] text-muted">{ended ? tr('سعر الترسية', 'Hammer price') : a.bidCount ? tr('أعلى مزايدة', 'Top bid') : tr('السعر الافتتاحي', 'Opening price')}</span>
         </div>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-3">
+      <div className="mt-2.5 grid grid-cols-2 gap-3">
         <TimerPill a={a} phase={phase} />
-        {phase === 'live' && !a.paused ? <span className="flex h-10 items-center justify-center rounded-xl bg-pine text-[16px] font-extrabold text-paper shadow-sm">{tr('زايد الآن', 'Bid now')}</span>
-          : <span className="flex h-10 items-center justify-center rounded-xl border border-line text-[14px] font-bold text-muted">{phase === 'scheduled' ? tr('قريبًا', 'Soon') : tr('عرض النتيجة', 'See result')}</span>}
+        {phase === 'live' && !a.paused ? <span className="flex h-9 items-center justify-center rounded-xl bg-pine text-[15.5px] font-extrabold text-paper shadow-sm">{tr('زايد الآن', 'Bid now')}</span>
+          : <span className="flex h-9 items-center justify-center rounded-xl border border-line text-[14px] font-bold text-muted">{phase === 'scheduled' ? tr('قريبًا', 'Soon') : tr('عرض النتيجة', 'See result')}</span>}
       </div>
       {mine !== undefined && m && (
-        <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-stone/70 px-2.5 py-2">
+        <div className="mt-2.5 flex items-center justify-between gap-2 rounded-xl bg-stone/70 px-2.5 py-1.5">
           <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[12.5px] font-extrabold ${m === 'leading' ? 'border-ok/40 bg-[#E2F0E8] text-ok' : m === 'outbid' ? 'border-bad/30 bg-bad/10 text-bad' : m === 'won' ? 'border-gold/50 bg-gold-soft text-gold-deep' : 'border-line text-muted'}`}>
             {m === 'leading' ? <><Crown className="h-3.5 w-3.5" />{tr('أنت متصدر حاليًا', 'You are leading')}</> : m === 'outbid' ? tr('تم تجاوز مزايدتك', 'You were outbid') : m === 'won' ? tr('فزت بالمزاد', 'You won') : tr('لم يرسُ عليك', 'Not won')}
           </span>

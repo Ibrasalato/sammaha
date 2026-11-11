@@ -232,3 +232,13 @@ html.native .app-qtile .cnt { display: grid; min-width: 34px; height: 26px; plac
 html.native .app-wallet { padding: 20px 18px; border-radius: 22px; box-shadow: 0 12px 26px -14px rgba(0,81,59,.7); }
 html.native .app-top span.rounded-full[aria-hidden], html.native .app-root a > span.rounded-full[aria-hidden] { background: #00513B !important; color: #fff !important; }
 html.native .app-top .relative > button { border-radius: 16px !important; border: 0 !important; box-shadow: 0 4px 14px -6px rgba(9,47,39,.25); height: 46px !important; width: 46px !important; }
+
+html.native .app-top.plain { background: #fff; backdrop-filter: none; }
+html.native .app-top.plain::before { display: none; }
+html.native .app-root.plainbg { background: #fff; }
+html.native .plainbg .app-main { padding-top: 6px; }
+html.native .plainbg .app-search input { padding: 9px 0; }
+html.native .plainbg .app-filterbtn { height: 44px; width: 44px; }
+html.native .plainbg .app-seg { margin-bottom: 10px; }
+html.native .plainbg .app-seg button { padding: 8px 4px; }
+html.native .plainbg .app-chip { padding: 6px 14px; font-size: 13.5px; }

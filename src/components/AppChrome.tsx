@@ -208,9 +208,9 @@ export function NativePublicLayout() {
   const title = titles.find(([re]) => re.test(pathname))?.[1] ?? tr('سمّها', 'Sammha')
   const acct = user ? (user.role === 'owner' ? '/dashboard' : '/admin') : '/login'
   return (
-    <div className={`app-root ${/^\/auctions\/[^/]+$/.test(pathname) ? 'no-tabs' : ''}`}>
+    <div className={`app-root ${/^\/auctions\/[^/]+$/.test(pathname) ? 'no-tabs' : ''} ${pathname === '/auctions' ? 'plainbg' : ''}`}>
       {pathname === '/auctions' ? (
-        <header className="app-top"><div className="h-2" /></header>
+        <header className="app-top plain"><div className="h-1.5" /></header>
       ) : /^\/auctions\/[^/]+$/.test(pathname) ? (
         <header className="app-top">
           <div className="flex h-14 items-center gap-2 px-3.5">
