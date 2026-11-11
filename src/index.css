@@ -352,3 +352,7 @@ html.native.dark .\!text-gold-deep { color: #E8C77A !important; }
 html.native.dark .app-top .relative > button { background: #18221E !important; color: #6FD19C !important; }
 html.native.dark .bg-gold-soft\/40 { background-color: rgba(51,41,26,.6); }
 html.native.dark .shadow-card, html.native.dark .shadow-sm, html.native.dark .shadow-md { box-shadow: none; }
+/* pop-ups and sheets sit above the tab bar, which hides while one is open */
+html.native .fixed[role=dialog][aria-modal] { z-index: 70; }
+html.native body:has(.fixed[role=dialog][aria-modal]) .app-tabs, html.native body:has(.fixed[role=dialog][aria-modal]) .app-bidbar { display: none; }
+html.native .fixed[role=dialog][aria-modal] > div { padding-bottom: calc(env(safe-area-inset-bottom) + 20px); }
