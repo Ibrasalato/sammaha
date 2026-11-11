@@ -90,7 +90,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
 function TopBar({ title, back, start, children }: { title: string; back?: boolean; start?: ReactNode; children?: ReactNode }) {
   const nav = useNavigate()
   return (
-    <header className="app-top">
+    <header className={`app-top ${back ? 'deep' : ''}`}>
       <div className="flex h-14 items-center gap-2 px-3.5">
         <span className="flex shrink-0 items-center">{start}</span>
         <span className="min-w-0 flex-1 truncate text-center text-[19px] font-extrabold" aria-label={title}>{back ? title : ''}</span>
@@ -203,7 +203,8 @@ export function NativePublicLayout() {
   const titles: [RegExp, string][] = [
     [/^\/auctions\/[^/]+/, tr('تفاصيل المزاد', 'Auction details')], [/^\/auctions/, tr('المزادات', 'Auctions')], [/^\/names/, tr('سجل الأسماء', 'Registry')], [/^\/services/, tr('الخدمات', 'Services')], [/^\/events/, tr('المواعيد', 'Calendar')],
     [/^\/verify/, tr('التحقق من شهادة', 'Verify a certificate')], [/^\/login/, tr('تسجيل الدخول', 'Sign in')], [/^\/signup/, tr('حساب جديد', 'Create account')], [/^\/market/, tr('سوق الأسماء', 'Name market')],
-    [/^\/(faq|terms|privacy|refund|contact|about|invest)/, tr('سمّها', 'Sammha')],
+    [/^\/faq/, tr('الأسئلة الشائعة', 'FAQ')], [/^\/contact/, tr('تواصل معنا', 'Contact us')], [/^\/invest/, tr('استثمار الاسم', 'Name investment')], [/^\/about/, tr('عن سمّها', 'About Sammha')],
+    [/^\/terms/, tr('الشروط والأحكام', 'Terms')], [/^\/privacy/, tr('سياسة الخصوصية', 'Privacy')], [/^\/refund/, tr('سياسة الاسترداد', 'Refunds')],
   ]
   const title = titles.find(([re]) => re.test(pathname))?.[1] ?? tr('سمّها', 'Sammha')
   const acct = user ? (user.role === 'owner' ? '/dashboard' : '/admin') : '/login'

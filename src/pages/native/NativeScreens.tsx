@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../../components/dash'
+import type { IconName } from '../../components/dash'
 import { Sheet } from '../../components/AppChrome'
 import { FollowBell } from '../../components/Follow'
 import { useFines } from '../../components/Fines'
@@ -392,7 +393,7 @@ export function NativeWallet() {
   )
 }
 
-function MenuRow({ to, icon, label, badge }: { to: string; icon: 'alert' | 'gavel' | 'receipt' | 'file' | 'lock' | 'tag' | 'shield' | 'wallet' | 'users' | 'settings' | 'check' | 'list'; label: string; badge?: number }) {
+function MenuRow({ to, icon, label, badge }: { to: string; icon: IconName; label: string; badge?: number }) {
   return (
     <L2 to={to} className="flex items-center gap-3 border-b border-line/70 px-4 py-3.5 last:border-b-0 active:bg-pine-soft">
       <Icon name={icon} className="h-5 w-5 text-pine" />
@@ -439,6 +440,15 @@ export function NativeAccount() {
         <MenuRow to="/dashboard/tickets" icon="users" label={tr('الشكاوى والاستفسارات', 'Complaints & enquiries')} badge={openTickets} />
         <MenuRow to="/contact" icon="users" label={tr('المساعدة والدعم', 'Help & support')} />
         <MenuRow to="/about" icon="list" label={tr('عن تطبيق سمّها', 'About Sammha')} />
+      </section>
+      <h2 className="px-1 pt-1 text-[15px] font-extrabold text-muted">{tr('استكشف سمّها', 'Explore Sammha')}</h2>
+      <section className="app-card !p-0 overflow-hidden">
+        <MenuRow to="/market" icon="coins" label={tr('سوق الأسماء', 'Name market')} />
+        <MenuRow to="/names" icon="tag" label={tr('سجل الأسماء المحجوزة', 'Reserved names registry')} />
+        <MenuRow to="/events" icon="calendar" label={tr('مواعيد الإبل والمزادات', 'Camel calendar')} />
+        <MenuRow to="/invest" icon="trophy" label={tr('استثمار الاسم', 'Name investment')} />
+        <MenuRow to="/verify" icon="check" label={tr('التحقق من شهادة', 'Verify a certificate')} />
+        <MenuRow to="/faq" icon="list" label={tr('الأسئلة الشائعة', 'FAQ')} />
       </section>
       <LangSwitch className="btn-ghost w-full" />
       <button className="flex w-full items-center justify-center gap-2 rounded-2xl border border-bad/30 bg-[#FDECEE] py-3 font-bold text-bad" onClick={async () => { await api.signOut(); setUser(null); nav('/') }}>{tr('تسجيل الخروج', 'Sign out')}</button>

@@ -134,7 +134,7 @@ export function PageHead({ title, sub, action }: { title: string; sub?: ReactNod
   return (
     <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-[26px] sm:text-[32px]">{title}</h1>
+        <h1 className="app-ph text-[26px] sm:text-[32px]">{title}</h1>
         {sub && <p className="mt-1 text-muted">{sub}</p>}
       </div>
       {action}

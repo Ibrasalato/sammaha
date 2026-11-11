@@ -244,3 +244,12 @@ html.native .plainbg .app-seg button { padding: 8px 4px; }
 html.native .plainbg .app-chip { padding: 6px 14px; font-size: 13.5px; }
 html.native .app-seg button.on { background: #155A43; }
 html.native .app-filterbtn { color: #155A43; }
+
+/* inner screens: a plain header with the page title (no artwork behind the text), no second title on the page */
+html.native .app-top.deep::before { display: none; }
+html.native .app-root:has(.app-top.deep) h1.app-ph { display: none; }
+html.native .app-root:has(.app-top.deep) .app-main > div > .mb-7:first-child, html.native .app-root:has(.app-top.deep) .mb-7:has(> div > h1.app-ph) { margin-bottom: 14px; }
+/* dark hero blocks of the public pages become one rounded brand card */
+html.native .hero-field { margin: 4px 14px 14px; border-radius: 22px; overflow: hidden; }
+html.native .hero-field h1 { font-size: 24px !important; line-height: 1.3; }
+html.native .hero-field > .h-1 { display: none; }
