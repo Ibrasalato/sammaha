@@ -1,0 +1,26 @@
+name: API check (from the app's origins)
+
+on:
+  workflow_dispatch:
+    inputs:
+      api:
+        description: API base URL
+        default: https://sammahbackend.premiumasp.net
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reach the API and check CORS for the app origins
+        run: |
+          API="${{ inputs.api }}"
+          for p in / /api/settings /api/auctions /api/auth/me; do
+            echo "== GET $p"; curl -sS -m 20 -o /tmp/b -w "status %{http_code}\n" "$API$p" || true; head -c 300 /tmp/b; echo
+          done
+          for o in capacitor://localhost https://localhost http://localhost; do
+            echo "== preflight from $o"
+            curl -sS -m 20 -o /dev/null -D - -X OPTIONS "$API/api/auth/signin" -H "Origin: $o" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type,authorization" | grep -iE "^HTTP|access-control" || true
+          done
