@@ -131,7 +131,7 @@ html.native .app-root { display: flex; min-height: 100dvh; flex-direction: colum
 html.native .app-top { position: sticky; top: 0; z-index: 30; background: #fff; backdrop-filter: blur(10px); color: #092F27; padding-top: env(safe-area-inset-top); }
 html.native .app-top::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: url('./assets/app-header.jpg') no-repeat left 56px bottom 0 / 100% auto; mix-blend-mode: multiply; -webkit-mask-image: linear-gradient(to right, transparent 56px, #000 120px); mask-image: linear-gradient(to right, transparent 56px, #000 120px); }
 html.native .app-top > * { position: relative; }
-html.native .app-main { flex: 1; padding: 14px 14px calc(84px + env(safe-area-inset-bottom)); min-width: 0; }
+html.native .app-main { flex: 1; padding: 14px 14px calc(118px + env(safe-area-inset-bottom)); min-width: 0; }
 html.native .app-main h1 { font-size: 22px; line-height: 1.35; }
 html.native .app-iconbtn { display: grid; height: 40px; width: 40px; place-items: center; border-radius: 9999px; background: #fff; color: #00513B; box-shadow: 0 1px 3px rgba(9,47,39,.12); }
 html.native .app-pill { border: 1px solid #C9D8CF; background: #fff; color: #00513B; border-radius: 9999px; padding: 6px 14px; font-size: 13px; font-weight: 700; }

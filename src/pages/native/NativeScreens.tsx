@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../../components/dash'
 import type { IconName } from '../../components/dash'
 import { Sheet } from '../../components/AppChrome'
+import { setThemePref, themePref } from '../../lib/native'
+import type { ThemePref } from '../../lib/native'
 import { BIG_BID, biometricAvailable, haptic, lockEnabled, setLockEnabled, verifyOwner } from '../../lib/device'
 import { FollowBell } from '../../components/Follow'
 import { useFines } from '../../components/Fines'
@@ -411,6 +413,7 @@ export function NativeAccount() {
   const [delBusy, setDelBusy] = useState(false)
   const [bio, setBio] = useState(false)
   const [lock, setLock] = useState(lockEnabled())
+  const [theme, setTheme] = useState<ThemePref>(themePref())
   useEffect(() => { void biometricAvailable().then(setBio) }, [])
   const nav = useNavigate()
   const invoices = useLoad(() => api.myInvoices(), [])
@@ -465,6 +468,15 @@ export function NativeAccount() {
         <MenuRow to="/invest" icon="trophy" label={tr('استثمار الاسم', 'Name investment')} />
         <MenuRow to="/verify" icon="check" label={tr('التحقق من شهادة', 'Verify a certificate')} />
         <MenuRow to="/faq" icon="list" label={tr('الأسئلة الشائعة', 'FAQ')} />
+      </section>
+      <section className="app-card !p-3">
+        <b className="mb-2 block px-1 text-[15px]">{tr('المظهر', 'Appearance')}</b>
+        <div className="app-seg !mb-0" role="radiogroup" aria-label={tr('المظهر', 'Appearance')}>
+          {([['auto', tr('تلقائي', 'Auto')], ['light', tr('فاتح', 'Light')], ['dark', tr('داكن', 'Dark')]] as [ThemePref, string][]).map(([v, l]) => (
+            <button key={v} role="radio" aria-checked={theme === v} className={theme === v ? 'on' : ''} onClick={() => { setTheme(v); setThemePref(v); void haptic('tap') }}>{l}</button>
+          ))}
+        </div>
+        <p className="mt-1.5 px-1 text-[12px] text-muted">{tr('«تلقائي» يتبع إعداد الجوال.', '“Auto” follows the phone setting.')}</p>
       </section>
       <LangSwitch className="btn-ghost w-full" />
       <button type="button" className="w-full py-1 text-center text-[13.5px] font-bold text-muted underline" onClick={() => setDel(true)}>{tr('حذف الحساب', 'Delete account')}</button>

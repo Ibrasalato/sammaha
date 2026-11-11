@@ -27,16 +27,27 @@ export async function openExternal(url: string) {
   await Browser.open({ url })
 }
 
+export type ThemePref = 'auto' | 'light' | 'dark'
+const THEME_KEY = 'sammha.theme'
+const mq = window.matchMedia('(prefers-color-scheme: dark)')
+export function themePref(): ThemePref { try { return (localStorage.getItem(THEME_KEY) as ThemePref) || 'auto' } catch { return 'auto' } }
+async function applyTheme() {
+  const p = themePref()
+  const dark = p === 'dark' || (p === 'auto' && mq.matches)
+  document.documentElement.classList.toggle('dark', dark)
+  try { const { StatusBar, Style } = await import('@capacitor/status-bar'); await StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light }); if (Capacitor.getPlatform() === 'android') await StatusBar.setBackgroundColor({ color: dark ? '#0D1512' : '#FFFFFF' }) } catch { /* not supported */ }
+}
+/** «المظهر» in the account screen: auto (follow the phone), light or dark */
+export function setThemePref(p: ThemePref) {
+  try { localStorage.setItem(THEME_KEY, p) } catch { /* private mode */ }
+  void applyTheme()
+}
+
 /** one-time setup of the app shell: bar colour, splash, back button, deep links */
 export async function initNative() {
   if (!IS_NATIVE) return
   document.documentElement.classList.add('native')
-  // dark mode follows the phone
-  const mq = window.matchMedia('(prefers-color-scheme: dark)')
-  const applyTheme = async () => {
-    document.documentElement.classList.toggle('dark', mq.matches)
-    try { const { StatusBar, Style } = await import('@capacitor/status-bar'); await StatusBar.setStyle({ style: mq.matches ? Style.Dark : Style.Light }); if (Capacitor.getPlatform() === 'android') await StatusBar.setBackgroundColor({ color: mq.matches ? '#0D1512' : '#FFFFFF' }) } catch { /* not supported */ }
-  }
+  // dark mode: the owner's choice in «حسابي», or the phone setting
   mq.addEventListener('change', () => { void applyTheme() })
   const [{ App }, { StatusBar, Style }, { SplashScreen }, { Browser }] = await Promise.all([
     import('@capacitor/app'), import('@capacitor/status-bar'), import('@capacitor/splash-screen'), import('@capacitor/browser'),
