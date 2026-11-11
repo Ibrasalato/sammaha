@@ -442,6 +442,7 @@ export function NativeAccount() {
       </section>
       <LangSwitch className="btn-ghost w-full" />
       <button className="flex w-full items-center justify-center gap-2 rounded-2xl border border-bad/30 bg-[#FDECEE] py-3 font-bold text-bad" onClick={async () => { await api.signOut(); setUser(null); nav('/') }}>{tr('تسجيل الخروج', 'Sign out')}</button>
+      <p className="num text-center text-[12px] text-muted">{tr('الإصدار', 'Version')} 1.0 ({import.meta.env.VITE_BUILD ?? 'dev'})</p>
       <nav className="flex flex-wrap justify-center gap-x-4 gap-y-1 pt-1 text-[12.5px] text-muted"><L2 to="/terms">{tr('الشروط', 'Terms')}</L2><L2 to="/privacy">{tr('الخصوصية', 'Privacy')}</L2><L2 to="/refund">{tr('الاسترداد', 'Refunds')}</L2></nav>
     </div>
   )
