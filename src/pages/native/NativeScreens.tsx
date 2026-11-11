@@ -33,7 +33,6 @@ export function Crown({ className = 'h-4 w-4' }: { className?: string }) {
 function Bookmark({ on }: { on: boolean }) {
   return <svg viewBox="0 0 24 24" className="h-5 w-5" fill={on ? '#B98A2E' : 'none'} stroke={on ? '#B98A2E' : 'currentColor'} strokeWidth="1.9" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
 }
-const TINT: Record<NameType, string> = { bakkar: '#ECF9F0', qaadan: '#F5EFFA', manqiya: '#FFFAEC' }
 const PILL: Record<NameType, string> = { bakkar: 'bg-[#D3EEDC] text-[#155A43]', qaadan: 'bg-[#E6D9F2] text-[#5B3A80]', manqiya: 'bg-[#FBEBC4] text-[#8A6414]' }
 
 /** time left: red under an hour, orange up to three hours, blue beyond */
@@ -69,10 +68,10 @@ export function AuctionTile({ a, mark, watching, onWatch }: { a: Auction; mark?:
   return (
     <Link to={`/auctions/${a.id}`} className={`block rounded-[18px] border border-[#E6EAEE] bg-paper p-1.5 shadow-[0_4px_14px_-10px_rgba(9,47,39,.35)] ${a.paused ? 'opacity-80' : ''}`}>
       <div className="flex items-stretch">
-        <div className="min-w-0 flex-1 rounded-[14px] px-2.5 py-1.5 text-start" style={{ background: TINT[a.type] }}>
+        <div className={`tint-${a.type} min-w-0 flex-1 rounded-[14px] px-2.5 py-1.5 text-start`}>
           <div className="flex items-center gap-1.5 whitespace-nowrap"><span className={`rounded-md px-2 py-0.5 text-[12px] font-extrabold ${PILL[a.type]}`}>{TYPE_LABEL[a.type]}</span><StatusPill a={a} m={m} phase={phase} /></div>
           <b className="mt-0.5 block truncate text-[21px] font-semibold leading-tight">{a.name}</b>
-          <span className="flex items-center gap-1 text-[12px] text-muted">{tr('مزايدات', 'bids')} <span className="num">{num(a.bidCount)}</span><Icon name="users" className="h-4 w-4" /></span>
+          <span className="flex items-center gap-1 text-[12px] text-muted"><span className="num">{tr(`مزايدات ${num(a.bidCount)}`, `${num(a.bidCount)} bids`)}</span><Icon name="users" className="h-4 w-4" /></span>
         </div>
         <span className="mx-2 my-2 w-px bg-line" aria-hidden />
         <div className="w-[38%] shrink-0 px-1 text-end">
@@ -167,7 +166,7 @@ export function NativeAuctions() {
         <>
           <div className="app-chips">
             <button type="button" className="app-chip !inline-flex items-center gap-1" onClick={() => setSortOpen(true)}>{tr('ترتيب', 'Sort')}<svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4" /></svg></button>
-            {([['all', tr('الكل', 'All')], ...(['bakkar', 'qaadan', 'manqiya'] as NameType[]).map((t) => [t, TYPE_LABEL[t]] as [NameType, string])] as [NameType | 'all', string][]).map(([v, l]) => <button key={v} type="button" aria-pressed={v === type} className={`app-chip ${v === type ? 'on' : ''}`} style={v === 'manqiya' && v !== type ? { background: TINT.manqiya } : undefined} onClick={() => setType(v)}>{l}</button>)}
+            {([['all', tr('الكل', 'All')], ...(['bakkar', 'qaadan', 'manqiya'] as NameType[]).map((t) => [t, TYPE_LABEL[t]] as [NameType, string])] as [NameType | 'all', string][]).map(([v, l]) => <button key={v} type="button" aria-pressed={v === type} className={`app-chip ${v === type ? 'on' : ''}`} data-tint={v === 'manqiya' && v !== type ? 'manqiya' : undefined} onClick={() => setType(v)}>{l}</button>)}
           </div>
           <Sheet open={sortOpen} onClose={() => setSortOpen(false)} title={tr('ترتيب المزادات', 'Sort auctions')}>
             <ul className="app-list mb-2">{SORTS().map(([k, l]) => <li key={k}><button type="button" className={`flex w-full items-center justify-between px-4 py-3.5 text-start text-[15px] font-bold ${sort === k ? 'text-pine' : ''}`} onClick={() => { setSort(k); setSortOpen(false) }}>{l}{sort === k && <Icon name="check" className="h-5 w-5" />}</button></li>)}</ul>

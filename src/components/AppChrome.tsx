@@ -149,7 +149,7 @@ function TopBar({ title, back, start, children }: { title: string; back?: boolea
         <span className="flex shrink-0 items-center">{start}</span>
         <span className="min-w-0 flex-1 truncate text-center text-[19px] font-extrabold" aria-label={title}>{back ? title : ''}</span>
         {back
-          ? <button className="app-iconbtn" onClick={() => nav(-1)} aria-label={tr('رجوع', 'Back')}><Icon name="arrow" className="h-5 w-5 rtl:rotate-180" /></button>
+          ? <button className="app-iconbtn" onClick={() => nav(-1)} aria-label={tr('رجوع', 'Back')}><Icon name="arrow" className="h-5 w-5 rotate-180" /></button>
           : <span className="flex items-center gap-2">{children}</span>}
       </div>
     </header>

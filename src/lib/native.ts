@@ -31,10 +31,18 @@ export async function openExternal(url: string) {
 export async function initNative() {
   if (!IS_NATIVE) return
   document.documentElement.classList.add('native')
+  // dark mode follows the phone
+  const mq = window.matchMedia('(prefers-color-scheme: dark)')
+  const applyTheme = async () => {
+    document.documentElement.classList.toggle('dark', mq.matches)
+    try { const { StatusBar, Style } = await import('@capacitor/status-bar'); await StatusBar.setStyle({ style: mq.matches ? Style.Dark : Style.Light }); if (Capacitor.getPlatform() === 'android') await StatusBar.setBackgroundColor({ color: mq.matches ? '#0D1512' : '#FFFFFF' }) } catch { /* not supported */ }
+  }
+  mq.addEventListener('change', () => { void applyTheme() })
   const [{ App }, { StatusBar, Style }, { SplashScreen }, { Browser }] = await Promise.all([
     import('@capacitor/app'), import('@capacitor/status-bar'), import('@capacitor/splash-screen'), import('@capacitor/browser'),
   ])
-  try { await StatusBar.setStyle({ style: Style.Light }); if (Capacitor.getPlatform() === 'ios') await StatusBar.setOverlaysWebView({ overlay: true }); if (Capacitor.getPlatform() === 'android') await StatusBar.setBackgroundColor({ color: '#E4F1E9' }) } catch { /* not supported */ }
+  try { await StatusBar.setStyle({ style: Style.Light }); if (Capacitor.getPlatform() === 'ios') await StatusBar.setOverlaysWebView({ overlay: true }) } catch { /* not supported */ }
+  await applyTheme()
   // Android back: go back in the app, and leave only from the first screen
   App.addListener('backButton', ({ canGoBack }) => {
     if (canGoBack && location.hash.replace(/^#\/?/, '') !== '') history.back()
