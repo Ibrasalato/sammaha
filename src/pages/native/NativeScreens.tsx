@@ -31,55 +31,65 @@ export function Crown({ className = 'h-4 w-4' }: { className?: string }) {
 function Bookmark({ on }: { on: boolean }) {
   return <svg viewBox="0 0 24 24" className="h-5 w-5" fill={on ? '#B98A2E' : 'none'} stroke={on ? '#B98A2E' : 'currentColor'} strokeWidth="1.9" strokeLinejoin="round"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
 }
+const TINT: Record<NameType, string> = { bakkar: '#ECF9F0', qaadan: '#F5EFFA', manqiya: '#FFFAEC' }
+const PILL: Record<NameType, string> = { bakkar: 'bg-[#D3EEDC] text-[#155A43]', qaadan: 'bg-[#E6D9F2] text-[#5B3A80]', manqiya: 'bg-[#FBEBC4] text-[#8A6414]' }
+
+/** time left: red under an hour, orange up to three hours, blue beyond */
 export function TimerPill({ a, phase }: { a: Auction; phase: AuctionPhase }) {
   const left = Date.parse(phase === 'scheduled' ? a.startsAt : a.endsAt) - Date.now()
-  const urgent = phase === 'live' && left < 3600_000
+  const tone = phase === 'ended' ? 'bg-stone text-muted' : phase === 'scheduled' ? 'bg-[#E8F0FC] text-[#1D4E9E]' : left < 3600_000 ? 'bg-[#FDECEE] text-[#C62828]' : left < 3 * 3600_000 ? 'bg-[#FFF1DC] text-[#B86A00]' : 'bg-[#E8F0FC] text-[#1D4E9E]'
   return (
-    <span className={`flex h-9 items-center justify-center gap-1.5 rounded-xl px-2 text-[15px] font-extrabold ${phase === 'ended' ? 'bg-stone text-muted' : urgent ? 'bg-[#FDECEE] text-bad' : 'bg-info-soft text-info-deep'}`}>
-      <Icon name="clock" className="h-[18px] w-[18px]" />
-      {a.paused ? tr('متوقف', 'Paused') : phase === 'live' ? <Countdown to={a.endsAt} /> : phase === 'scheduled' ? <><span className="text-[12px] font-bold">{tr('يبدأ', 'Starts')}</span><Countdown to={a.startsAt} /></> : <span className="text-[13px]">{tr('انتهى', 'Ended')}</span>}
+    <span className={`flex h-9 items-center justify-center gap-1.5 rounded-xl px-2 ${tone}`}>
+      <Icon name="clock" className="h-[17px] w-[17px] shrink-0" />
+      {a.paused ? <b className="text-[13px]">{tr('متوقف مؤقتًا', 'Paused')}</b>
+        : phase === 'ended' ? <b className="text-[13px]">{tr('انتهى المزاد', 'Ended')}</b>
+        : <><span className="text-[11.5px] font-bold">{phase === 'scheduled' ? tr('يبدأ خلال', 'Starts in') : tr('ينتهي خلال', 'Ends in')}</span><b className="num text-[15px] font-extrabold"><Countdown to={phase === 'scheduled' ? a.startsAt : a.endsAt} /></b></>}
     </span>
   )
 }
 
-/** One auction as a card: name and type, price, bookmark and bell, time left and the bid button; my position when I bid. */
-export function AuctionTile({ a, mark, mine, watching, onWatch }: { a: Auction; mark?: Mark; mine?: number; watching?: boolean; onWatch?: () => void }) {
+function StatusPill({ a, m, phase }: { a: Auction; m: Mark; phase: AuctionPhase }) {
+  const check = <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden><circle cx="12" cy="12" r="10" fill="currentColor" /><path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+  if (m === 'leading') return <span className="inline-flex items-center gap-1 rounded-full bg-[#DCF0E3] px-2 py-0.5 text-[11px] font-extrabold text-[#1E7A45]">{tr('أنت الأعلى', 'Top bid')}{check}</span>
+  if (m === 'outbid') return <span className="inline-flex items-center gap-1 rounded-full bg-[#FDECEE] px-2 py-0.5 text-[11px] font-extrabold text-[#C62828]"><svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M6 11l6-6 6 6" /></svg>{tr('تمت المزايدة عليك', 'Outbid')}</span>
+  if (m === 'won') return <span className="inline-flex items-center gap-1 rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-extrabold text-gold-deep">{tr('فزت بالمزاد', 'You won')}</span>
+  if (phase === 'ended') return <span className="inline-flex items-center gap-1 rounded-full bg-stone px-2 py-0.5 text-[11px] font-extrabold text-muted">{tr('انتهى المزاد', 'Ended')}🏁</span>
+  if (!a.bidCount && phase === 'live') return <span className="rounded-full bg-[#DCF0E3] px-2 py-0.5 text-[11px] font-extrabold text-[#1E7A45]">{tr('جديد', 'New')}</span>
+  return null
+}
+
+/** One auction card: the name on its category colour, price with bookmark and bell, time left and the bid button. */
+export function AuctionTile({ a, mark, watching, onWatch }: { a: Auction; mark?: Mark; mine?: number; watching?: boolean; onWatch?: () => void }) {
   const phase: AuctionPhase = a.paused ? 'live' : phaseOf(a)
   const ended = phase === 'ended'
   const price = a.finalPrice ?? a.currentPrice
   const m = mark ?? (a.isLeader && !ended ? 'leading' : null)
   return (
-    <Link to={`/auctions/${a.id}`} className={`app-card block !px-3.5 !py-3 ${m === 'leading' ? '!border-[1.5px] !border-ok/50' : m === 'outbid' ? '!border-[1.5px] !border-bad/40' : ''} ${a.paused ? 'opacity-80' : ''}`}>
-      <div className="grid grid-cols-2">
-        <div className="min-w-0 border-e border-line/80 pe-3 text-start">
-          <SoftPill type={a.type} />
-          <b className="mt-0.5 block truncate text-[21px] font-extrabold leading-tight">{a.name}</b>
-          <span className="text-[13px] text-muted"><span className="num">{num(a.bidCount)}</span> {tr('مزايدات', 'bids')}</span>
+    <Link to={`/auctions/${a.id}`} className={`block rounded-[18px] border border-[#E6EAEE] bg-paper p-2 shadow-[0_4px_14px_-10px_rgba(9,47,39,.35)] ${a.paused ? 'opacity-80' : ''}`}>
+      <div className="flex items-stretch">
+        <div className="min-w-0 flex-1 rounded-[14px] px-2.5 py-2 text-start" style={{ background: TINT[a.type] }}>
+          <div className="flex items-center justify-between gap-1 whitespace-nowrap"><span className={`rounded-md px-2 py-0.5 text-[12px] font-extrabold ${PILL[a.type]}`}>{TYPE_LABEL[a.type]}</span><StatusPill a={a} m={m} phase={phase} /></div>
+          <b className="mt-1 block truncate text-[22px] font-bold leading-tight">{a.name}</b>
+          <span className="mt-0.5 flex items-center gap-1 text-[12.5px] text-muted"><Icon name="users" className="h-4 w-4" /><span className="num">{num(a.bidCount)}</span> {tr('مزايدات', 'bids')}</span>
         </div>
-        <div className="min-w-0 ps-3 text-end">
-          <div className="-mt-1 flex items-center justify-end gap-0.5">
-            <FollowBell a={a} myBid={mine} />
+        <span className="mx-2 my-2 w-px bg-line" aria-hidden />
+        <div className="w-[38%] shrink-0 px-1 py-1 text-end">
+          <div className="flex items-center justify-end gap-1">
+            <FollowBell a={a} tone="gold" />
             {onWatch && (
-              <button type="button" className="grid h-9 w-9 place-items-center text-muted" aria-pressed={!!watching} aria-label={tr('احفظ في المتابعة', 'Save')} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWatch() }}><Bookmark on={!!watching} /></button>
+              <button type="button" className="grid h-8 w-8 place-items-center text-ink/70" aria-pressed={!!watching} aria-label={tr('احفظ في المتابعة', 'Save')} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWatch() }}><Bookmark on={!!watching} /></button>
             )}
           </div>
-          <span className="num -mt-1 block text-[21px] font-extrabold leading-tight">{sar(price)}</span>
-          <span className="text-[12.5px] text-muted">{ended ? tr('سعر الترسية', 'Hammer price') : a.bidCount ? tr('أعلى مزايدة', 'Top bid') : tr('السعر الافتتاحي', 'Opening price')}</span>
+          <span className="num block text-[21px] font-semibold leading-tight">{sar(price)}</span>
+          <span className="text-[12px] text-muted">{ended ? tr('سعر الترسية', 'Hammer price') : a.bidCount ? tr('أعلى مزايدة', 'Top bid') : tr('السعر الافتتاحي', 'Opening price')}</span>
         </div>
       </div>
-      <div className="mt-2.5 grid grid-cols-2 gap-3">
+      <div className="mt-2 grid grid-cols-[1fr_38%] gap-2">
         <TimerPill a={a} phase={phase} />
-        {phase === 'live' && !a.paused ? <span className="flex h-9 items-center justify-center rounded-xl bg-pine text-[15.5px] font-extrabold text-paper shadow-sm">{tr('زايد الآن', 'Bid now')}</span>
-          : <span className="flex h-9 items-center justify-center rounded-xl border border-line text-[14px] font-bold text-muted">{phase === 'scheduled' ? tr('قريبًا', 'Soon') : tr('عرض النتيجة', 'See result')}</span>}
+        {phase === 'live' && !a.paused
+          ? <span className="flex h-9 items-center justify-center rounded-xl bg-[#DCE8E0] text-[16px] font-extrabold text-[#155A43]">{tr('زايد الآن', 'Bid now')}</span>
+          : <span className="flex h-9 items-center justify-center rounded-xl bg-[#EEF0F2] text-[15px] font-bold text-[#9AA3AD]">{tr('زايد الآن', 'Bid now')}</span>}
       </div>
-      {mine !== undefined && m && (
-        <div className="mt-2.5 flex items-center justify-between gap-2 rounded-xl bg-stone/70 px-2.5 py-1.5">
-          <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[12.5px] font-extrabold ${m === 'leading' ? 'border-ok/40 bg-[#E2F0E8] text-ok' : m === 'outbid' ? 'border-bad/30 bg-bad/10 text-bad' : m === 'won' ? 'border-gold/50 bg-gold-soft text-gold-deep' : 'border-line text-muted'}`}>
-            {m === 'leading' ? <><Crown className="h-3.5 w-3.5" />{tr('أنت متصدر حاليًا', 'You are leading')}</> : m === 'outbid' ? tr('تم تجاوز مزايدتك', 'You were outbid') : m === 'won' ? tr('فزت بالمزاد', 'You won') : tr('لم يرسُ عليك', 'Not won')}
-          </span>
-          <span className="text-[12.5px] text-muted">{tr('مزايدتك الأخيرة:', 'Your last bid:')} <b className="num text-ink">{sar(mine)}</b></span>
-        </div>
-      )}
     </Link>
   )
 }
@@ -139,7 +149,7 @@ export function NativeAuctions() {
       <h1 className="sr-only">{tr('المزادات', 'Auctions')}</h1>
       {tab === 'all' && (
         <div className="mb-2.5 flex items-center gap-2">
-            <div className="app-search !mb-0 flex-1"><svg viewBox="0 0 24 24" className="h-5 w-5 text-ink/70" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg><input type="search" placeholder={tr('البحث عن اسم', 'Search a name')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={tr('البحث عن اسم', 'Search a name')} /></div>
+            <div className="app-search !mb-0 flex-1"><svg viewBox="0 0 24 24" className="h-5 w-5 text-ink/70" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg><input type="search" placeholder={tr('البحث عن اسم مزاد...', 'Search an auction name…')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={tr('البحث عن اسم', 'Search a name')} /></div>
             <button type="button" className="app-filterbtn" onClick={() => setFilt(true)} aria-label={tr('تصفية', 'Filter')}><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg></button>
           </div>
       )}
@@ -155,7 +165,7 @@ export function NativeAuctions() {
         <>
           <div className="app-chips">
             <button type="button" className="app-chip !inline-flex items-center gap-1" onClick={() => setSortOpen(true)}>{tr('ترتيب', 'Sort')}<svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4" /></svg></button>
-            {([['all', tr('الكل', 'All')], ...(['bakkar', 'qaadan', 'manqiya'] as NameType[]).map((t) => [t, TYPE_LABEL[t]] as [NameType, string])] as [NameType | 'all', string][]).map(([v, l]) => <button key={v} type="button" aria-pressed={v === type} className={`app-chip ${v === type ? 'on' : ''}`} onClick={() => setType(v)}>{l}</button>)}
+            {([['all', tr('الكل', 'All')], ...(['bakkar', 'qaadan', 'manqiya'] as NameType[]).map((t) => [t, TYPE_LABEL[t]] as [NameType, string])] as [NameType | 'all', string][]).map(([v, l]) => <button key={v} type="button" aria-pressed={v === type} className={`app-chip ${v === type ? 'on' : ''}`} style={v !== 'all' && v !== type ? { background: TINT[v as NameType] } : undefined} onClick={() => setType(v)}>{l}</button>)}
           </div>
           <Sheet open={sortOpen} onClose={() => setSortOpen(false)} title={tr('ترتيب المزادات', 'Sort auctions')}>
             <ul className="app-list mb-2">{SORTS().map(([k, l]) => <li key={k}><button type="button" className={`flex w-full items-center justify-between px-4 py-3.5 text-start text-[15px] font-bold ${sort === k ? 'text-pine' : ''}`} onClick={() => { setSort(k); setSortOpen(false) }}>{l}{sort === k && <Icon name="check" className="h-5 w-5" />}</button></li>)}</ul>
